@@ -1,0 +1,21 @@
+{
+  "name": "Carteira no Bolso",
+  "short_name": "Carteira",
+  "description": "Painel da carteira de investimentos, com banco de dados local no proprio aparelho.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "id": "carteira-no-bolso",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#111827",
+  "theme_color": "#111827",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

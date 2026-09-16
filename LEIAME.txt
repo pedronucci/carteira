@@ -1,0 +1,33 @@
+CARTEIRA NO BOLSO — subir no GitHub Pages
+==========================================
+
+IMPORTANTE: descompacte este zip e suba os ARQUIVOS SOLTOS para o GitHub,
+não uma pasta. O index.html tem que ficar na raiz do repositório.
+
+Arquivos: index.html, manifest.webmanifest, sw.js, .nojekyll,
+          icon-180.png, icon-192.png, icon-512.png,
+          icon-512-maskable.png, favicon.png
+
+O .nojekyll começa com ponto, então pode ficar invisível no Finder.
+Aperte Cmd+Shift+. (ponto) para o Finder mostrar arquivos ocultos.
+Se mesmo assim não conseguir selecioná-lo, tudo bem: o app funciona sem ele.
+
+PASSO A PASSO
+-------------
+ 1. github.com/new  >  nome do repositório: carteira  >  Public  >  Create
+ 2. Na página do repositório: "uploading an existing file"
+    (ou Add file > Upload files)
+ 3. Selecione TODOS os arquivos descompactados e arraste para a área de upload.
+ 4. Commit changes.
+ 5. Settings > Pages > Source: "Deploy from a branch",
+    Branch: main, pasta: / (root) > Save
+ 6. Espere 1 a 2 minutos e recarregue a página de Settings > Pages.
+    O endereço aparece lá em cima:
+       https://SEU-USUARIO.github.io/carteira/
+ 7. Abra esse endereço no SAFARI do iPhone (não no Chrome).
+ 8. Compartilhar > Adicionar à Tela de Início.
+
+DEPOIS
+------
+* Abra uma vez com internet: é quando o app se instala no aparelho.
+* Para publicar versão nova: mude CACHE = "carteira-v1" no sw.js para v2.
