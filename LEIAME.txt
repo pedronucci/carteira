@@ -1,33 +1,36 @@
-CARTEIRA NO BOLSO — subir no GitHub Pages
-==========================================
+CARTEIRA NO BOLSO — versão preto e ouro (v3)
+=============================================
 
-IMPORTANTE: descompacte este zip e suba os ARQUIVOS SOLTOS para o GitHub,
-não uma pasta. O index.html tem que ficar na raiz do repositório.
+Substitua TODOS os arquivos do seu repositório por estes. Mudou o app,
+o service worker, o manifest e os ícones — então vale subir tudo.
 
-Arquivos: index.html, manifest.webmanifest, sw.js, .nojekyll,
-          icon-180.png, icon-192.png, icon-512.png,
-          icon-512-maskable.png, favicon.png
+COMO SUBIR
+----------
+ 1. Abra seu repositório no github.com
+ 2. Add file > Upload files
+ 3. Arraste todos os arquivos desta pasta. O GitHub substitui os antigos.
+ 4. Commit changes. Espere 1 a 2 minutos.
 
-O .nojekyll começa com ponto, então pode ficar invisível no Finder.
-Aperte Cmd+Shift+. (ponto) para o Finder mostrar arquivos ocultos.
-Se mesmo assim não conseguir selecioná-lo, tudo bem: o app funciona sem ele.
+NO IPHONE
+---------
+O app se atualiza sozinho na próxima abertura (o cache virou "carteira-v3").
 
-PASSO A PASSO
--------------
- 1. github.com/new  >  nome do repositório: carteira  >  Public  >  Create
- 2. Na página do repositório: "uploading an existing file"
-    (ou Add file > Upload files)
- 3. Selecione TODOS os arquivos descompactados e arraste para a área de upload.
- 4. Commit changes.
- 5. Settings > Pages > Source: "Deploy from a branch",
-    Branch: main, pasta: / (root) > Save
- 6. Espere 1 a 2 minutos e recarregue a página de Settings > Pages.
-    O endereço aparece lá em cima:
-       https://SEU-USUARIO.github.io/carteira/
- 7. Abra esse endereço no SAFARI do iPhone (não no Chrome).
- 8. Compartilhar > Adicionar à Tela de Início.
+O ÍCONE, PORÉM, PRECISA DE UM PASSO A MAIS: o iOS guarda o ícone da tela
+de início no momento em que você adiciona, e nunca mais troca sozinho.
+Para pegar o ícone novo, preto e dourado:
+  - segure o ícone atual > Remover App > Remover da Tela de Início
+  - abra o endereço no Safari de novo
+  - Compartilhar > Adicionar à Tela de Início
 
-DEPOIS
-------
-* Abra uma vez com internet: é quando o app se instala no aparelho.
-* Para publicar versão nova: mude CACHE = "carteira-v1" no sw.js para v2.
+Seus dados NÃO se perdem nesse processo: eles ficam guardados no navegador,
+não no atalho.
+
+SOBRE AS LOGOMARCAS
+-------------------
+Cada ativo mostra um monograma desenhado pelo próprio app — funciona sempre,
+inclusive offline e no primeiro segundo. Quando o app busca as cotações, ele
+traz junto a logomarca de quem a fornece (ações e FIIs brasileiros pela brapi,
+criptomoedas pela CoinGecko) e vai guardando as imagens no aparelho, dez por
+atualização, para elas continuarem aparecendo sem internet.
+
+Ativos sem logomarca disponível ficam com o monograma. Não é erro.

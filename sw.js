@@ -8,7 +8,7 @@
 
    Para publicar uma versão nova do app, troque o número em CACHE.
    ══════════════════════════════════════════════════════════════════════════ */
-const CACHE = "carteira-v1";
+const CACHE = "carteira-v3";
 
 const ARQUIVOS = [
   "./",

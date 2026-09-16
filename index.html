@@ -9,7 +9,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Carteira">
-<meta name="theme-color" content="#111827">
+<meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
 <meta name="description" content="Painel da carteira de investimentos, com banco de dados local no proprio aparelho.">
 <meta name="format-detection" content="telephone=no">
@@ -20,7 +20,7 @@
 <link rel="icon" type="image/png" href="./favicon.png">
 
 <style>
-  html,body{margin:0;padding:0;background:#111827;color:#E5E7EB}
+  html,body{margin:0;padding:0;background:#000000;color:#EDEAE3}
   img{max-width:100%}
   [hidden]{display:none!important}
 </style>
@@ -38,16 +38,42 @@
   ══════════════════════════════════════════════════════════════════════════
 -->
 <style>
-/* ═══════════════════════════════════════════════════════════ tokens ═══ */
+/* ══════════════════════════════════════════════════════ preto e ouro ═══
+   Tema único e deliberado: preto real (economiza bateria no OLED do iPhone
+   e dá profundidade de verdade), ouro como cor de identidade, e metais
+   frios nos gráficos para as nove classes não virarem um borrão dourado.
+   ═══════════════════════════════════════════════════════════════════════ */
 :root{
-  --bg:#111827; --card:#1F2937; --raise:#273244; --hair:#374151; --hair2:#2B3542;
-  --txt:#E5E7EB; --mut:#9CA3AF; --dim:#6B7280; --white:#FFFFFF;
-  --up:#34D399; --down:#F87171; --sky:#38BDF8; --amber:#FBBF24;
-  --violet:#A78BFA; --pink:#F472B6; --orange:#FB923C; --teal:#2DD4BF; --indigo:#818CF8;
-  --blue:#60A5FA;
+  --bg:#000000;            /* preto real: o pixel do OLED simplesmente desliga */
+  --card:#0C0E14;
+  --card2:#121520;
+  --raise:#1A1E2B;
+  --hair:rgba(212,175,55,.14);
+  --hair2:rgba(212,175,55,.08);
+  --edge:rgba(243,227,179,.07);   /* brilho de um pixel no topo dos cartões */
+
+  --gold:#D4AF37;
+  --gold-lt:#F3E3B3;       /* champanhe */
+  --gold-dk:#8C6D1F;       /* bronze */
+  --gold-glow:rgba(212,175,55,.22);
+
+  --txt:#EDEAE3;           /* branco puxado para o quente, casa com o ouro */
+  --mut:#8E8B84;
+  --dim:#57554F;
+  --white:#FFFFFF;
+
+  --up:#3FBF8F;            /* jade — dessaturado, para o ouro continuar sendo a cor mais alta */
+  --down:#D9594C;          /* coral fundo */
+  --sky:#7FA8D9;
+
+  /* nove classes, todas com caráter metálico e distinguíveis entre si */
+  --c-acbr:#D4AF37; --c-aceua:#8FA6C4; --c-etbr:#B08CD9; --c-eteua:#6FA8B8;
+  --c-fii:#E8C063;  --c-reit:#C98A4B;  --c-cdb:#7FB89E;  --c-tes:#9BA3C9;
+  --c-cripto:#C8553D;
+
   --safe-t:env(safe-area-inset-top,0px);
   --safe-b:env(safe-area-inset-bottom,0px);
-  --tabh:52px;
+  --tabh:54px;
   --sys:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",Roboto,sans-serif;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
@@ -56,240 +82,343 @@ body{
   margin:0; background:var(--bg); color:var(--txt);
   font-family:var(--sys); font-size:15px; line-height:1.45;
   -webkit-font-smoothing:antialiased; -webkit-text-size-adjust:100%;
-  overscroll-behavior-y:none;
+  overscroll-behavior-y:none; letter-spacing:-.005em;
 }
 button,input,select{font-family:inherit; color:inherit}
 button{background:none; border:0; padding:0; cursor:pointer; touch-action:manipulation}
-.num{font-variant-numeric:tabular-nums; font-feature-settings:"tnum"}
+.num{font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1,"ss01" 1}
 .up{color:var(--up)} .down{color:var(--down)}
 
-/* ═══════════════════════════════════════════════════════════ shell ═══ */
+/* o ouro de verdade é um degradê, nunca uma cor chapada */
+.ouro{
+  background:linear-gradient(145deg,var(--gold-lt) 0%,var(--gold) 42%,var(--gold-dk) 100%);
+  -webkit-background-clip:text; background-clip:text;
+  color:transparent; -webkit-text-fill-color:transparent;
+}
+
+/* ════════════════════════════════════════════════════════════ casca ═══ */
 #shell{display:flex; flex-direction:column; min-height:100dvh}
 
 header#hdr{
   position:sticky; top:0; z-index:40;
   padding-top:var(--safe-t);
-  background:color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter:blur(20px) saturate(180%);
-  -webkit-backdrop-filter:blur(20px) saturate(180%);
-  border-bottom:.5px solid var(--hair2);
+  background:linear-gradient(180deg, rgba(0,0,0,.92), rgba(0,0,0,.78));
+  backdrop-filter:blur(24px) saturate(160%);
+  -webkit-backdrop-filter:blur(24px) saturate(160%);
+  border-bottom:1px solid var(--hair2);
 }
-.hdr-row{display:flex; align-items:center; gap:10px; height:48px; padding:0 16px}
-.hdr-title{font-size:19px; font-weight:700; letter-spacing:-.02em; margin-right:auto}
+header#hdr::after{  /* filete de ouro que some nas pontas */
+  content:""; position:absolute; left:0; right:0; bottom:-1px; height:1px;
+  background:linear-gradient(90deg,transparent,var(--gold-glow) 28%,var(--gold-glow) 72%,transparent);
+}
+.hdr-row{display:flex; align-items:center; gap:10px; height:50px; padding:0 18px}
+.hdr-title{
+  font-size:18px; font-weight:600; letter-spacing:.01em; margin-right:auto;
+  text-transform:uppercase; font-feature-settings:"ss01" 1;
+}
 .hdr-btn{
   width:38px; height:38px; border-radius:50%; display:grid; place-items:center;
-  background:var(--card); color:var(--txt); flex:none;
+  background:var(--card); border:1px solid var(--hair); color:var(--gold); flex:none;
 }
 .hdr-btn:active{background:var(--raise); transform:scale(.93)}
 .hdr-btn.busy svg{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.hdr-btn.busy svg{animation:none}}
 
-main#view{flex:1; padding:0 16px; padding-bottom:calc(var(--tabh) + var(--safe-b) + 26px)}
+main#view{flex:1; padding:0 18px; padding-bottom:calc(var(--tabh) + var(--safe-b) + 28px)}
 
 nav#tabbar{
   position:fixed; left:0; right:0; bottom:0; z-index:50;
   display:grid; grid-template-columns:repeat(5,1fr);
   padding-bottom:var(--safe-b);
-  background:color-mix(in srgb, var(--bg) 86%, transparent);
-  backdrop-filter:blur(20px) saturate(180%);
-  -webkit-backdrop-filter:blur(20px) saturate(180%);
-  border-top:.5px solid var(--hair2);
+  background:linear-gradient(180deg, rgba(0,0,0,.80), rgba(0,0,0,.96));
+  backdrop-filter:blur(24px) saturate(160%);
+  -webkit-backdrop-filter:blur(24px) saturate(160%);
+  border-top:1px solid var(--hair2);
+}
+nav#tabbar::before{
+  content:""; position:absolute; left:0; right:0; top:-1px; height:1px;
+  background:linear-gradient(90deg,transparent,var(--gold-glow) 30%,var(--gold-glow) 70%,transparent);
 }
 nav#tabbar button{
-  height:var(--tabh); display:flex; flex-direction:column; align-items:center;
-  justify-content:center; gap:2px; color:var(--dim); font-size:10px; font-weight:500;
-  letter-spacing:.01em; min-height:44px;
+  position:relative; height:var(--tabh); display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:3px; color:var(--dim);
+  font-size:9.5px; font-weight:600; letter-spacing:.05em; text-transform:uppercase;
+  min-height:44px; transition:color .2s;
 }
-nav#tabbar button[aria-selected="true"]{color:var(--up)}
+nav#tabbar button[aria-selected="true"]{color:var(--gold)}
+nav#tabbar button[aria-selected="true"]::before{  /* halo discreto acima do ícone */
+  content:""; position:absolute; top:2px; width:34px; height:24px; border-radius:50%;
+  background:radial-gradient(ellipse at center, var(--gold-glow), transparent 70%);
+  filter:blur(5px); pointer-events:none;
+}
 nav#tabbar button:active{opacity:.55}
-nav#tabbar svg{width:23px; height:23px}
+nav#tabbar svg{width:22px; height:22px}
 
-/* ════════════════════════════════════════════════════════ pull-refresh ═ */
 #ptr{
-  position:absolute; left:0; right:0; top:calc(var(--safe-t) + 48px);
-  display:grid; place-items:center; height:0; overflow:hidden; color:var(--mut);
+  position:absolute; left:0; right:0; top:calc(var(--safe-t) + 50px);
+  display:grid; place-items:center; height:0; overflow:hidden; color:var(--gold);
   transition:height .18s ease;
 }
 #ptr svg{width:20px; height:20px}
 #ptr.live svg{animation:spin 1s linear infinite}
 
-/* ════════════════════════════════════════════════════════════ hero ═══ */
-.hero{padding:22px 4px 18px}
-.hero .lab{font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--dim)}
-.hero .val{font-size:40px; font-weight:700; letter-spacing:-.035em; line-height:1.08; margin-top:6px}
-.hero .sub{display:flex; align-items:center; gap:8px; margin-top:9px; font-size:14px; flex-wrap:wrap}
+/* ═════════════════════════════════════════════════════════════ hero ═══ */
+.hero{padding:26px 2px 20px}
+.hero .lab{
+  font-size:10.5px; font-weight:700; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--gold-dk);
+}
+.hero .val{
+  font-size:42px; font-weight:700; letter-spacing:-.04em; line-height:1.06; margin-top:8px;
+  background:linear-gradient(145deg,var(--gold-lt) 0%,var(--gold) 45%,var(--gold-dk) 105%);
+  -webkit-background-clip:text; background-clip:text;
+  color:transparent; -webkit-text-fill-color:transparent;
+}
+.hero .sub{display:flex; align-items:center; gap:7px; margin-top:12px; font-size:14px; flex-wrap:wrap}
 .pill{
-  display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:99px;
-  font-size:13px; font-weight:600; letter-spacing:-.01em;
+  display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:99px;
+  font-size:12.5px; font-weight:600; letter-spacing:-.005em; border:1px solid transparent;
 }
-.pill.up{background:rgba(52,211,153,.14); color:var(--up)}
-.pill.down{background:rgba(248,113,113,.14); color:var(--down)}
-.hero .ts{font-size:12.5px; color:var(--dim)}
+.pill.up{background:rgba(63,191,143,.10); color:var(--up); border-color:rgba(63,191,143,.24)}
+.pill.down{background:rgba(217,89,76,.10); color:var(--down); border-color:rgba(217,89,76,.24)}
+.hero .ts{font-size:12.5px; color:var(--dim); margin-top:10px}
 
-/* ═══════════════════════════════════════════════════════════ cards ═══ */
-.card{background:var(--card); border-radius:16px; padding:16px}
+/* ════════════════════════════════════════════════════════════ cartões ═══ */
+.card{
+  background:linear-gradient(180deg,#101320 0%,#0A0B11 100%);
+  border:1px solid var(--hair2); border-radius:18px; padding:17px;
+  box-shadow:inset 0 1px 0 var(--edge);
+}
 .card + .card{margin-top:12px}
-.sect{margin-top:22px}
-.sect-hd{
-  display:flex; align-items:baseline; gap:8px; padding:0 4px 9px;
+.sect{margin-top:26px}
+.sect-hd{display:flex; align-items:baseline; gap:8px; padding:0 2px 10px}
+.sect-hd h2{
+  font-size:10.5px; font-weight:700; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--gold-dk); margin:0;
 }
-.sect-hd h2{font-size:13px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--dim); margin:0}
-.sect-hd .more{margin-left:auto; font-size:13px; font-weight:500; color:var(--up)}
+.sect-hd .more{margin-left:auto; font-size:12.5px; font-weight:600; color:var(--gold)}
 
-.kpi-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px}
-.kpi{background:var(--card); border-radius:14px; padding:13px 14px}
-.kpi .k{font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--dim); line-height:1.3}
-.kpi .v{font-size:21px; font-weight:700; letter-spacing:-.025em; margin-top:6px}
-.kpi .s{font-size:11.5px; color:var(--dim); margin-top:2px; line-height:1.35}
+.kpi-grid{display:grid; grid-template-columns:1fr 1fr; gap:11px}
+.kpi{
+  background:linear-gradient(180deg,#101320 0%,#0A0B11 100%);
+  border:1px solid var(--hair2); border-radius:15px; padding:14px 15px;
+  box-shadow:inset 0 1px 0 var(--edge);
+}
+.kpi .k{
+  font-size:9.5px; font-weight:700; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--gold-dk); line-height:1.35;
+}
+.kpi .v{font-size:21px; font-weight:700; letter-spacing:-.03em; margin-top:7px; color:var(--txt)}
+.kpi .s{font-size:11.5px; color:var(--dim); margin-top:3px; line-height:1.35}
 
-/* ══════════════════════════════════════════════════════════ charts ═══ */
-.chart-wrap{position:relative; height:190px; margin:2px 0 4px}
+/* ═══════════════════════════════════════════════════════════ gráficos ═══ */
+.chart-wrap{position:relative; height:192px; margin:2px 0 4px}
 .chart-wrap.short{height:158px}
-.legend{display:grid; grid-template-columns:1fr 1fr; gap:7px 12px; margin-top:12px}
-.legend div{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--mut); min-width:0}
-.legend i{width:9px; height:9px; border-radius:2.5px; flex:none}
+.legend{display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; margin-top:14px}
+.legend div{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--mut); min-width:0}
+.legend i{width:8px; height:8px; border-radius:2px; flex:none}
 .legend b{color:var(--txt); font-weight:600; margin-left:auto; font-variant-numeric:tabular-nums}
 
-.fxbar{display:flex; height:30px; border-radius:9px; overflow:hidden; margin-top:4px}
-.fxbar span{display:grid; place-items:center; font-size:12px; font-weight:700; color:#0b1220}
-.fxlabels{display:flex; justify-content:space-between; margin-top:9px; font-size:12.5px; color:var(--mut)}
+.fxbar{
+  display:flex; height:32px; border-radius:10px; overflow:hidden; margin-top:4px;
+  border:1px solid var(--hair2);
+}
+.fxbar span{display:grid; place-items:center; font-size:11.5px; font-weight:700; color:#07080B}
+.fxlabels{display:flex; justify-content:space-between; margin-top:10px; font-size:12.5px; color:var(--mut)}
 
-/* ═══════════════════════════════════════════════════════════ chips ═══ */
+/* ═════════════════════════════════════════════════════════════ chips ═══ */
 .chips{
-  display:flex; gap:7px; overflow-x:auto; padding:2px 16px 12px; margin:0 -16px;
+  display:flex; gap:8px; overflow-x:auto; padding:2px 18px 14px; margin:0 -18px;
   scrollbar-width:none; -webkit-overflow-scrolling:touch;
 }
 .chips::-webkit-scrollbar{display:none}
 .chip{
-  flex:none; padding:8px 13px; border-radius:99px; background:var(--card);
-  font-size:13.5px; font-weight:500; color:var(--mut); white-space:nowrap; min-height:36px;
+  flex:none; padding:8px 14px; border-radius:99px; background:var(--card);
+  border:1px solid var(--hair2); font-size:13px; font-weight:500; color:var(--mut);
+  white-space:nowrap; min-height:36px;
 }
-.chip[aria-pressed="true"]{background:var(--up); color:#0b1220; font-weight:600}
+.chip[aria-pressed="true"]{
+  background:linear-gradient(145deg,var(--gold-lt),var(--gold) 55%,var(--gold-dk));
+  color:#0A0906; font-weight:700; border-color:var(--gold);
+  box-shadow:0 0 16px var(--gold-glow);
+}
 .chip:active{opacity:.6}
 
-/* ════════════════════════════════════════════════════════════ rows ═══ */
-.list{background:var(--card); border-radius:16px; overflow:hidden}
+/* ═════════════════════════════════════════════════ selo do ativo ═══ */
+.badge{
+  position:relative; width:38px; height:38px; border-radius:50%; flex:none;
+  display:grid; place-items:center; overflow:hidden;
+  background:var(--card2); border:1px solid var(--hair);
+  font-size:13px; font-weight:700; letter-spacing:.02em;
+}
+.badge img{
+  position:absolute; inset:0; width:100%; height:100%; object-fit:contain;
+  padding:5px; display:block; background:var(--card2);
+}
+.badge.lg{width:64px; height:64px; font-size:21px}
+.badge.lg img{padding:9px}
+.badge.sm{width:32px; height:32px; font-size:11.5px}
+
+/* ══════════════════════════════════════════════════════════════ linhas ═══ */
+.list{
+  background:linear-gradient(180deg,#0F1220 0%,#090A0F 100%);
+  border:1px solid var(--hair2); border-radius:18px; overflow:hidden;
+  box-shadow:inset 0 1px 0 var(--edge);
+}
 .row{
-  display:flex; align-items:center; gap:12px; width:100%; padding:12px 14px;
-  min-height:60px; text-align:left; border-bottom:.5px solid var(--hair2);
+  display:flex; align-items:center; gap:13px; width:100%; padding:12px 15px;
+  min-height:64px; text-align:left; border-bottom:1px solid var(--hair2);
 }
 .row:last-child{border-bottom:0}
-.row:active{background:var(--raise)}
-.row .mark{width:3px; align-self:stretch; border-radius:2px; flex:none; margin:2px 0}
+.row:active{background:rgba(212,175,55,.05)}
 .row .main{flex:1; min-width:0}
-.row .t1{font-size:15.5px; font-weight:600; letter-spacing:-.01em; display:flex; align-items:center; gap:7px}
-.row .t2{font-size:12.5px; color:var(--dim); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.row .t1{font-size:15px; font-weight:600; letter-spacing:.005em; display:flex; align-items:center; gap:7px}
+.row .t2{font-size:12px; color:var(--dim); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .row .side{text-align:right; flex:none}
-.row .v1{font-size:15px; font-weight:600; letter-spacing:-.01em}
-.row .v2{font-size:12.5px; margin-top:1px; font-weight:500}
+.row .v1{font-size:15px; font-weight:600; letter-spacing:-.015em; color:var(--txt)}
+.row .v2{font-size:12.5px; margin-top:2px; font-weight:600}
 .tag{
-  font-size:10.5px; font-weight:600; padding:2px 6px; border-radius:5px;
-  letter-spacing:.01em; white-space:nowrap;
+  font-size:9.5px; font-weight:700; padding:2px 6px; border-radius:4px;
+  letter-spacing:.06em; text-transform:uppercase; white-space:nowrap;
 }
 .month-hd{
-  display:flex; align-items:baseline; padding:16px 6px 7px; font-size:12.5px;
-  font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--dim);
+  display:flex; align-items:baseline; padding:20px 4px 8px; font-size:10.5px;
+  font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--gold-dk);
 }
-.month-hd b{margin-left:auto; color:var(--sky); font-size:13.5px; letter-spacing:0; text-transform:none}
+.month-hd b{margin-left:auto; color:var(--gold); font-size:13px; letter-spacing:-.01em; text-transform:none}
 
-.empty{text-align:center; padding:56px 20px; color:var(--dim)}
-.empty .ic{font-size:40px; margin-bottom:10px; opacity:.5}
-.empty p{margin:0 0 5px; font-size:15px}
+.empty{text-align:center; padding:60px 20px; color:var(--dim)}
+.empty .ic{font-size:38px; margin-bottom:12px; opacity:.4}
+.empty p{margin:0 0 6px; font-size:15px; color:var(--mut)}
 .empty small{font-size:13px}
 
-/* ════════════════════════════════════════════════════════ settings ═══ */
-.frow{display:flex; align-items:center; gap:12px; padding:13px 14px; border-bottom:.5px solid var(--hair2); min-height:52px}
-.frow:last-child{border-bottom:0}
-.frow label{font-size:15px; flex:1; min-width:0}
-.frow small{display:block; font-size:12px; color:var(--dim); margin-top:2px; line-height:1.35}
-.frow input,.frow select{
-  background:var(--bg); border:.5px solid var(--hair); border-radius:9px;
-  padding:9px 11px; font-size:16px; width:100%; min-height:42px; outline:none;
+/* ═════════════════════════════════════════════════════════════ ajustes ═══ */
+.frow{
+  display:flex; align-items:center; gap:12px; padding:14px 15px;
+  border-bottom:1px solid var(--hair2); min-height:54px;
 }
-.frow input:focus,.frow select:focus{border-color:var(--up)}
+.frow:last-child{border-bottom:0}
+.frow label{font-size:14.5px; flex:1; min-width:0}
+.frow small{display:block; font-size:11.5px; color:var(--dim); margin-top:3px; line-height:1.4}
+.frow input,.frow select{
+  background:#07080C; border:1px solid var(--hair); border-radius:10px;
+  padding:10px 12px; font-size:16px; width:100%; min-height:44px; outline:none;
+}
+.frow input:focus,.frow select:focus{border-color:var(--gold); box-shadow:0 0 0 3px rgba(212,175,55,.10)}
 .frow .grow{flex:1.1; min-width:0}
 .btn{
-  display:block; width:100%; padding:14px; border-radius:13px; font-size:16px;
-  font-weight:600; text-align:center; min-height:50px; letter-spacing:-.01em;
+  display:block; width:100%; padding:15px; border-radius:14px; font-size:15.5px;
+  font-weight:700; text-align:center; min-height:52px; letter-spacing:.01em;
+  border:1px solid transparent;
 }
-.btn.primary{background:var(--up); color:#0b1220}
-.btn.sky{background:var(--sky); color:#0b1220}
-.btn.ghost{background:var(--card); color:var(--txt)}
-.btn.danger{background:rgba(248,113,113,.13); color:var(--down)}
-.btn:active{opacity:.7; transform:scale(.985)}
+.btn.primary{
+  background:linear-gradient(145deg,var(--gold-lt),var(--gold) 55%,var(--gold-dk));
+  color:#0A0906; box-shadow:0 4px 22px var(--gold-glow);
+}
+.btn.sky{background:linear-gradient(145deg,#A9C6EC,var(--sky) 60%,#4E6F9B); color:#06090F}
+.btn.ghost{background:var(--card); color:var(--txt); border-color:var(--hair)}
+.btn.danger{background:rgba(217,89,76,.10); color:var(--down); border-color:rgba(217,89,76,.30)}
+.btn:active{opacity:.75; transform:scale(.985)}
 .btn + .btn{margin-top:10px}
 
-/* ══════════════════════════════════════════════════════════ sheets ═══ */
+/* ══════════════════════════════════════════════════════════════ folhas ═══ */
 .sheet{position:fixed; inset:0; z-index:100; visibility:hidden}
 .sheet.open{visibility:visible}
-.sheet-bd{position:absolute; inset:0; background:rgba(0,0,0,.6); opacity:0; transition:opacity .3s}
+.sheet-bd{position:absolute; inset:0; background:rgba(0,0,0,.72); opacity:0; transition:opacity .3s}
 .sheet.open .sheet-bd{opacity:1}
 .sheet-pn{
   position:absolute; left:0; right:0; bottom:0; max-height:93dvh; overflow-y:auto;
-  background:var(--card); border-radius:22px 22px 0 0;
-  padding:0 16px calc(20px + var(--safe-b));
+  background:linear-gradient(180deg,#141722 0%,#07080C 42%);
+  border-top:1px solid var(--hair); border-radius:24px 24px 0 0;
+  padding:0 18px calc(22px + var(--safe-b));
   transform:translateY(101%); transition:transform .36s cubic-bezier(.32,.72,0,1);
   -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
+  box-shadow:0 -22px 60px rgba(0,0,0,.7);
 }
 .sheet.open .sheet-pn{transform:translateY(0)}
-@media (prefers-reduced-motion:reduce){
-  .sheet-pn{transition:none} .sheet-bd{transition:none}
+@media (prefers-reduced-motion:reduce){.sheet-pn,.sheet-bd{transition:none}}
+.grab{
+  width:40px; height:4px; border-radius:99px; margin:10px auto 6px;
+  background:linear-gradient(90deg,var(--gold-dk),var(--gold),var(--gold-dk)); opacity:.5;
 }
-.grab{width:38px; height:5px; border-radius:99px; background:var(--hair); margin:9px auto 4px}
 .sheet-hd{
-  display:flex; align-items:center; gap:12px; padding:6px 0 14px;
-  position:sticky; top:0; background:var(--card); z-index:2;
+  display:flex; align-items:center; gap:12px; padding:8px 0 16px;
+  position:sticky; top:0; background:#141722; z-index:2;
 }
-.sheet-hd h3{font-size:19px; font-weight:700; letter-spacing:-.02em; margin:0; flex:1}
-.sheet-x{width:32px; height:32px; border-radius:50%; background:var(--raise); display:grid; place-items:center; color:var(--mut); flex:none}
-.field{margin-bottom:13px}
-.field span{display:block; font-size:12.5px; font-weight:600; color:var(--mut); margin-bottom:6px}
+.sheet-hd h3{
+  font-size:11px; font-weight:700; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--gold-dk); margin:0; flex:1;
+}
+.sheet-x{
+  width:32px; height:32px; border-radius:50%; background:var(--raise);
+  border:1px solid var(--hair2); display:grid; place-items:center; color:var(--mut); flex:none;
+}
+.field{margin-bottom:14px}
+.field span{
+  display:block; font-size:10.5px; font-weight:700; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--gold-dk); margin-bottom:7px;
+}
 .field input,.field select{
-  width:100%; background:var(--bg); border:.5px solid var(--hair); border-radius:11px;
-  padding:13px; font-size:16px; min-height:48px; outline:none; -webkit-appearance:none; appearance:none;
+  width:100%; background:#07080C; border:1px solid var(--hair); border-radius:12px;
+  padding:14px; font-size:16px; min-height:50px; outline:none;
+  -webkit-appearance:none; appearance:none; color:var(--txt);
 }
-.field input:focus,.field select:focus{border-color:var(--up); background:#0d141f}
-.field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239CA3AF' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center}
-.field-2{display:grid; grid-template-columns:1fr 1fr; gap:11px}
-.seg{display:grid; grid-template-columns:1fr 1fr; gap:4px; background:var(--bg); border-radius:11px; padding:4px}
-.seg button{padding:10px; border-radius:8px; font-size:14.5px; font-weight:600; color:var(--mut); min-height:42px}
+.field input:focus,.field select:focus{border-color:var(--gold); box-shadow:0 0 0 3px rgba(212,175,55,.10)}
+.field input::placeholder{color:var(--dim)}
+.field select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23D4AF37' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 15px center;
+}
+.field-2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+.seg{display:grid; grid-template-columns:1fr 1fr; gap:4px; background:#07080C; border:1px solid var(--hair); border-radius:12px; padding:4px}
+.seg button{padding:11px; border-radius:9px; font-size:14px; font-weight:600; color:var(--mut); min-height:44px}
 .seg button[aria-pressed="true"]{background:var(--raise); color:var(--txt)}
-.seg.buy button[aria-pressed="true"][data-v="Compra"]{background:rgba(52,211,153,.18); color:var(--up)}
-.seg.buy button[aria-pressed="true"][data-v="Venda"]{background:rgba(248,113,113,.18); color:var(--down)}
+.seg.buy button[aria-pressed="true"][data-v="Compra"]{background:rgba(63,191,143,.14); color:var(--up)}
+.seg.buy button[aria-pressed="true"][data-v="Venda"]{background:rgba(217,89,76,.14); color:var(--down)}
 
 /* detalhe do ativo */
-.det-top{text-align:center; padding:4px 0 16px}
-.det-top .tk{font-size:26px; font-weight:700; letter-spacing:-.025em}
-.det-top .nm{font-size:13.5px; color:var(--dim); margin-top:2px}
-.det-top .vl{font-size:30px; font-weight:700; letter-spacing:-.03em; margin-top:12px}
-.det-grid{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--hair2); border-radius:13px; overflow:hidden; margin-bottom:14px}
-.det-grid div{background:var(--card); padding:12px 13px}
-.det-grid dt{font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--dim)}
-.det-grid dd{margin:4px 0 0; font-size:16px; font-weight:600; letter-spacing:-.01em; font-variant-numeric:tabular-nums}
+.det-top{display:flex; flex-direction:column; align-items:center; padding:2px 0 18px}
+.det-top .tk{font-size:25px; font-weight:700; letter-spacing:-.02em; margin-top:12px}
+.det-top .nm{font-size:13px; color:var(--dim); margin-top:3px; text-align:center}
+.det-top .vl{
+  font-size:31px; font-weight:700; letter-spacing:-.035em; margin-top:14px;
+  background:linear-gradient(145deg,var(--gold-lt),var(--gold) 45%,var(--gold-dk));
+  -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent;
+}
+.det-grid{
+  display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--hair2);
+  border:1px solid var(--hair2); border-radius:15px; overflow:hidden; margin-bottom:16px;
+}
+.det-grid div{background:#0B0D14; padding:13px 14px}
+.det-grid dt{font-size:9.5px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-dk)}
+.det-grid dd{margin:5px 0 0; font-size:16px; font-weight:600; letter-spacing:-.015em; font-variant-numeric:tabular-nums}
 
-/* ═══════════════════════════════════════════════════════════ toast ═══ */
+/* ══════════════════════════════════════════════════════════════ avisos ═══ */
 #toast{
-  position:fixed; left:16px; right:16px; z-index:200;
+  position:fixed; left:18px; right:18px; z-index:200;
   bottom:calc(var(--tabh) + var(--safe-b) + 14px);
-  padding:13px 16px; border-radius:13px; font-size:14px; font-weight:500;
-  background:var(--raise); color:var(--txt); border:.5px solid var(--hair);
-  box-shadow:0 10px 30px rgba(0,0,0,.45);
+  padding:14px 16px; border-radius:14px; font-size:13.5px; font-weight:500;
+  background:rgba(18,21,32,.96); color:var(--txt); border:1px solid var(--hair);
+  box-shadow:0 14px 42px rgba(0,0,0,.75);
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
   opacity:0; transform:translateY(14px); transition:opacity .22s,transform .22s;
   pointer-events:none;
 }
 #toast.show{opacity:1; transform:translateY(0)}
-#toast.ok{border-color:rgba(52,211,153,.4)}
-#toast.err{border-color:rgba(248,113,113,.4); color:#FECACA}
-#toast.warn{border-color:rgba(251,191,36,.4); color:#FDE68A}
+#toast.ok{border-color:rgba(212,175,55,.45)}
+#toast.err{border-color:rgba(217,89,76,.45); color:#F3B6AF}
+#toast.warn{border-color:rgba(232,192,99,.45); color:var(--gold-lt)}
 
 #offline{
-  display:none; margin:10px 0 0; padding:11px 14px; border-radius:12px;
-  background:rgba(251,191,36,.11); color:var(--amber); font-size:13px; line-height:1.45;
+  display:none; margin:12px 0 0; padding:12px 15px; border-radius:13px;
+  background:rgba(232,192,99,.07); border:1px solid rgba(232,192,99,.22);
+  color:var(--gold-lt); font-size:12.5px; line-height:1.5;
 }
 #offline.on{display:block}
 
-.foot{padding:26px 8px 8px; text-align:center; font-size:11.5px; color:var(--dim); line-height:1.55}
+.foot{padding:30px 8px 8px; text-align:center; font-size:11px; color:var(--dim); line-height:1.65; letter-spacing:.02em}
+
 </style>
 
 <div id="shell">
@@ -459,8 +588,10 @@ nav#tabbar svg{width:23px; height:23px}
 const CLASSES = ["Ações BR","Ações EUA","ETFs BR","ETFs EUA","FIIs","REITs","CDB","Tesouro Direto","Criptomoedas"];
 const CURTO = {"Ações BR":"Ações BR","Ações EUA":"Ações EUA","ETFs BR":"ETFs BR","ETFs EUA":"ETFs EUA",
   "FIIs":"FIIs","REITs":"REITs","CDB":"CDB","Tesouro Direto":"Tesouro","Criptomoedas":"Cripto"};
-const CORES = {"Ações BR":"#34D399","Ações EUA":"#60A5FA","ETFs BR":"#A78BFA","ETFs EUA":"#F472B6",
-  "FIIs":"#FBBF24","REITs":"#FB923C","CDB":"#2DD4BF","Tesouro Direto":"#818CF8","Criptomoedas":"#F87171"};
+// Metais e pedras: distinguíveis entre si sem nenhuma brigar com o ouro.
+const CORES = {"Ações BR":"#D4AF37","Ações EUA":"#8FA6C4","ETFs BR":"#B08CD9","ETFs EUA":"#6FA8B8",
+  "FIIs":"#E8C063","REITs":"#C98A4B","CDB":"#7FB89E","Tesouro Direto":"#9BA3C9","Criptomoedas":"#C8553D"};
+const OURO = "#D4AF37", OURO_CLARO = "#F3E3B3", GRADE = "rgba(212,175,55,.10)";
 const CLASSES_BR = ["Ações BR","ETFs BR","FIIs"];
 const CLASSES_US = ["Ações EUA","ETFs EUA","REITs"];
 const CLASSES_RF = ["CDB","Tesouro Direto"];
@@ -487,6 +618,22 @@ const fmtTs = ts => { if(!ts) return "—";
   const d = new Date(String(ts).length === 10 ? ts + "T12:00:00" : ts);
   return d.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); };
 const $ = s => document.querySelector(s);
+
+/* ── SELO DO ATIVO ─────────────────────────────────────────────────────────
+   O monograma é desenhado aqui e existe sempre, inclusive offline e no
+   primeiro segundo. Quando há logomarca guardada, ela entra por cima; se a
+   imagem falhar, some sozinha e o monograma reaparece embaixo. */
+function iniciais(tk){
+  const letras = String(tk||"").toUpperCase().replace(/[^A-ZÀ-Ú]/g,"");
+  return letras.slice(0,2) || String(tk||"?").slice(0,2).toUpperCase();
+}
+function selo(ticker, classe, tam=""){
+  const cor = CORES[classe] || "#8E8B84";
+  const fundo = `background:linear-gradient(145deg, ${cor}26, #0C0E14 70%); color:${cor}; border-color:${cor}4D`;
+  const logo = E.logos[ticker];
+  return `<span class="badge ${tam}" style="${fundo}">${esc(iniciais(ticker))}` +
+         (logo ? `<img src="${esc(logo)}" alt="">` : "") + `</span>`;
+}
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 /** Aceita vírgula ou ponto como separador decimal — no teclado do iPhone sai vírgula. */
 const num = v => { const n = parseFloat(String(v ?? "").replace(/\./g,"").replace(",",".")); return isFinite(n) ? n : NaN; };
@@ -541,7 +688,11 @@ const E = {
   transacoes:[], proventos:[], precos:{}, ativos:{}, historico:[],
   cambio:5.1059, token:"", proxy:"", auto:"1",
   tab:"resumo", filtro:"todos", posicoes:[], totais:{},
-  downloads:null   // capacidade de salvar arquivos, quando o visualizador concede
+  downloads:null,        // capacidade de salvar arquivos, quando o visualizador concede
+  logos:{},              // { TICKER: data URI ou endereço da logomarca }
+  intervalo:15,          // minutos entre atualizações automáticas; 0 desliga
+  ultimaSync:0,          // carimbo da última sincronização bem-sucedida
+  timerAuto:null, timerFrescor:null, renderPendente:false
 };
 
 // O visualizador do Claude só entrega esta capacidade alguns instantes depois do
@@ -558,6 +709,11 @@ async function carregar(){
   E.proxy      = await cfgGet("proxy", "");
   E.auto       = await cfgGet("autoUpdate", "1");
   E.historico  = await cfgGet("historico", []);
+  E.logos      = await cfgGet("logos", {});
+  // Migração: quem já tinha o app com o antigo liga/desliga vira 15 min ou 0.
+  const salvo  = await cfgGet("intervaloMin", null);
+  E.intervalo  = salvo === null ? (E.auto === "0" ? 0 : 15) : Number(salvo);
+  E.ultimaSync = Number(await cfgGet("ultimaSyncMs", 0)) || 0;
 }
 
 async function semear(){
@@ -694,7 +850,10 @@ async function buscarBrapi(tks){
     try{
       const lote = tks.slice(i, i+15);
       const j = await getJSON("https://brapi.dev/api/quote/" + lote.join(",") + (E.token ? "?token=" + encodeURIComponent(E.token) : ""));
-      (j.results||[]).forEach(r => { if(r.regularMarketPrice != null) out[r.symbol] = {preco:+r.regularMarketPrice, fonte:"brapi"}; });
+      (j.results||[]).forEach(r => {
+        if(r.regularMarketPrice != null)
+          out[r.symbol] = {preco:+r.regularMarketPrice, fonte:"brapi", logo:r.logourl || null};
+      });
     }catch(e){}
   }
   return out;
@@ -728,10 +887,62 @@ async function buscarCripto(tks){
   const lista = Object.keys(ids);
   if(!lista.length) return out;
   try{
-    const j = await getJSON("https://api.coingecko.com/api/v3/simple/price?ids=" + lista.join(",") + "&vs_currencies=usd");
-    Object.entries(j).forEach(([id,v]) => { if(v.usd != null) out[ids[id]] = {preco:+v.usd, fonte:"coingecko"}; });
-  }catch(e){}
+    // coins/markets traz o preço e a imagem da moeda no mesmo pedido
+    const j = await getJSON("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=" + lista.join(",") + "&per_page=50");
+    (j||[]).forEach(c => {
+      const tk = ids[c.id];
+      if(tk && c.current_price != null) out[tk] = {preco:+c.current_price, fonte:"coingecko", logo:c.image};
+    });
+  }catch(e){
+    // se a rota de mercado falhar, cai no endpoint simples, só com preço
+    try{
+      const j = await getJSON("https://api.coingecko.com/api/v3/simple/price?ids=" + lista.join(",") + "&vs_currencies=usd");
+      Object.entries(j).forEach(([id,v]) => { if(v.usd != null) out[ids[id]] = {preco:+v.usd, fonte:"coingecko"}; });
+    }catch(_){}
+  }
   return out;
+}
+
+/* ── LOGOMARCAS ────────────────────────────────────────────────────────────
+   As cotações já trazem o endereço da logomarca junto. Guardamos o endereço
+   na hora e, em segundo plano, tentamos converter a imagem em data URI para
+   ela continuar aparecendo sem internet. Se o servidor da imagem não liberar
+   CORS, a conversão falha em silêncio e fica só o endereço — que funciona
+   online e dá lugar ao monograma quando offline. */
+async function comoDataURI(url){
+  try{
+    const r = await fetch(url, {mode:"cors", cache:"force-cache"});
+    if(!r.ok) return null;
+    const b = await r.blob();
+    if(!b.size || b.size > 60000) return null;      // logo grande demais não vale o espaço
+    return await new Promise(ok => {
+      const fr = new FileReader();
+      fr.onload = () => ok(String(fr.result));
+      fr.onerror = () => ok(null);
+      fr.readAsDataURL(b);
+    });
+  }catch(e){ return null; }
+}
+
+async function guardarLogos(novas){
+  let mudou = false;
+  for(const [tk, url] of Object.entries(novas)){
+    if(!url) continue;
+    const atual = E.logos[tk];
+    if(atual && atual.startsWith("data:")) continue;   // já está offline, nada a fazer
+    if(atual !== url){ E.logos[tk] = url; mudou = true; }
+  }
+  if(mudou) await cfgSet("logos", E.logos);
+
+  // converte no máximo 10 por rodada, para não pesar na abertura
+  const pendentes = Object.entries(E.logos).filter(([,v]) => v && !v.startsWith("data:")).slice(0,10);
+  let guardou = false;
+  for(const [tk, url] of pendentes){
+    const dados = await comoDataURI(url);
+    if(dados){ E.logos[tk] = dados; guardou = true; }
+  }
+  if(guardou) await cfgSet("logos", E.logos);
+  return mudou || guardou;
 }
 
 let sincronizando = false;
@@ -760,14 +971,21 @@ async function sincronizar(silencioso){
 
     const agora = new Date().toISOString();
     const todos = {...rBR, ...rUS, ...rCri};
-    let ok = 0; const falhas = [];
+    let ok = 0; const falhas = [], logosNovas = {};
     for(const p of abertos){
       const r = todos[p.ticker];
-      if(r){ E.precos[p.ticker] = {preco:r.preco, moeda:p.moeda, ts:agora, fonte:r.fonte}; ok++; }
+      if(r){
+        E.precos[p.ticker] = {preco:r.preco, moeda:p.moeda, ts:agora, fonte:r.fonte};
+        if(r.logo) logosNovas[p.ticker] = r.logo;
+        ok++;
+      }
       else if(!CLASSES_RF.includes(p.classe)) falhas.push(p.ticker);
     }
+    guardarLogos(logosNovas).then(mudou => { if(mudou) renderSuave(); });   // em segundo plano
     await cfgSet("precos", E.precos);
     await cfgSet("ultimaAtualizacao", agora);
+    E.ultimaSync = Date.now();
+    await cfgSet("ultimaSyncMs", E.ultimaSync);
     $("#offline").classList.remove("on");
     if(!silencioso){
       toast(falhas.length
@@ -780,15 +998,66 @@ async function sincronizar(silencioso){
   }finally{
     sincronizando = false;
     $("#btnSync").classList.remove("busy");
-    render();
+    renderSuave();
+    agendarAuto();
   }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   5b. ATUALIZAÇÃO AUTOMÁTICA
+   ──────────────────────────────────────────────────────────────────────────
+   O iPhone não deixa uma página web rodar em segundo plano: quando o app sai
+   da tela, o iOS congela tudo. Então a automação funciona em três momentos —
+   ao abrir, de tempos em tempos enquanto o app está na tela, e no instante em
+   que você volta para ele. É o máximo que um app web consegue no iOS.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/** Re-renderiza sem fazer a tela pular, e adia se houver uma folha aberta. */
+function renderSuave(){
+  if(document.querySelector(".sheet.open")){ E.renderPendente = true; return; }
+  const y = window.scrollY;
+  render();
+  window.scrollTo(0, y);
+}
+
+/** (Re)arma o relógio da atualização automática. */
+function agendarAuto(){
+  clearInterval(E.timerAuto); E.timerAuto = null;
+  if(!E.intervalo || document.hidden) return;
+  E.timerAuto = setInterval(() => {
+    if(document.hidden || !navigator.onLine) return;
+    sincronizar(true);          // silenciosa: sem aviso na tela
+  }, E.intervalo * 60000);
+}
+
+/** Sincroniza se já passou do intervalo desde a última vez. */
+function syncSeVencido(){
+  if(!E.intervalo || !navigator.onLine) return;
+  if(Date.now() - E.ultimaSync >= E.intervalo * 60000) sincronizar(true);
+}
+
+/** Mantém o "há X min" do cabeçalho vivo sem re-renderizar a tela toda. */
+function textoFrescor(){
+  if(!E.ultimaSync) return "preços não atualizados ainda";
+  const min = Math.floor((Date.now() - E.ultimaSync) / 60000);
+  if(min < 1)  return "preços de agora";
+  if(min === 1) return "preços de 1 min atrás";
+  if(min < 60) return `preços de ${min} min atrás`;
+  const h = Math.floor(min / 60);
+  if(h < 24) return `preços de ${h} h atrás`;
+  const d = Math.floor(h / 24);
+  return `preços de ${d} ${d === 1 ? "dia" : "dias"} atrás`;
+}
+function atualizarFrescor(){
+  const el = document.getElementById("frescor");
+  if(el) el.textContent = textoFrescor();
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
    6. GRÁFICOS
    ══════════════════════════════════════════════════════════════════════════ */
 const graficos = {};
-Chart.defaults.color = "#9CA3AF";
+Chart.defaults.color = "#8E8B84";
 Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, sans-serif";
 Chart.defaults.font.size = 11;
 Chart.defaults.animation.duration = 420;
@@ -834,7 +1103,8 @@ function telaResumo(){
   const t = E.totais;
   const sobe = t.lucro >= 0;
   const ts = Object.values(E.precos).map(p => p.ts).filter(Boolean).sort().pop();
-  const quando = fmtTs(ts);
+  // Sem sincronização nesta sessão, mostra a data guardada com o preço.
+  const quando = E.ultimaSync ? textoFrescor() : "preços de " + fmtTs(ts);
 
   const top = E.posicoes.filter(p => p.qtd > 0).slice(0,5).map(p => linhaAtivo(p)).join("");
 
@@ -848,15 +1118,15 @@ function telaResumo(){
       <span class="pill ${sobe?"up":"down"}">${sobe?"▲":"▼"} ${brl0(Math.abs(t.lucro))}</span>
       <span class="pill ${sobe?"up":"down"}">${sobe?"+":"−"}${pct(Math.abs(t.lucroPct))}</span>
     </div>
-    <div class="ts" style="margin-top:8px">${t.ativos} ativos · preços de ${quando}</div>
+    <div class="ts" style="margin-top:8px">${t.ativos} ativos · <span id="frescor">${quando}</span></div>
   </div>
 
   <div class="kpi-grid">
     <div class="kpi"><div class="k">Investido</div><div class="v num">${brl0(t.custo)}</div>
       <div class="s">custo total de aquisição</div></div>
-    <div class="kpi"><div class="k">Dividendos do mês</div><div class="v num" style="color:var(--sky)">${brl0(t.divMes)}</div>
+    <div class="kpi"><div class="k">Dividendos do mês</div><div class="v num" style="color:var(--gold-lt)">${brl0(t.divMes)}</div>
       <div class="s">12 meses: ${brl0(t.div12)}</div></div>
-    <div class="kpi"><div class="k">Moeda forte</div><div class="v num" style="color:var(--amber)">${pct(t.usdPct)}</div>
+    <div class="kpi"><div class="k">Moeda forte</div><div class="v num" style="color:var(--gold)">${pct(t.usdPct)}</div>
       <div class="s">${brl0(t.usd)} em dólar</div></div>
     <div class="kpi"><div class="k">Dólar</div><div class="v num">${nfx(E.cambio,4)}</div>
       <div class="s">usado em toda a conversão</div></div>
@@ -874,8 +1144,8 @@ function telaResumo(){
     <div class="sect-hd"><h2>Exposição cambial</h2></div>
     <div class="card">
       <div class="fxbar">
-        <span style="width:${Math.max(t.patrimonio?t.brl/t.patrimonio*100:50,12)}%;background:var(--up)">${pct(t.patrimonio?t.brl/t.patrimonio*100:0)}</span>
-        <span style="width:${Math.max(t.usdPct,12)}%;background:var(--amber)">${pct(t.usdPct)}</span>
+        <span style="width:${Math.max(t.patrimonio?t.brl/t.patrimonio*100:50,12)}%;background:linear-gradient(90deg,#5FA88A,#7FB89E)">${pct(t.patrimonio?t.brl/t.patrimonio*100:0)}</span>
+        <span style="width:${Math.max(t.usdPct,12)}%;background:linear-gradient(90deg,var(--gold),var(--gold-lt))">${pct(t.usdPct)}</span>
       </div>
       <div class="fxlabels"><span>Real · ${brl0(t.brl)}</span><span>Dólar · ${brl0(t.usd)}</span></div>
     </div>
@@ -915,7 +1185,7 @@ function montarGraficosResumo(){
     type:"doughnut",
     data:{labels:cls.map(c => CURTO[c]),
       datasets:[{data:cls.map(c => t.porClasse[c]), backgroundColor:cls.map(c => CORES[c]),
-        borderColor:"#1F2937", borderWidth:2.5, hoverOffset:4}]},
+        borderColor:"#07080C", borderWidth:2.5, hoverOffset:4}]},
     options:{responsive:true, maintainAspectRatio:false, cutout:"64%",
       plugins:{legend:{display:false},
         tooltip:{callbacks:{label:c => " " + c.label + ": " + brl(c.parsed)}}}}
@@ -926,11 +1196,11 @@ function montarGraficosResumo(){
   desenhar("gProv", {
     type:"bar",
     data:{labels:ms.map(rotMes), datasets:[{data:ms.map(m => pm[m]),
-      backgroundColor:"#38BDF8", borderRadius:3, maxBarThickness:18}]},
+      backgroundColor:OURO_CLARO, borderRadius:3, maxBarThickness:18}]},
     options:{responsive:true, maintainAspectRatio:false,
       plugins:{legend:{display:false}, tooltip:{callbacks:{label:c => " " + brl(c.parsed.y)}}},
       scales:{x:{grid:{display:false}, ticks:{maxRotation:0, autoSkipPadding:6, font:{size:9.5}}},
-              y:{grid:{color:"#2B3542"}, ticks:{font:{size:9.5}, maxTicksLimit:4, callback:v => "R$" + nfx(v,0)}}}}
+              y:{grid:{color:GRADE}, ticks:{font:{size:9.5}, maxTicksLimit:4, callback:v => "R$" + nfx(v,0)}}}}
   });
 
   // Evolução: meses fechados (snapshots) + o mês corrente ao vivo
@@ -940,11 +1210,11 @@ function montarGraficosResumo(){
   desenhar("gEvo", {
     type:"bar",
     data:{labels:chaves.map(rotMes), datasets:[{data:chaves.map(m => snaps[m]),
-      backgroundColor:"#34D399", borderRadius:3, maxBarThickness:26}]},
+      backgroundColor:OURO, borderRadius:3, maxBarThickness:26}]},
     options:{responsive:true, maintainAspectRatio:false,
       plugins:{legend:{display:false}, tooltip:{callbacks:{label:c => " " + brl(c.parsed.y)}}},
       scales:{x:{grid:{display:false}, ticks:{font:{size:9.5}}},
-              y:{beginAtZero:true, grid:{color:"#2B3542"},
+              y:{beginAtZero:true, grid:{color:GRADE},
                  ticks:{font:{size:9.5}, maxTicksLimit:4, callback:v => "R$" + nfx(v/1000,0) + "k"}}}}
   });
 }
@@ -953,7 +1223,7 @@ function montarGraficosResumo(){
 function linhaAtivo(p){
   const sobe = p.lucroBRL >= 0;
   return `<button class="row" data-ativo="${esc(p.ticker)}">
-    <span class="mark" style="background:${CORES[p.classe]||"#6B7280"}"></span>
+    ${selo(p.ticker, p.classe)}
     <span class="main">
       <span class="t1">${esc(p.ticker)}
         <span class="tag" style="background:${(CORES[p.classe]||"#6B7280")}22;color:${CORES[p.classe]||"#9CA3AF"}">${esc(CURTO[p.classe]||p.classe)}</span></span>
@@ -1016,7 +1286,7 @@ function telaAportes(){
       const f = m.moeda === "USD" ? usd : brl;
       const bruto = (+m.qtd)*(+m.preco) + (venda ? 0 : (+m.taxas||0));
       return `<button class="row" data-delmov="${m.id}">
-        <span class="mark" style="background:${CORES[m.classe]||"#6B7280"}"></span>
+        ${selo(m.ticker, m.classe, "sm")}
         <span class="main">
           <span class="t1">${esc(m.ticker)}
             <span class="tag" style="background:${venda?"rgba(248,113,113,.15)":"rgba(52,211,153,.15)"};color:${venda?"var(--down)":"var(--up)"}">${esc(m.tipo)}</span></span>
@@ -1045,7 +1315,7 @@ function telaProventos(){
   return `
   <div class="hero" style="padding:18px 4px 14px">
     <div class="lab">Recebido em 12 meses</div>
-    <div class="val num" style="font-size:33px;color:var(--sky)">${brl(t.div12)}</div>
+    <div class="val num" style="font-size:33px">${brl(t.div12)}</div>
     <div class="ts" style="margin-top:6px">média de ${brl0(media)} por mês · ${ps.length} créditos</div>
   </div>
   ${Object.keys(grupos).sort().reverse().map(mes => `
@@ -1054,12 +1324,12 @@ function telaProventos(){
       const f = p.moeda === "USD" ? usd : brl;
       const emBRL = (+p.valor||0) * (p.moeda === "USD" ? E.cambio : 1);
       return `<button class="row" data-delprov="${p.id}">
-        <span class="mark" style="background:var(--sky)"></span>
+        ${selo(p.ticker, (E.ativos[p.ticker]||{}).classe, "sm")}
         <span class="main">
           <span class="t1">${esc(p.ticker)}</span>
           <span class="t2">${dataBR(p.data)} · ${esc(p.tipo)}</span>
         </span>
-        <span class="side"><span class="v1 num" style="color:var(--sky)">${brl(emBRL)}</span>
+        <span class="side"><span class="v1 num" style="color:var(--gold-lt)">${brl(emBRL)}</span>
           ${p.moeda === "USD" ? `<span class="v2 num" style="color:var(--dim)">${f(+p.valor)}</span>` : ""}</span>
       </button>`;
     }).join("")}</div>`).join("")}
@@ -1082,10 +1352,12 @@ function telaAjustes(){
     <div class="frow"><input id="cfgToken" value="${esc(E.token)}" placeholder="cole seu token aqui" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
     <div class="frow"><label>Dólar (USD/BRL)</label>
       <span class="grow"><input id="cfgCambio" type="text" inputmode="decimal" value="${nfx(E.cambio,4)}"></span></div>
-    <div class="frow"><label>Atualizar ao abrir</label>
-      <span class="grow"><select id="cfgAuto">
-        <option value="1" ${E.auto==="1"?"selected":""}>Sim</option>
-        <option value="0" ${E.auto==="0"?"selected":""}>Não</option></select></span></div>
+    <div class="frow"><label>Atualização automática
+      <small>Roda ao abrir, de tempos em tempos com o app na tela, e quando você volta para ele.</small></label>
+      <span class="grow"><select id="cfgInt">
+        ${[[0,"Desligada"],[5,"A cada 5 min"],[15,"A cada 15 min"],[30,"A cada 30 min"],[60,"A cada 1 hora"]]
+          .map(([v,r]) => `<option value="${v}" ${E.intervalo===v?"selected":""}>${r}</option>`).join("")}
+      </select></span></div>
     <div class="frow"><label>Proxy CORS <small>Opcional, só se a brapi falhar nos ativos em dólar.</small></label></div>
     <div class="frow"><input id="cfgProxy" value="${esc(E.proxy)}" placeholder="https://corsproxy.io/?" autocapitalize="none" autocorrect="off" spellcheck="false"></div>
   </div>
@@ -1127,6 +1399,7 @@ function abrirDetalhe(ticker){
   $("#detTitle").textContent = p.classe;
   $("#detBody").innerHTML = `
     <div class="det-top">
+      ${selo(p.ticker, p.classe, "lg")}
       <div class="tk">${esc(p.ticker)}</div>
       <div class="nm">${esc(p.nome || "—")}</div>
       <div class="vl num">${brl(p.valorBRL)}</div>
@@ -1139,7 +1412,7 @@ function abrirDetalhe(ticker){
       <div><dt>Cotação atual</dt><dd>${f(p.cotacao)}</dd></div>
       <div><dt>Peso na carteira</dt><dd>${pct(p.peso)}</dd></div>
       <div><dt>Investido</dt><dd>${brl(p.custoBRL)}</dd></div>
-      <div><dt>Proventos</dt><dd style="color:var(--sky)">${brl(prov)}</dd></div>
+      <div><dt>Proventos</dt><dd style="color:var(--gold-lt)">${brl(prov)}</dd></div>
     </dl>
     <p style="font-size:12px;color:var(--dim);margin:0 0 14px;padding:0 2px">
       Fonte do preço: ${esc(p.fonte)}${p.ts ? " · " + fmtTs(p.ts) : ""}</p>
@@ -1176,6 +1449,8 @@ function abrir(id){
 function fechar(id){
   document.getElementById(id).classList.remove("open");
   document.body.style.overflow = "";
+  // uma atualização automática que chegou com a folha aberta foi adiada até aqui
+  if(E.renderPendente){ E.renderPendente = false; renderSuave(); }
 }
 
 async function exportar(){
@@ -1257,12 +1532,14 @@ function ligarAjustes(){
     E.token  = $("#cfgToken").value.trim();
     E.cambio = num($("#cfgCambio").value) || E.cambio;
     E.proxy  = $("#cfgProxy").value.trim();
-    E.auto   = $("#cfgAuto").value;
+    E.intervalo = Number($("#cfgInt").value);
     await cfgSet("brapiToken", E.token);
     await cfgSet("cambio", E.cambio);
     await cfgSet("proxy", E.proxy);
-    await cfgSet("autoUpdate", E.auto);
-    render(); toast("Ajustes salvos.");
+    await cfgSet("intervaloMin", E.intervalo);
+    agendarAuto();
+    render();
+    toast(E.intervalo ? `Ajustes salvos. Atualizando a cada ${E.intervalo} min.` : "Ajustes salvos. Atualização automática desligada.");
   };
   $("#btnExport").onclick = exportar;
   $("#btnImport").onclick = () => $("#fileImport").click();
@@ -1423,8 +1700,29 @@ function ligarEventos(){
     py = null;
   });
 
+  // O evento de erro de imagem não borbulha: precisa ser ouvido na captura.
+  document.addEventListener("error", ev => {
+    const alvo = ev.target;
+    if(alvo && alvo.tagName === "IMG" && alvo.parentElement?.classList.contains("badge")) alvo.remove();
+  }, true);
+
   window.addEventListener("offline", () => $("#offline")?.classList.add("on"));
   window.addEventListener("online", () => { $("#offline")?.classList.remove("on"); sincronizar(true); });
+
+  // O iOS congela a página quando o app sai da tela. Ao voltar, buscamos preços
+  // novos se já passou do intervalo — é isso que faz o app parecer sempre atual.
+  document.addEventListener("visibilitychange", () => {
+    if(document.hidden){ clearInterval(E.timerAuto); E.timerAuto = null; return; }
+    atualizarFrescor();
+    syncSeVencido();
+    agendarAuto();
+  });
+  // Safari restaurando a aba do cache de retorno.
+  window.addEventListener("pageshow", ev => { if(ev.persisted){ atualizarFrescor(); syncSeVencido(); agendarAuto(); } });
+
+  // Relógio do "há X min" — só mexe num texto, não re-renderiza a tela.
+  clearInterval(E.timerFrescor);
+  E.timerFrescor = setInterval(atualizarFrescor, 30000);
   window.addEventListener("resize", () => { if(E.tab === "resumo") setTimeout(() => {
     Object.values(graficos).forEach(g => g.resize());
   }, 120); });
@@ -1442,7 +1740,8 @@ function ligarEventos(){
     render();
     if(novo) toast("Carteira carregada. Bem-vindo.", "ok");
     if(!navigator.onLine) $("#offline")?.classList.add("on");
-    else if(E.auto === "1") sincronizar(true);
+    else if(E.intervalo) sincronizar(true);
+    agendarAuto();
   }catch(e){
     $("#view").innerHTML = `<div class="empty" style="padding-top:80px">
       <div class="ic">⚠️</div><p style="color:var(--down)">Não consegui abrir o banco local.</p>
@@ -1455,11 +1754,13 @@ function ligarEventos(){
 <div id="toast"></div>
 
 <script>
-/* Registra o service worker: é ele que faz o app abrir sem internet.
-   Só funciona em https (ou localhost); aberto como arquivo local, é ignorado. */
+/* Registra o service worker: é ele que faz o app abrir sem internet. */
 if("serviceWorker" in navigator && window.isSecureContext){
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js").catch(() => {}); });
+  /* Quando uma versão nova assume o controle, recarrega uma vez só. */
+  let recarregando = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if(recarregando) return; recarregando = true; location.reload();
   });
 }
 </script>
