@@ -1,17 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
 <defs>
-  <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#262a32"/><stop offset="1" stop-color="#0a0b0e"/></linearGradient>
-  <radialGradient id="glow" cx="0.7" cy="0.5" r="0.45"><stop offset="0" stop-color="#f7931a" stop-opacity="0.34"/><stop offset="1" stop-color="#f7931a" stop-opacity="0"/></radialGradient>
-  <linearGradient id="track" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#07080a"/><stop offset="1" stop-color="#15171c"/></linearGradient>
-  <linearGradient id="knob" x1="0.2" y1="0.05" x2="0.8" y2="1"><stop offset="0" stop-color="#ffc061"/><stop offset="0.5" stop-color="#f7931a"/><stop offset="1" stop-color="#d9690a"/></linearGradient>
-  <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.45"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <linearGradient id="bg" x1="0.15" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#22252c"/><stop offset="1" stop-color="#08090b"/></linearGradient>
+  <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5"><stop offset="0.45" stop-color="#f7931a" stop-opacity="0.32"/><stop offset="1" stop-color="#f7931a" stop-opacity="0"/></radialGradient>
+  <linearGradient id="coin" x1="0.2" y1="0.05" x2="0.8" y2="0.95"><stop offset="0" stop-color="#ffb648"/><stop offset="0.55" stop-color="#f7931a"/><stop offset="1" stop-color="#d4650a"/></linearGradient>
+  <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe0ad" stop-opacity="0.9"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#7a3a00" stop-opacity="0.5"/></linearGradient>
+  <radialGradient id="sheen" cx="0.32" cy="0.22" r="0.6"><stop offset="0" stop-color="#fff" stop-opacity="0.28"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+  <linearGradient id="glyph" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#fff1dc"/></linearGradient>
+  <linearGradient id="orbit" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f7931a" stop-opacity="0"/><stop offset="1" stop-color="#ffc06a" stop-opacity="0.95"/></linearGradient>
+  <filter id="blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="14"/></filter>
 </defs>
-<rect width="512" height="512" rx="112" fill="url(#bg)"/>
-<rect width="512" height="512" rx="112" fill="url(#glow)"/>
-<rect x="64" y="168" width="384" height="176" rx="88" fill="url(#track)"/>
-<rect x="65.5" y="169.5" width="381" height="173" rx="86.5" fill="none" stroke="#fff" stroke-opacity="0.08" stroke-width="3"/>
-<circle cx="154" cy="256" r="24" fill="none" stroke="#8a919d" stroke-opacity="0.5" stroke-width="10"/>
-<circle cx="360" cy="262" r="74" fill="#000" fill-opacity="0.45"/>
-<circle cx="360" cy="256" r="72" fill="url(#knob)"/><circle cx="360" cy="256" r="70.5" fill="none" stroke="#fff" stroke-opacity="0.22" stroke-width="3"/>
-<path d="M328 278 L360 240 L392 278" fill="none" stroke="#2a1704" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+<rect width="512" height="512" rx="114" fill="url(#bg)"/>
+<rect width="512" height="512" rx="114" fill="url(#glow)"/>
+  <circle cx="256" cy="256" r="196" fill="none" stroke="url(#orbit)" stroke-width="7" stroke-linecap="round" stroke-dasharray="880 352" transform="rotate(-128 256 256)"/>
+  <circle cx="362.7" cy="91.6" r="11" fill="#ffd08a"/>
+  <circle cx="362.7" cy="91.6" r="26" fill="#f7931a" opacity="0.28"/>
+  <circle cx="256" cy="268" r="158" fill="#000" opacity="0.45" filter="url(#blur)"/>
+  <circle cx="256" cy="256" r="158" fill="url(#coin)"/>
+  <circle cx="256" cy="256" r="156" fill="none" stroke="url(#rim)" stroke-width="4"/>
+  <circle cx="256" cy="256" r="158" fill="url(#sheen)"/>
+  <g opacity="0.22" transform="translate(0 5)"><g transform="translate(256 256) rotate(14) scale(1.3) translate(-101 -100)"><g fill="#7a3a00"><path fill-rule="evenodd" d="M60 40 H112 C128 40 136 52 136 68 C136 80 130 88 122 92 C134 96 142 106 142 120 C142 142 128 160 108 160 H60 Z M82 59 H107 C113 59 116 64 116 70.5 C116 77 112 82 106 82 H82 Z M82 101 H110 C117 101 121 107 121 120.5 C121 134 116 141 108 141 H82 Z"/><rect x="66" y="24" width="12" height="18" rx="2"/><rect x="66" y="158" width="12" height="18" rx="2"/><rect x="90" y="24" width="12" height="18" rx="2"/><rect x="90" y="158" width="12" height="18" rx="2"/></g></g></g>
+  <g transform="translate(256 256) rotate(14) scale(1.3) translate(-101 -100)"><g fill="url(#glyph)"><path fill-rule="evenodd" d="M60 40 H112 C128 40 136 52 136 68 C136 80 130 88 122 92 C134 96 142 106 142 120 C142 142 128 160 108 160 H60 Z M82 59 H107 C113 59 116 64 116 70.5 C116 77 112 82 106 82 H82 Z M82 101 H110 C117 101 121 107 121 120.5 C121 134 116 141 108 141 H82 Z"/><rect x="66" y="24" width="12" height="18" rx="2"/><rect x="66" y="158" width="12" height="18" rx="2"/><rect x="90" y="24" width="12" height="18" rx="2"/><rect x="90" y="158" width="12" height="18" rx="2"/></g></g>
 </svg>

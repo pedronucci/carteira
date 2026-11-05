@@ -21,7 +21,7 @@ iPhone
 - Safari > Compartilhar > Adicionar à Tela de Início.
 - O app da Tela de Início guarda dados separados do Safari. Se você lançou
   algo no Safari, faça Backup > Copiar lá e Restaurar no app.
-- Para ver o ícone novo: apague o ícone antigo da Tela de Início e adicione
+- Para ver o ícone novo (moeda laranja com o símbolo do Bitcoin): apague o ícone antigo da Tela de Início e adicione
   de novo (antes, faça um backup).
 
 Este app não mexe na Carteira no Bolso (raiz do repositório): cada um tem
