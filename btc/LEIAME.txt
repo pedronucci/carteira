@@ -1,0 +1,15 @@
+BITCOIN STRATEGY TERMINAL — pasta btc/
+======================================
+
+Endereço: https://pedronucci.github.io/carteira/btc/
+
+- Arquivo único (index.html). Não precisa de servidor, Docker ou instalação.
+- Suas operações ficam salvas SOMENTE no navegador de cada aparelho.
+  Nada vai para o GitHub. Use Configurações > Backup para copiar os dados
+  entre o computador e o celular.
+- Cotações: Binance (BTC/USDT e BTC/BRL), CoinGecko como alternativa,
+  dólar pela AwesomeAPI. Sem internet, usa a última leitura salva.
+- No iPhone: abra no Safari > Compartilhar > Adicionar à Tela de Início.
+
+Este app não mexe na Carteira no Bolso (raiz do repositório): cada um tem
+seus próprios dados, ícone e service worker.
