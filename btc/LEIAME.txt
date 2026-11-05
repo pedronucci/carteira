@@ -3,13 +3,26 @@ BITCOIN STRATEGY TERMINAL — pasta btc/
 
 Endereço: https://pedronucci.github.io/carteira/btc/
 
-- Arquivo único (index.html). Não precisa de servidor, Docker ou instalação.
-- Suas operações ficam salvas SOMENTE no navegador de cada aparelho.
-  Nada vai para o GitHub. Use Configurações > Backup para copiar os dados
-  entre o computador e o celular.
-- Cotações: Binance (BTC/USDT e BTC/BRL), CoinGecko como alternativa,
-  dólar pela AwesomeAPI. Sem internet, usa a última leitura salva.
-- No iPhone: abra no Safari > Compartilhar > Adicionar à Tela de Início.
+Estratégia: 100% em USDC ou 100% em BTC (long em perpétuo, alavancagem baixa,
+margem em USDC). Cada entrada e saída forma um ciclo.
+
+- Comece em Ajustes > Posição inicial: data, "100% em USDC" ou "100% em BTC"
+  e o valor em dólar.
+- Operações: "Entrar em BTC" (preço, alavancagem, capital) e "Sair para USDC"
+  (preço de saída, taxas, funding). Aportes e retiradas também ficam lá.
+- Performance: rentabilidade ponderada no tempo, quedas e comparação com
+  "só segurar BTC". Mercado: gráfico, indicadores e simulador de entrada.
+- Arquivo único (index.html). Sem servidor, Docker ou instalação.
+- Os dados ficam SOMENTE no aparelho. Nada vai para o GitHub.
+  Use Ajustes > Backup para levar os dados de um aparelho para outro.
+- Somente acompanhamento: não conecta à corretora nem executa ordens.
+
+iPhone
+- Safari > Compartilhar > Adicionar à Tela de Início.
+- O app da Tela de Início guarda dados separados do Safari. Se você lançou
+  algo no Safari, faça Backup > Copiar lá e Restaurar no app.
+- Para ver o ícone novo: apague o ícone antigo da Tela de Início e adicione
+  de novo (antes, faça um backup).
 
 Este app não mexe na Carteira no Bolso (raiz do repositório): cada um tem
 seus próprios dados, ícone e service worker.
