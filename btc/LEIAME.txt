@@ -13,7 +13,8 @@ margem em USDC). Cada entrada e saída forma um ciclo.
 - Manual: Ajustes > Posição inicial: data, "100% em USDC" ou "100% em BTC"
   e o valor em dólar.
 - Operações: "Entrar em BTC" (preço, alavancagem, capital) e "Sair para USDC"
-  (preço de saída, taxas, funding). Aportes e retiradas também ficam lá.
+  (preço de saída, taxas, funding). "Aumentar posição" soma mais USDC a uma
+  posição aberta e recalcula o preço médio. Aportes e retiradas também ficam lá.
 - Abas: Alocação, Performance, Transações e Mercado. Botão BRL/USD no topo.
 - Arquivo único (index.html). Sem servidor, Docker ou instalação.
 - Os dados ficam SOMENTE no aparelho. Nada vai para o GitHub.
