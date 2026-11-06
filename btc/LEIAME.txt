@@ -16,6 +16,11 @@ margem em USDC). Cada entrada e saída forma um ciclo.
   (preço de saída, taxas, funding). "Aumentar posição" soma mais USDC a uma
   posição aberta e recalcula o preço médio. Aportes e retiradas também ficam lá.
 - Abas: Alocação, Performance, Transações e Mercado. Botão BRL/USD no topo.
+- CICLOS DA ESTRATÉGIA: cada ciclo tem nome, início (data, hora e fuso) e um
+  retrato inicial (patrimônio, saldos, posições). Só o que acontece depois do
+  início entra no resultado, nos gráficos e no Buy & Hold. Posição já aberta no
+  início é herdada pelo preço daquele momento. O histórico completo da conta
+  continua guardado e pode ser visto no seletor do topo.
 - Arquivo único (index.html). Sem servidor, Docker ou instalação.
 - Os dados ficam SOMENTE no aparelho. Nada vai para o GitHub.
   Use Ajustes > Backup para levar os dados de um aparelho para outro.
