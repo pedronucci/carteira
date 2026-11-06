@@ -8,8 +8,8 @@
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0a0b0d",
-  "theme_color": "#0a0b0d",
+  "background_color": "#1e1e1f",
+  "theme_color": "#1e1e1f",
   "categories": ["finance"],
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
