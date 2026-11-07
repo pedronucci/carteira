@@ -21,5 +21,6 @@ comportamento está fixado automaticamente; "manual" significa conferência visu
 | 14 | Somente acompanhamento: nenhuma ordem, nenhuma chave privada, nenhuma frase de recuperação | revisão de código |
 
 ## Cópia íntegra da versão 4
-- Tag `v4-final` → commit `7339ebf` (app publicado em `btc/` + fonte em `btc-src/`).
+- Commit `7339ebf` na `main` (app publicado em `btc/` + fonte em `btc-src/`). Para criar uma tag de
+  referência no GitHub: Releases → Draft a new release → tag `v4-final` → target `7339ebf`.
 - Para voltar: publicar o conteúdo de `btc/` dessa tag na `main`. Os dados no aparelho continuam compatíveis.
