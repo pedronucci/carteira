@@ -1,20 +1,25 @@
-# Brief de design — evolução para terminal profissional
+# Direção visual — Terminal 5.0 "Institutional Future" (aprovada em 07/11/2026)
 
-Escopo: **refinamento** da identidade atual, não redesenho. Ficam o tema escuro, o amarelo de destaque, o laranja do BTC, as quatro abas, BRL/USD, todas as funções e todos os textos. Modo da superfície: **Operate**.
+Substitui a identidade amarela e laranja da versão 4. Modo: **Operate** (ferramenta de trabalho):
+densidade, precisão e leitura rápida valem mais que efeito.
 
-Decisões confirmadas pelo usuário (07/11/2026):
+## Cores (tokens em `apps/local/src/app/globals.css`)
+| Papel | Cor | Uso |
+|---|---|---|
+| Fundo | `#090E16` | página |
+| Superfícies | `#111A27` · `#172334` · `#1F2D42` | painéis, campos, hover |
+| Linhas | `#1D2A3C` · `#2B3C54` | bordas finas |
+| Texto | `#EEF3FA` · `#C5D0DE` · `#91A2B8` | principal, secundário, rótulos |
+| **Ciano** | `#42D9D0` | interação e estado: seleção, foco, botão principal, conexão |
+| **Dourado** | `#D7B36A` | só a Estratégia BTC/USDC: navegação, cartão da Dashboard, linha da estratégia nos gráficos |
+| BTC | `#F7931A` | só o ativo Bitcoin (ícone, posição, "Só BTC") |
+| Lucro, prejuízo, alerta | `#36C995` · `#EF6878` · `#E8B04B` | sempre com sinal ou texto, nunca só pela cor |
 
-| Tema | Decisão |
-|---|---|
-| Densidade | **Terminal denso**: faixa de KPIs no topo (patrimônio, P&L do ciclo, exposição, alavancagem, distância da liquidação), cards compactos, mais dados por tela |
-| Números | **Fonte monoespaçada técnica** para preços, saldos e percentuais, com colunas alinhadas. Textos continuam em Inter |
-| Medidor de exposição | Trocar o semicírculo por uma **barra de risco** horizontal, com faixas e marcador da liquidação |
-| Desktop | **Painel em colunas** em telas largas. No iPhone continua uma coluna com abas |
+## Tipografia
+Inter para os textos e JetBrains Mono para os números, com algarismos de largura fixa. Rótulos de dado em caixa alta pequena (`.lbl`).
 
-Pontos observados nas capturas atuais:
-- Cantos muito arredondados e botões em pílula dão cara de app de consumo. Usar raios menores e bordas finas.
-- Os títulos dos cards são grandes demais para um terminal. Usar rótulos em caixa alta pequenos e números como protagonistas.
-- Mostrar o estado da conexão (fonte, há quanto tempo atualizou, ao vivo ou manual) como barra de status discreta.
-- O P&L do ciclo e o percentual precisam ser coerentes entre as abas (hoje há −1,62% e −2,65% para o mesmo período; isso é um erro de cálculo, ver AUDITORIA.md).
-
-A implementação começa quando o código-fonte estiver em `btc-src/`.
+## Estrutura
+- **Desktop:** barra lateral recolhível com os 9 módulos (a Estratégia sempre em dourado) e cabeçalho com o BTC, o estado das integrações, BRL/USD, privacidade e ajustes.
+- **Celular:** barra inferior com Início, Estratégia, Portfólio, Mercado e Mais; os demais módulos ficam em "Mais".
+- **Painéis:** borda fina e cantos de 8 px; indicadores em grade separada por linhas (sem cartões dentro de cartões); régua de risco horizontal.
+- **Estados vazios honestos:** módulo não pronto ou integração não conectada mostra isso, nunca valores de exemplo.

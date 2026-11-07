@@ -11,7 +11,7 @@ import { useAppState } from "@/lib/state";
 export interface Candle { t: number; o: number; h: number; l: number; c: number; v: number }
 export interface TradeMarker { id: string; ts: number; kind: "ENTRY" | "EXIT"; price: number }
 
-export const C = { btc: "#f7931a", accent: "#ebcd2f", gain: "#2ec45a", loss: "#f0474f", muted: "#a1a1a6", grid: "#343436", line: "#3a3a3c", ink2: "#cfcfd2", usdc: "#2775ca" };
+export const C = { btc: "#f7931a", accent: "#42d9d0", gold: "#d7b36a", gain: "#36c995", loss: "#ef6878", muted: "#91a2b8", grid: "#1b2738", line: "#24334a", ink2: "#c5d0de", usdc: "#2775ca" };
 const MONO = "JetBrains Mono Variable, ui-monospace, monospace";
 const axis = { stroke: C.muted, fontSize: 11, fontFamily: MONO, tickLine: false, axisLine: false } as const;
 const dateFmt = (ts: number, long = false) => new Intl.DateTimeFormat("pt-BR", long ? { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" } : { day: "2-digit", month: "short" }).format(ts * 1000).replace(".", "");
@@ -48,10 +48,10 @@ export function EquityChart({ points, height = 260, ccy = "USD" }: { points: Ser
         {bands.map((b) => <ReferenceArea key={b.x1} x1={b.x1} x2={b.x2} fill={C.btc} fillOpacity={0.08} ifOverflow="visible" />)}
         <XAxis dataKey="ts" type="number" domain={["dataMin", "dataMax"]} scale="time" {...axis} tickFormatter={(t) => dateFmt(t)} minTickGap={48} />
         <YAxis {...axis} width={52} tickFormatter={(v) => fmt(v)} domain={["auto", "auto"]} />
-        <Tooltip content={<Tip fmt={(v) => (hidden ? "•••" : fmtMoney(v, ccy))} names={{ equity: "Carteira", hodl: "Só segurar BTC", contrib: "Investido" }} />} />
+        <Tooltip content={<Tip fmt={(v) => (hidden ? "•••" : fmtMoney(v, ccy))} names={{ equity: "Estratégia", hodl: "Só segurar BTC", contrib: "Capital" }} />} />
         <Line type="stepAfter" dataKey="contrib" stroke={C.muted} strokeDasharray="6 5" dot={false} strokeWidth={1.5} isAnimationActive={false} />
         <Line type="linear" dataKey="hodl" stroke={C.btc} dot={false} strokeWidth={1.75} isAnimationActive={false} connectNulls />
-        <Line type="linear" dataKey="equity" stroke={C.accent} dot={false} strokeWidth={2.5} isAnimationActive={false} />
+        <Line type="linear" dataKey="equity" stroke={C.gold} dot={false} strokeWidth={2.5} isAnimationActive={false} />
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -92,8 +92,8 @@ export function SemiDonut({ parts, center, sub }: { parts: { label: string; valu
   return (
     <div className="relative mx-auto w-full max-w-[340px]">
       <svg viewBox="0 0 340 172" className="w-full" role="img" aria-label={parts.map((p) => `${p.label} ${Math.round((p.value / total) * 100)}%`).join(", ")}>
-        {arcs.length ? arcs.map((a) => <path key={a.key} d={a.path} fill={a.color} />) : <path d={`M 20 165 A 150 150 0 0 1 320 165 L 268 165 A 98 98 0 0 0 72 165 Z`} fill="#343436" />}
-        <path d={`M ${cx - r + 8} ${cy} A ${r - 8} ${r - 8} 0 0 1 ${cx + r - 8} ${cy} Z`} fill="#2b2b2c" />
+        {arcs.length ? arcs.map((a) => <path key={a.key} d={a.path} fill={a.color} />) : <path d={`M 20 165 A 150 150 0 0 1 320 165 L 268 165 A 98 98 0 0 0 72 165 Z`} fill="#1d2a3c" />}
+        <path d={`M ${cx - r + 8} ${cy} A ${r - 8} ${r - 8} 0 0 1 ${cx + r - 8} ${cy} Z`} fill="#172334" />
       </svg>
       <div className="absolute inset-x-0 bottom-1 text-center">
         <div className="num text-[30px] font-bold leading-none">{center}</div>
@@ -167,7 +167,7 @@ export function PriceChart({ candles, markers = [], avgCost, levels = [], height
       crosshair: { mode: CrosshairMode.Normal },
       localization: { locale: "pt-BR", priceFormatter: (p: number) => (p >= 1000 ? Math.round(p).toLocaleString("pt-BR") : fmtMoney(p, "USD")) },
     });
-    const s = chart.addSeries(CandlestickSeries, { upColor: "#2a8a47", downColor: "#a83a40", borderVisible: false, wickUpColor: "#2a8a47", wickDownColor: "#a83a40" });
+    const s = chart.addSeries(CandlestickSeries, { upColor: "#2a9d76", downColor: "#c2525f", borderVisible: false, wickUpColor: "#2a9d76", wickDownColor: "#c2525f" });
     chartRef.current = chart; seriesRef.current = s;
     return () => { chart.remove(); chartRef.current = null; seriesRef.current = null; };
   }, [height]);
@@ -177,7 +177,7 @@ export function PriceChart({ candles, markers = [], avgCost, levels = [], height
     if (!chart || !s) return;
     s.setData(candles.map((c) => ({ time: c.t as UTCTimestamp, open: c.o, high: c.h, low: c.l, close: c.c })));
     const extra: ISeriesApi<"Line">[] = [];
-    const smaColors = ["rgba(247,147,26,0.75)", "#8a919d"];
+    const smaColors = ["rgba(247,147,26,0.75)", "#7d8fa6"];
     overlays?.sma?.forEach((arr, i) => {
       const l = chart.addSeries(LineSeries, { color: smaColors[i], lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
       l.setData(candles.flatMap((c, j) => (arr[j] != null && Number.isFinite(arr[j]) ? [{ time: c.t as UTCTimestamp, value: arr[j]! }] : [])));
@@ -185,7 +185,7 @@ export function PriceChart({ candles, markers = [], avgCost, levels = [], height
     });
     const lines = [
       ...(avgCost ? [s.createPriceLine({ price: avgCost, color: C.btc, lineWidth: 1, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: "Entrada" })] : []),
-      ...levels.map((l) => s.createPriceLine({ price: l.price, color: l.kind === "SUPPORT" ? "#34c38f66" : "#f6465d66", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: "" })),
+      ...levels.map((l) => s.createPriceLine({ price: l.price, color: l.kind === "SUPPORT" ? "#36c99566" : "#ef687866", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: "" })),
     ];
     const first = candles[0]?.t ?? 0;
     const ms: SeriesMarker<Time>[] = markers.filter((m) => m.ts >= first).map((m) => ({

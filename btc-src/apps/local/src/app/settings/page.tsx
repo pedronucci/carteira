@@ -237,13 +237,21 @@ export default function SettingsPage() {
   const v = useDataVersion();
   const s = getStore();
   return (
-    <div className="space-y-6 pt-3">
-      <h1 className="text-[28px] font-bold tracking-tight">Ajustes</h1>
+    <div className="max-w-3xl space-y-6 pt-5">
+      <h1 className="text-[20px] font-semibold tracking-tight">Configurações e Integrações</h1>
       {!storageAvailable() && <Notice tone="loss">O navegador está bloqueando o armazenamento local (modo privado?). Nada será salvo.</Notice>}
       {s.migratedNote && <Notice tone="info">{s.migratedNote}</Notice>}
       <section aria-label="Hyperliquid">
-        <SectionTitle sub="Posição, saldo e operações automáticos">Hyperliquid / Rabby</SectionTitle>
+        <SectionTitle sub="Conta da Estratégia BTC/USDC: posição, saldo e operações, somente leitura">Hyperliquid</SectionTitle>
         <Panel className="p-4"><HlConnect /></Panel>
+      </section>
+      <section aria-label="Outras integrações">
+        <SectionTitle sub="Entram no Portfólio Consolidado, nunca no resultado da estratégia">Outras integrações</SectionTitle>
+        <Panel className="divide-y divide-line">
+          {[["OKX", "API v5 somente leitura, via gateway seguro (Fase 4b)"], ["Carteiras EVM / Rabby", "endereço público, modo observação (Fase 4a)"], ["Bitcoin", "endereços públicos ou xpub (Fase 4a)"], ["Solana", "endereço público (Fase 4a)"], ["Cadastro manual e CSV", "Fase 3"]].map(([n, d]) => (
+            <div key={n} className="flex items-center gap-3 px-4 py-3"><span className="size-2 rounded-full bg-muted/40" aria-hidden /><span className="min-w-0 flex-1"><span className="block text-[14px]">{n}</span><span className="block text-[12px] text-muted">{d}</span></span><span className="lbl">não conectada</span></div>
+          ))}
+        </Panel>
       </section>
       <section aria-label="Ciclos da estratégia">
         <SectionTitle sub="Cada ciclo mede a estratégia a partir do próprio início">Ciclos da estratégia</SectionTitle>

@@ -120,7 +120,7 @@ export default function AllocationPage() {
           )}
 
           <Panel className="overflow-hidden">
-            <PanelHead title="Ciclo da estratégia" right={<button onClick={() => navigate("/performance")} className="text-[12px] font-medium text-accent">Performance ›</button>} />
+            <PanelHead title="Ciclo da estratégia" right={<button onClick={() => navigate("/estrategia/performance")} className="text-[12px] font-medium text-accent">Performance ›</button>} />
             <div className="grid grid-cols-2 sm:grid-cols-4">
               <Kpi className="border-r border-b border-line sm:border-b-0" label={s.scope.kind === "account" ? "Início da conta" : "Início"} value={strat ? fmtZoned(strat.startAt, strat.tz).split(",")[0] : new Date(s.startT).toLocaleDateString("pt-BR")}
                 sub={strat ? `${fmtZoned(strat.startAt, strat.tz).split(", ")[1] ?? ""} · ${strat.tz.split("/").pop()!.replace("_", " ")}` : undefined} />

@@ -41,7 +41,7 @@ export default function PerformancePage() {
 
   const legend = (
     <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink-2">
-      <span className="inline-flex items-center gap-1.5"><span className="h-[2px] w-4" style={{ background: C.accent }} />Carteira</span>
+      <span className="inline-flex items-center gap-1.5"><span className="h-[2px] w-4" style={{ background: C.gold }} />Estratégia</span>
       <span className="inline-flex items-center gap-1.5"><span className="w-4 border-t border-dashed border-muted" />Capital</span>
       <span className="inline-flex items-center gap-1.5"><span className="h-[2px] w-4" style={{ background: C.btc }} />Só BTC</span>
     </div>
