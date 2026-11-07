@@ -52,7 +52,7 @@ export default function IntelPage() {
       </Panel>
 
       <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
-        <Panel className="overflow-hidden lg:col-span-7">
+        <Panel className="min-w-0 overflow-hidden lg:col-span-7">
           <PanelHead title="Resultado por ciclo" />
           {v.cycles.length ? (
             <div className="overflow-x-auto"><table className="w-full min-w-[560px] text-[13px]"><tbody className="divide-y divide-line">
@@ -69,7 +69,7 @@ export default function IntelPage() {
           ) : <p className="px-4 py-5 text-[13px] text-muted">Sem ciclos.</p>}
         </Panel>
 
-        <div className="space-y-4 lg:col-span-5">
+        <div className="min-w-0 space-y-4 lg:col-span-5">
           <Panel className="overflow-hidden">
             <PanelHead title="Portfólio Consolidado" right={`${v.pv.series.length} retrato(s)`} />
             <KpiGrid className="m-0 grid-cols-2 rounded-none border-0">

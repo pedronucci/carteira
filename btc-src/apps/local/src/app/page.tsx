@@ -74,7 +74,7 @@ export default function AllocationPage() {
       {s.warnings.length > 0 && <div className="mb-4 space-y-2">{s.warnings.map((w) => <Notice key={w}>{w}</Notice>)}</div>}
 
       <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
-        <div className="space-y-4 lg:col-span-7">
+        <div className="min-w-0 space-y-4 lg:col-span-7">
           {c ? (
             <Panel className="overflow-hidden">
               <PanelHead title={s.closed ? "Posição no encerramento" : "Posição"} right={<Pill tone={c.dir === "LONG" ? "btc" : "loss"}>BTC {c.dir === "LONG" ? "long" : "short"} {levTxt}×</Pill>} />
@@ -133,7 +133,7 @@ export default function AllocationPage() {
           </Panel>
         </div>
 
-        <div className="space-y-4 lg:col-span-5">
+        <div className="min-w-0 space-y-4 lg:col-span-5">
           <Panel className="overflow-hidden">
             <PanelHead title="Risco" right={!s.closed && c ? <span className="num">limite {rules.leverageMax}× · liq. {f.pct(minLiq, false)}</span> : undefined} />
             <div className="space-y-5 px-4 py-4">

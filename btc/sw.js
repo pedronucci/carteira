@@ -1,7 +1,7 @@
 /* Service worker do Bitcoin Strategy Terminal (subpasta /btc/).
    Abre sem internet depois da primeira visita. O index.html é buscado primeiro na rede
    (para atualizar na hora) e cai no cache quando offline. Cotações nunca ficam em cache. */
-const CACHE = "btc-terminal-202611071330";
+const CACHE = "btc-terminal-202611071759";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png", "./icon-512-maskable.png", "./favicon.png"];
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()).catch(() => self.skipWaiting())); });
 self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith("btc-terminal-") && k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });

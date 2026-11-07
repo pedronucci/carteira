@@ -241,7 +241,7 @@ function Distribution({ v }: { v: View }) {
       <BarList title="Por ativo" rows={byAsset} />
       <BarList title="Por instituição" rows={v.c.byInstitution} />
       <BarList title="Por rede" rows={v.c.byNetwork.map((x) => ({ ...x, key: x.key === "—" || !x.key ? "rede não informada" : x.key }))} />
-      <Panel className="overflow-hidden lg:col-span-3">
+      <Panel className="min-w-0 overflow-hidden lg:col-span-3">
         <PanelHead title="Bitcoin possuído por custódia" right="spot e representações; perpétuo não conta" />
         <BtcHeld v={v} />
       </Panel>

@@ -31,7 +31,7 @@ export default function RiskPage() {
       </KpiGrid>
 
       <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
-        <div className="space-y-4 lg:col-span-7">
+        <div className="min-w-0 space-y-4 lg:col-span-7">
           <Panel className="overflow-hidden">
             <PanelHead title="Simulador de cenários do BTC" right="sobre as posições reais" />
             {r.shocks.length ? (
@@ -72,7 +72,7 @@ export default function RiskPage() {
           </Panel>
         </div>
 
-        <div className="space-y-4 lg:col-span-5">
+        <div className="min-w-0 space-y-4 lg:col-span-5">
           <Panel className="overflow-hidden">
             <PanelHead title="Concentração" right="pelo saldo contábil" />
             <div className="grid grid-cols-2">

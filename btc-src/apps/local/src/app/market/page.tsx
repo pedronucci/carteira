@@ -112,7 +112,7 @@ export default function MarketPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
-      <div className="space-y-4 lg:col-span-8">
+      <div className="min-w-0 space-y-4 lg:col-span-8">
       <section aria-label="Gráfico">
         <div className="mb-2 flex items-center justify-between gap-3">
           <p className="text-[13px] text-muted"><span className="text-btc">—</span> MM50 · <span className="text-muted">—</span> MM200{markers.length ? " · setas: suas entradas e saídas" : ""}</p>
@@ -142,7 +142,7 @@ export default function MarketPage() {
       <Simulator />
       </div>
 
-      <div className="space-y-4 lg:col-span-4">
+      <div className="min-w-0 space-y-4 lg:col-span-4">
       <DerivativesIntel />
       <section aria-label="Indicadores">
         <SectionTitle>Indicadores</SectionTitle>

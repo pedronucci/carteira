@@ -79,7 +79,7 @@ export default function DashboardPage() {
           </Panel>
         ) : <StrategyCard s={s} />}
 
-        <Panel className="overflow-hidden lg:col-span-5">
+        <Panel className="min-w-0 overflow-hidden lg:col-span-5">
           <PanelHead title="Patrimônio consolidado" right={<Link href="/portfolio" className="text-[12px] font-medium text-accent">Portfólio ›</Link>} />
           {pv ? (
             <>

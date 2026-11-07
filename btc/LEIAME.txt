@@ -1,4 +1,4 @@
-BITCOIN STRATEGY TERMINAL — pasta btc/
+BITCOIN STRATEGY TERMINAL 5.0 — pasta btc/
 ======================================
 
 Endereço: https://pedronucci.github.io/carteira/btc/
@@ -15,7 +15,11 @@ margem em USDC). Cada entrada e saída forma um ciclo.
 - Operações: "Entrar em BTC" (preço, alavancagem, capital) e "Sair para USDC"
   (preço de saída, taxas, funding). "Aumentar posição" soma mais USDC a uma
   posição aberta e recalcula o preço médio. Aportes e retiradas também ficam lá.
-- Abas: Alocação, Performance, Transações e Mercado. Botão BRL/USD no topo.
+- Módulos: Dashboard, Estratégia BTC/USDC (Monitor, Performance, Transações, Ciclos), Portfólio Consolidado,
+  Trading, Mercado, Risk Center, Performance Intelligence, Trading Journal e Configurações e Integrações.
+  No celular: barra inferior (Início, Estratégia, Portfólio, Mercado, Mais). BRL/USD e privacidade no topo.
+- PORTFÓLIO: saldos manuais/CSV e carteiras somente leitura (Bitcoin, EVM/Rabby, Solana) sem contagem dupla.
+  OKX: só pelo gateway seguro na Cloudflare (btc-src/docs/GATEWAY.md). Nunca informe frase de recuperação.
 - CICLOS DA ESTRATÉGIA: cada ciclo tem nome, início (data, hora e fuso) e um
   retrato inicial (patrimônio, saldos, posições). Só o que acontece depois do
   início entra no resultado, nos gráficos e no Buy & Hold. Posição já aberta no

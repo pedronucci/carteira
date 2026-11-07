@@ -24,3 +24,19 @@ comportamento está fixado automaticamente; "manual" significa conferência visu
 - Commit `7339ebf` na `main` (app publicado em `btc/` + fonte em `btc-src/`). Para criar uma tag de
   referência no GitHub: Releases → Draft a new release → tag `v4-final` → target `7339ebf`.
 - Para voltar: publicar o conteúdo de `btc/` dessa tag na `main`. Os dados no aparelho continuam compatíveis.
+
+## Cobertura dos testes obrigatórios (seção 23 do pedido do Terminal 5.0)
+| Tema | Onde |
+|---|---|
+| Hyperliquid (execuções, deduplicação, conta unificada, retrato) | `apps/local/test/strategy.test.ts`, `regressao.test.ts`, `portfolio-app.test.ts` |
+| OKX (assinatura, permissões, credenciais inválidas, limite, revogação, normalização funding/trading/Earn) | `apps/gateway/test/gateway.test.ts` |
+| Consolidação entre exchanges, transferências internas, prevenção de dupla contagem | `packages/domain/test/portfolio.test.ts` |
+| Depósitos e retiradas, TWR, retorno sobre o capital | `ciclo-nov2026.test.ts`, `regressao.test.ts`, `portfolio.test.ts` |
+| LONG/SHORT, parciais, reversões, funding, taxas, equity, preço médio | `motor-v2.test.ts`, `strategy.test.ts` |
+| BTC equivalente, Buy & Hold, ciclos, posições herdadas | `ciclo-nov2026.test.ts`, `regressao.test.ts`, `motor-v2.test.ts` |
+| Falhas de API, dados incompletos, rate limiting | `conectores.test.ts`, `bitcoin.test.ts`, `gateway.test.ts` |
+| Migração de dados e backup | `regressao.test.ts`, `portfolio-app.test.ts` |
+| Risco, cenários, alertas, desempenho | `packages/domain/test/intel.test.ts`, `apps/local/test/fase5.test.ts` |
+| Responsividade e compatibilidade mobile | verificação automática de estouro de layout em 13 rotas × 390/768/1280 px (sem estouro, sem erro de JS) e conferência visual |
+
+Total em 07/11/2026: 149 testes (58 núcleo + 70 app + 21 gateway).

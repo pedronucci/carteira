@@ -58,7 +58,7 @@ export default function PerformancePage() {
       </KpiGrid>
 
       <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
-        <div className="space-y-4 lg:col-span-8">
+        <div className="min-w-0 space-y-4 lg:col-span-8">
           <Panel className="overflow-hidden">
             <PanelHead title="Patrimônio" right={<Segmented size="sm" label="Período do gráfico" value={view} onChange={setView} options={[{ value: "all", label: "Ciclo inteiro" }, { value: "cycle", label: s.current ? "Posição atual" : "Desde a saída" }]} />} />
             <div className="px-1 pt-4 pb-3">
@@ -82,7 +82,7 @@ export default function PerformancePage() {
           </div>
         </div>
 
-        <div className="space-y-4 lg:col-span-4">
+        <div className="min-w-0 space-y-4 lg:col-span-4">
           <Panel className="overflow-hidden">
             <PanelHead title={s.scope.kind === "account" ? "Resultado da conta" : "Resultado do ciclo"} />
             <div className="divide-y divide-line px-4">
