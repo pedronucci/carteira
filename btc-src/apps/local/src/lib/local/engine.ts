@@ -8,7 +8,7 @@
  * O preço de liquidação informado pela plataforma sempre prevalece.
  */
 import {
-  atr, bollinger, classifyScenario, d, DEFAULT_SCENARIO_RULES, last, realizedVol, rsi, sma,
+  atr, bollinger, classifyScenario, d, DEFAULT_SCENARIO_RULES, last, macd, realizedVol, rsi, sma,
   supportResistance, trendStructure, ZERO, type Decimal,
 } from "@bst/domain";
 import { getStore, type Add, type Cycle, type Store } from "./store";
@@ -328,6 +328,8 @@ export function market() {
       { key: "rsi", label: "RSI (14 dias)", value: last(rsi(closes)), fmt: "num" as const, hint: "Abaixo de 30: sobrevendido. Acima de 70: sobrecomprado." },
       { key: "mayer", label: "Preço ÷ média de 200 dias", value: m200 ? price / m200 : null, fmt: "x" as const, hint: "Abaixo de 1: preço sob a média longa." },
       { key: "sma50", label: "Média de 50 dias", value: last(sma(closes, 50)), fmt: "usd" as const },
+      { key: "macd", label: "MACD (12, 26, 9) · histograma", value: (() => { const m = macd(closes); return last(m.hist); })(), fmt: "usd" as const, hint: "Positivo: momento de alta; negativo: de baixa." },
+      { key: "vol24", label: "Volume diário (último candle)", value: cd[cd.length - 1]!.v || null, fmt: "num" as const, hint: "em BTC, Binance BTCUSDT" },
       { key: "sma200", label: "Média de 200 dias", value: m200, fmt: "usd" as const },
       { key: "dd", label: "Queda desde a máxima de 1 ano", value: high365 ? price / high365 - 1 : null, fmt: "pct" as const },
       { key: "vol", label: "Volatilidade (30 dias, anual)", value: last(realizedVol(closes, 30)), fmt: "pct" as const },

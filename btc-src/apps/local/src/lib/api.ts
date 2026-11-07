@@ -7,6 +7,9 @@ import { prices, subscribePrices } from "./local/prices";
 import { subscribeHl } from "./local/hl";
 import { subscribePortfolio } from "./portfolio/db";
 import { portfolioView, subscribePortfolioPrices } from "./portfolio/engine";
+import { subscribeIntel } from "./market/intel";
+import { subscribeAlerts } from "./alerts";
+import { performanceView, riskView } from "./intel/views";
 
 let version = 0;
 const vs = new Set<() => void>();
@@ -16,6 +19,8 @@ subscribePrices(bump);
 subscribeHl(bump);
 subscribePortfolio(bump);
 subscribePortfolioPrices(bump);
+subscribeIntel(bump);
+subscribeAlerts(bump);
 export const useDataVersion = () => useSyncExternalStore((f) => { vs.add(f); return () => vs.delete(f); }, () => version, () => version);
 
 let loading = true;
@@ -36,3 +41,5 @@ function useSync<T>(fn: () => T) {
 export const useSnapshot = () => useSync(() => compute());
 export const useMarket = () => useSync(market);
 export const usePortfolio = () => useSync(portfolioView);
+export const useRisk = () => useSync(riskView);
+export const usePerformance = () => useSync(performanceView);

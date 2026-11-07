@@ -1,6 +1,8 @@
 "use client";
 import { useMemo, useState } from "react";
 import { d, sma, SCENARIO_LABEL } from "@bst/domain";
+import { marketIntel } from "@/lib/market/intel";
+import { useDataVersion } from "@/lib/api";
 import { useMarket, useSnapshot } from "@/lib/api";
 import { useFmt } from "@/lib/state";
 import { getStore } from "@/lib/local/store";
@@ -141,6 +143,7 @@ export default function MarketPage() {
       </div>
 
       <div className="space-y-4 lg:col-span-4">
+      <DerivativesIntel />
       <section aria-label="Indicadores">
         <SectionTitle>Indicadores</SectionTitle>
         <Panel className="divide-y divide-line/70 px-4">
@@ -167,5 +170,30 @@ export default function MarketPage() {
       </div>
       <p className="text-[11px] text-muted">Velas diárias {m.source} · última {new Date(m.updatedAt).toLocaleDateString("pt-BR")}. Funding não incluído (sem integração com a corretora).</p>
     </div>
+  );
+}
+
+/** Derivativos e dominância, sempre com fonte e horário; o que não tem fonte confiável aparece como indisponível. */
+function DerivativesIntel() {
+  useDataVersion();
+  const f = useFmt();
+  const i = marketIntel();
+  const t = (x?: { at: number } | null) => (x ? new Date(x.at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "");
+  const row = (label: string, value: string, sub: string) => <div className="flex items-baseline justify-between gap-3 py-2.5"><span className="text-[13.5px] text-ink-2">{label}<span className="block text-[11px] text-muted">{sub}</span></span><span className="num text-right text-[13.5px] font-medium">{value}</span></div>;
+  return (
+    <section aria-label="Derivativos">
+      <SectionTitle sub="Perpétuo BTC na Hyperliquid e mercado geral">Derivativos e fluxo</SectionTitle>
+      <Panel className="divide-y divide-line/70 px-4">
+        {!i ? <p className="py-4 text-[13px] text-muted">Carregando…</p> : <>
+          {row("Funding (1 h)", i.funding1h ? `${(i.funding1h.value * 100).toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%` : "—", i.funding1h ? `${i.fundingAnnual != null ? `≈ ${f.pct(i.fundingAnnual)} ao ano · ` : ""}${i.funding1h.source} · ${t(i.funding1h)}` : "indisponível")}
+          {row("Open interest", i.openInterestBtc ? `${f.btc(i.openInterestBtc.value, 0)} BTC` : "—", i.openInterestUsd != null ? `${f.money(i.openInterestUsd, { compact: true })} · ${t(i.openInterestBtc)}` : "indisponível")}
+          {row("Volume 24 h (perpétuo)", i.volume24hUsd ? f.money(i.volume24hUsd.value, { compact: true }) : "—", i.volume24hUsd ? `${i.volume24hUsd.source} · ${t(i.volume24hUsd)}` : "indisponível")}
+          {row("Prêmio mark × oráculo", i.premium ? `${(i.premium.value * 100).toLocaleString("pt-BR", { maximumFractionDigits: 3 })}%` : "—", i.markPx ? `mark ${f.px(i.markPx)} · oráculo ${f.px(i.oraclePx)}` : "indisponível")}
+          {row("Dominância do BTC", i.btcDominance ? f.pct(i.btcDominance.value, false) : "—", i.btcDominance ? `${i.btcDominance.source} · ${t(i.btcDominance)}` : "indisponível agora")}
+          {row("Fluxos de ETFs · liquidações · calendário macro", "indisponível", "sem fonte gratuita e confiável integrada; não é estimado")}
+        </>}
+      </Panel>
+      {i?.errors.length ? <p className="mt-2 text-[11px] text-muted">Falhas: {i.errors.join(" · ")}</p> : null}
+    </section>
   );
 }

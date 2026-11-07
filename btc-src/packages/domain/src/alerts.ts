@@ -5,7 +5,8 @@
 export type AlertType =
   | "PRICE_ABOVE" | "PRICE_BELOW" | "RSI_ABOVE" | "RSI_BELOW"
   | "CROSS_SMA_UP" | "CROSS_SMA_DOWN" | "EQUITY_ABOVE" | "DRAWDOWN_ABOVE"
-  | "LEVERAGE_ABOVE" | "LIQ_DISTANCE_BELOW" | "NEW_TRANSACTION" | "SYNC_FAILURE";
+  | "LEVERAGE_ABOVE" | "LIQ_DISTANCE_BELOW" | "NEW_TRANSACTION" | "SYNC_FAILURE"
+  | "FUNDING_CHANGE" | "EXPOSURE_CHANGE" | "DIVERGENCE_ABOVE" | "BTC_EQUIV_CHANGE";
 
 export interface AlertRule {
   id: string;
@@ -33,6 +34,14 @@ export interface MarketContext {
   minLiqDistance?: number | null;
   newTransactions?: number;
   syncFailures?: number;
+  /** taxa de funding atual e a de referência (quando o alerta foi criado/reiniciado), por hora */
+  funding?: number | null; fundingRef?: number | null;
+  /** exposição líquida em BTC atual e de referência */
+  btcNet?: number | null; btcNetRef?: number | null;
+  /** |patrimônio oficial − modelo| em USD */
+  divergenceUsd?: number | null;
+  /** variação do BTC equivalente da estratégia no ciclo (fração) */
+  btcEquivChange?: number | null;
 }
 
 export function evaluateCondition(rule: AlertRule, ctx: MarketContext): { ok: boolean | null; message: string } {
@@ -57,6 +66,10 @@ export function evaluateCondition(rule: AlertRule, ctx: MarketContext): { ok: bo
     case "LIQ_DISTANCE_BELOW": return { ok: ctx.minLiqDistance == null ? null : ctx.minLiqDistance <= t, message: `Posição a menos de ${(t * 100).toFixed(1)}% da liquidação` };
     case "NEW_TRANSACTION": return { ok: (ctx.newTransactions ?? 0) > 0, message: `${ctx.newTransactions ?? 0} nova(s) transação(ões) identificada(s)` };
     case "SYNC_FAILURE": return { ok: (ctx.syncFailures ?? 0) > 0, message: "Falha na sincronização de carteira" };
+    case "FUNDING_CHANGE": return { ok: ctx.funding == null || ctx.fundingRef == null ? null : Math.abs(ctx.funding - ctx.fundingRef) >= t, message: `Funding do BTC mudou ${(t * 100).toFixed(4)}% por hora ou mais` };
+    case "EXPOSURE_CHANGE": return { ok: ctx.btcNet == null || ctx.btcNetRef == null ? null : Math.abs(ctx.btcNet - ctx.btcNetRef) >= t, message: `Exposição líquida em BTC mudou ${t} BTC ou mais` };
+    case "DIVERGENCE_ABOVE": return { ok: ctx.divergenceUsd == null ? null : ctx.divergenceUsd >= t, message: `Divergência entre o saldo oficial e o cálculo acima de US$ ${t}` };
+    case "BTC_EQUIV_CHANGE": return { ok: ctx.btcEquivChange == null ? null : Math.abs(ctx.btcEquivChange) >= t, message: `BTC equivalente da estratégia variou ${(t * 100).toFixed(1)}% ou mais no ciclo` };
   }
 }
 

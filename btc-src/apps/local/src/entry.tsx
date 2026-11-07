@@ -7,7 +7,11 @@ import Operations from "@/app/operations/page";
 import Performance from "@/app/performance/page";
 import Market from "@/app/market/page";
 import Settings from "@/app/settings/page";
-import { Pending } from "@/app/pending";
+import Risk from "@/app/risk/page";
+import Trading from "@/app/trading/page";
+import Intel from "@/app/intel/page";
+import Journal from "@/app/journal/page";
+import Alerts from "@/app/alerts/page";
 import Cycles from "@/app/cycles/page";
 import Portfolio from "@/app/portfolio/page";
 import { splitUrl, useUrl } from "@/lib/router";
@@ -16,8 +20,7 @@ const PAGES: Record<string, () => React.ReactNode> = {
   "/": Dashboard,
   "/estrategia": StrategyMonitor, "/estrategia/performance": Performance, "/estrategia/transacoes": Operations, "/estrategia/ciclos": Cycles,
   "/mercado": Market, "/ajustes": Settings,
-  "/portfolio": Portfolio, "/trading": () => <Pending path="/trading" />, "/risco": () => <Pending path="/risco" />,
-  "/inteligencia": () => <Pending path="/inteligencia" />, "/diario": () => <Pending path="/diario" />,
+  "/portfolio": Portfolio, "/trading": Trading, "/risco": Risk, "/inteligencia": Intel, "/diario": Journal, "/alertas": Alerts,
 };
 /** Endereços da versão 4 (favoritos e atalhos antigos continuam funcionando). */
 const ALIAS: Record<string, string> = { "/performance": "/estrategia/performance", "/operations": "/estrategia/transacoes", "/market": "/mercado", "/settings": "/ajustes" };

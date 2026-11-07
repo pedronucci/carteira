@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 import { useState, type ComponentType, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
-  ArrowLeftRight, Bitcoin, ChartCandlestick, ChartLine, Ellipsis, Eye, EyeOff, Gauge, LayoutDashboard,
+  ArrowLeftRight, Bell, Bitcoin, ChartCandlestick, ChartLine, Ellipsis, Eye, EyeOff, Gauge, LayoutDashboard,
   NotebookPen, PanelLeftClose, PanelLeftOpen, Settings, Wallet, X,
 } from "lucide-react";
 import { fmtRelative } from "@bst/domain";
@@ -19,6 +19,7 @@ import { hlState } from "@/lib/local/hl";
 import { prices } from "@/lib/local/prices";
 import { portfolio } from "@/lib/portfolio/db";
 import { gatewayInfo } from "@/lib/connectors/okx";
+import { alerts } from "@/lib/alerts";
 import { cn, Segmented, toneCls, toneOf } from "./ui";
 
 type Icon = ComponentType<{ className?: string; strokeWidth?: number }>;
@@ -109,6 +110,16 @@ function BtcTicker() {
   );
 }
 
+function AlertBell() {
+  useDataVersion();
+  const n = alerts().log.filter((l) => !l.seen).length;
+  return (
+    <Link href="/alertas" aria-label={n ? `Alertas: ${n} não vistos` : "Alertas"} className="relative grid size-9 place-items-center rounded-md text-muted [@media(hover:hover)]:hover:bg-surface-2 [@media(hover:hover)]:hover:text-ink">
+      <Bell className="size-[18px]" />{n > 0 && <span className="num absolute top-1 right-1 grid min-w-4 place-items-center rounded-full bg-loss px-1 text-[9px] font-bold text-white">{n > 9 ? "9+" : n}</span>}
+    </Link>
+  );
+}
+
 function TopBar() {
   const { hidden, toggleHidden, ccy, setCcy } = useAppState();
   return (
@@ -123,6 +134,7 @@ function TopBar() {
             className={cn("grid size-9 place-items-center rounded-md [@media(hover:hover)]:hover:bg-surface-2", hidden ? "text-accent" : "text-muted")}>
             {hidden ? <EyeOff className="size-[18px]" /> : <Eye className="size-[18px]" />}
           </button>
+          <AlertBell />
           <Link href="/ajustes" aria-label="Configurações" className="hidden size-9 place-items-center rounded-md text-muted lg:grid [@media(hover:hover)]:hover:bg-surface-2 [@media(hover:hover)]:hover:text-ink"><Settings className="size-[18px]" /></Link>
         </div>
       </div>

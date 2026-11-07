@@ -5,7 +5,7 @@
  * Coleções: contas, saldos (manuais e lidos das fontes), movimentações, retratos (evolução) e preferências.
  * Em memória fica uma cópia para leitura síncrona pelas telas; cada gravação vai para o IndexedDB.
  */
-import type { PAccount, PEvent, PHolding, PPosition, PSnapshot } from "@bst/domain";
+import type { JournalEntry, PAccount, PEvent, PHolding, PPosition, PSnapshot } from "@bst/domain";
 
 export interface PortfolioData {
   v: 1;
@@ -22,10 +22,12 @@ export interface PortfolioData {
   manualPrices: Record<string, number>;
   /** estado da última sincronização de cada conta conectada */
   sync: Record<string, { state: "ok" | "error" | "sync"; at: number; error?: string; info?: string }>;
+  /** Trading Journal: independente da contabilidade patrimonial */
+  journal: JournalEntry[];
 }
 
 const DB = "bst5", STORE = "kv", KEY = "portfolio";
-const EMPTY = (): PortfolioData => ({ v: 1, accounts: [], manual: [], synced: [], positions: [], events: [], snapshots: [], priceIds: {}, manualPrices: {}, sync: {} });
+const EMPTY = (): PortfolioData => ({ v: 1, accounts: [], manual: [], synced: [], positions: [], events: [], snapshots: [], priceIds: {}, manualPrices: {}, sync: {}, journal: [] });
 
 let data: PortfolioData = EMPTY();
 let ready = false;

@@ -12,3 +12,4 @@ export * from "./format";
 export * from "./alerts";
 export * from "./history";
 export * from "./portfolio";
+export * from "./intel";

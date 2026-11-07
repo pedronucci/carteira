@@ -11,6 +11,11 @@ import { loadPortfolio } from "@/lib/portfolio/db";
 import { recordSnapshot, refreshPortfolioPrices } from "@/lib/portfolio/engine";
 import { syncAllAccounts } from "@/lib/connectors";
 import { detectGateway, syncOkx } from "@/lib/connectors/okx";
+import { refreshMarketIntel, subscribeIntel } from "@/lib/market/intel";
+import { evaluateAlerts } from "@/lib/alerts";
+import { alertContext } from "@/lib/intel/views";
+import { subscribePrices } from "@/lib/local/prices";
+import { subscribeHl } from "@/lib/local/hl";
 
 /** Cotação a cada 60 s e sempre que o app volta para a tela. */
 function PriceLoop() {
@@ -83,6 +88,25 @@ function PortfolioLoop() {
   return null;
 }
 
+/** Mercado (funding, open interest, dominância) a cada 2 min; alertas a cada atualização de dados (máx. 30 s). */
+function IntelLoop() {
+  useEffect(() => {
+    void refreshMarketIntel();
+    const id = setInterval(() => { if (document.visibilityState === "visible") void refreshMarketIntel(); }, 120e3);
+    const run = () => {
+      try {
+        evaluateAlerts(alertContext(), (msg) => {
+          toast(`Alerta: ${msg}`, "btc");
+          try { if ("Notification" in window && Notification.permission === "granted") new Notification("BTC Terminal", { body: msg, icon: "./icon-192.png" }); } catch { /* sem notificação */ }
+        });
+      } catch { /* dados ainda carregando */ }
+    };
+    const un = [subscribeStore(run), subscribePrices(run), subscribeHl(run), subscribeIntel(run)];
+    return () => { clearInterval(id); un.forEach((u) => u()); };
+  }, []);
+  return null;
+}
+
 export function Providers({ children }: { children: ReactNode }) {
-  return <AppStateProvider><PriceLoop /><HlLoop /><PortfolioLoop />{children}<Toaster /></AppStateProvider>;
+  return <AppStateProvider><PriceLoop /><HlLoop /><PortfolioLoop /><IntelLoop />{children}<Toaster /></AppStateProvider>;
 }
