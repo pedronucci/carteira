@@ -6,11 +6,11 @@ Endereço: https://pedronucci.github.io/carteira/btc/
 Estratégia: 100% em USDC ou 100% em BTC (long em perpétuo, alavancagem baixa,
 margem em USDC). Cada entrada e saída forma um ciclo.
 
-- Automático: Menu > Conectar Hyperliquid / Rabby. Cole o endereço público
+- Automático: Configurações e Integrações > Hyperliquid. Cole o endereço público
   da carteira (0x...). O app lê saldo, posição, liquidação, operações de BTC,
   depósitos, saques e funding pela API pública da Hyperliquid. Não pede chave,
   assinatura nem permissão para operar. Atualiza a cada 20 s com o app aberto.
-- Manual: Ajustes > Posição inicial: data, "100% em USDC" ou "100% em BTC"
+- Manual: Estratégia > Ciclos > Novo ciclo: data, hora, "100% em USDC" ou "100% em BTC"
   e o valor em dólar.
 - Operações: "Entrar em BTC" (preço, alavancagem, capital) e "Sair para USDC"
   (preço de saída, taxas, funding). "Aumentar posição" soma mais USDC a uma
