@@ -18,6 +18,7 @@ import { getStore } from "@/lib/local/store";
 import { hlState } from "@/lib/local/hl";
 import { prices } from "@/lib/local/prices";
 import { portfolio } from "@/lib/portfolio/db";
+import { gatewayInfo } from "@/lib/connectors/okx";
 import { cn, Segmented, toneCls, toneOf } from "./ui";
 
 type Icon = ComponentType<{ className?: string; strokeWidth?: number }>;
@@ -71,6 +72,8 @@ export function useIntegrations() {
     { key: "prices", label: "Cotações", state: !sp?.btcUsd ? "off" : sp.stale ? "stale" : "ok", at: sp?.at ?? null, detail: sp?.source || "—" },
     { key: "hl", label: "Hyperliquid", state: !hlOn ? "none" : hl.error ? "error" : hl.syncing ? "sync" : hlFresh ? "ok" : "stale", at: hl.live?.at ?? null, detail: hl.error ?? (hlOn ? "somente leitura" : "não conectada") },
     wallets,
+    ...(gatewayInfo().ok ? [(() => { const o = portfolio().sync["okx-trading"]; const conn = portfolio().accounts.some((x) => x.kind === "okx");
+      return { key: "okx", label: "OKX", state: (!conn ? "none" : !o ? "stale" : o.state === "ok" && Date.now() - o.at > 30 * 60e3 ? "stale" : o.state) as "ok" | "stale" | "sync" | "error" | "none", at: o?.at ?? null, detail: conn ? o?.error ?? "somente leitura" : "não conectada" }; })()] : []),
   ] as { key: string; label: string; state: "ok" | "stale" | "sync" | "error" | "off" | "none"; at: number | null; detail: string }[];
 }
 const DOT: Record<string, string> = { ok: "bg-gain", sync: "bg-accent animate-pulse", stale: "bg-warn", error: "bg-loss", off: "bg-loss", none: "bg-muted/60" };

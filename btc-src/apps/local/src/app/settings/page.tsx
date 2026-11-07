@@ -9,6 +9,7 @@ import { Button, Field, Notice, Panel, SectionTitle } from "@/components/ui";
 import { num } from "@/components/forms";
 import { StrategySheet } from "@/components/strategy";
 import { PortfolioIntegrations } from "@/components/integrations";
+import { OkxConnect } from "@/components/okx-connect";
 import { hlState } from "@/lib/local/hl";
 import { fmtZoned, type StrategyCycle } from "@/lib/local/strategy";
 import { compute } from "@/lib/local/engine";
@@ -252,7 +253,7 @@ export default function SettingsPage() {
       </section>
       <section aria-label="OKX">
         <SectionTitle sub="API v5 somente leitura, por um gateway seguro na Cloudflare">OKX</SectionTitle>
-        <Panel className="flex items-center gap-3 px-4 py-3"><span className="size-2 rounded-full bg-muted/40" aria-hidden /><span className="flex-1 text-[13px] text-muted">Não conectada. A conexão fica disponível quando o gateway seguro estiver publicado (Fase 4b). As chaves da OKX nunca ficam neste aparelho nem no GitHub.</span></Panel>
+        <OkxConnect />
         <p className="mt-2 text-[12px] text-muted">Cadastro manual e importação CSV de saldos: em <a href="#/portfolio" className="text-accent">Portfólio → Adicionar ativo / CSV</a>.</p>
       </section>
       <section aria-label="Ciclos da estratégia">

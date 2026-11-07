@@ -10,6 +10,7 @@ import { setPricesLoading } from "@/lib/api";
 import { loadPortfolio } from "@/lib/portfolio/db";
 import { recordSnapshot, refreshPortfolioPrices } from "@/lib/portfolio/engine";
 import { syncAllAccounts } from "@/lib/connectors";
+import { detectGateway, syncOkx } from "@/lib/connectors/okx";
 
 /** Cotação a cada 60 s e sempre que o app volta para a tela. */
 function PriceLoop() {
@@ -74,8 +75,8 @@ function PortfolioLoop() {
     let alive = true;
     const tick = async () => { await refreshPortfolioPrices(); if (alive) recordSnapshot(); };
     let lastSync = 0;
-    const syncTick = async () => { if (document.visibilityState !== "visible" || Date.now() - lastSync < 10 * 60e3) return; lastSync = Date.now(); await syncAllAccounts(); if (alive) recordSnapshot(); };
-    loadPortfolio().then(async () => { await tick(); await syncTick(); });
+    const syncTick = async () => { if (document.visibilityState !== "visible" || Date.now() - lastSync < 10 * 60e3) return; lastSync = Date.now(); await syncAllAccounts(); await syncOkx(); if (alive) recordSnapshot(); };
+    loadPortfolio().then(async () => { await detectGateway(); await tick(); await syncTick(); });
     const id = setInterval(() => { void tick(); void syncTick(); }, 5 * 60e3);
     return () => { alive = false; clearInterval(id); };
   }, []);

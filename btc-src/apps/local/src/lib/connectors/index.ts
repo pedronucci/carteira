@@ -8,7 +8,8 @@ import { refreshPortfolioPrices } from "../portfolio/engine";
 import { closeUsdAt, prices } from "../local/prices";
 import { parseXKey, syncBitcoin, isBtcAddress, type XKey } from "./bitcoin";
 import { isEvmAddress, syncEvm } from "./evm";
-import { isSolAddress, syncSolana } from "./solana";
+import { isSolAddress, SPL_KNOWN, syncSolana } from "./solana";
+import { solanaTokensViaGateway } from "./okx";
 
 export type ConnKind = "bitcoin" | "evm" | "solana";
 const INSTITUTION: Record<ConnKind, string> = { bitcoin: "Carteira Bitcoin", evm: "Carteira EVM", solana: "Carteira Solana" };
@@ -71,6 +72,14 @@ export async function syncAccount(id: string): Promise<void> {
     } else {
       const r = await syncSolana(id, cfg.address!);
       holdings = r.holdings; info = r.note;
+      const spl = await solanaTokensViaGateway(cfg.address!).catch((e: Error) => { info = `SOL lido · tokens SPL: ${e.message}`; return null; });
+      if (spl) {
+        for (const t of spl) {
+          const k = SPL_KNOWN[t.mint];
+          holdings.push({ accountId: id, assetKey: `solana:${t.mint}`, econ: k?.econ ?? `solana:${t.mint}`, symbol: k?.symbol ?? `${t.mint.slice(0, 4)}…${t.mint.slice(-4)}`, network: "Solana", qty: t.amount, kind: "spot", source: "sync", wrapped: k?.wrapped, at: Date.now(), name: k?.staking ? "token de staking (separado do SOL)" : k ? undefined : "token não reconhecido" });
+        }
+        info = `SOL e ${spl.length} token(s) SPL (pelo gateway)`;
+      }
     }
     await updatePortfolio((d) => {
       d.synced = [...d.synced.filter((h) => h.accountId !== id), ...holdings];

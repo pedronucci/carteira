@@ -14,6 +14,7 @@ import { fmtDuration } from "@/lib/local/strategy";
 import { EquityChart, C } from "@/components/charts";
 import { Sheet } from "@/components/sheet";
 import { useIntegrations } from "@/components/nav";
+import { portfolio } from "@/lib/portfolio/db";
 import { Button, Kpi, KpiGrid, Notice, Panel, PanelHead, Pill, RiskMeter, Segmented, Skeleton, cn, toneCls, toneOf } from "@/components/ui";
 
 type WidgetId = "risk" | "hodl" | "market" | "moves" | "alerts" | "sources";
@@ -268,7 +269,7 @@ function Widget({ id, s }: { id: WidgetId; s: Snap }) {
             <span className="num text-[11px] text-muted">{i.state === "ok" && i.at ? new Date(i.at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : i.detail}</span>
           </li>
         ))}
-        {["OKX"].map((n) => (
+        {(portfolio().accounts.some((a) => a.kind === "okx") ? [] : ["OKX"]).map((n) => (
           <li key={n} className="flex items-center gap-3 px-4 py-2.5 text-[13px] text-muted"><span className="size-2 rounded-full bg-muted/40" aria-hidden /><span className="flex-1">{n}</span><span className="text-[11px]">não conectada</span></li>
         ))}
       </ul>

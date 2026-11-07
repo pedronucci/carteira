@@ -1,0 +1,34 @@
+# Gateway seguro do Bitcoin Strategy Terminal 5.0 (Cloudflare Workers).
+# Serve o app (mesmo arquivo do GitHub Pages) e a API privada /api/* no MESMO endereço, protegidos pelo
+# Cloudflare Access. Nenhum segredo fica no navegador. Passo a passo: docs/GATEWAY.md
+name = "bst-gateway"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+
+[assets]
+directory = "../local/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+# KV: credenciais CIFRADAS (AES-GCM com MASTER_KEY), retratos do portfólio e controle de limite de uso.
+# Crie com: npx wrangler kv namespace create BST  — e cole o id abaixo.
+[[kv_namespaces]]
+binding = "BST"
+id = "COLE_AQUI_O_ID_DO_KV"
+
+[vars]
+# domínio da equipe do Cloudflare One (ex.: "minhaequipe.cloudflareaccess.com")
+ACCESS_TEAM_DOMAIN = "COLE_AQUI.cloudflareaccess.com"
+# "Application Audience (AUD) Tag" do aplicativo do Access que protege este Worker
+ACCESS_AUD = "COLE_AQUI_O_AUD"
+# único e-mail autorizado (o seu)
+OWNER_EMAIL = "COLE_AQUI_SEU_EMAIL"
+
+# Segredos (NUNCA neste arquivo): npx wrangler secret put MASTER_KEY
+#   MASTER_KEY      32 bytes aleatórios em base64 (cifra as credenciais guardadas no KV)
+#   SOLANA_RPC_URL  opcional: URL de um RPC Solana indexado (ex.: Helius), para tokens SPL
+
+[triggers]
+# retrato do portfólio da OKX a cada hora, mesmo com o app fechado
+crons = ["17 * * * *"]
