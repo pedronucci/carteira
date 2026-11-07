@@ -36,12 +36,26 @@ limites diários), Cron Triggers e Access (até 50 usuários). Uso pessoal fica 
      Guarde uma cópia num gerenciador de senhas: sem ela, as credenciais guardadas não podem ser lidas
      (basta conectar a OKX de novo).
    - (opcional) `SOLANA_RPC_URL` = URL de um RPC Solana indexado (ex.: Helius, plano gratuito), para tokens SPL.
-4. **Cloudflare Access** — no Worker → Settings → Domains & Routes → no `workers.dev`, ative **Cloudflare Access**
-   (ou: Zero Trust → Access → Applications → *Add* → Self-hosted → o domínio do Worker). Política: *Allow* →
-   *Emails* → o seu e-mail. Método de login: *One-time PIN*.
-   Copie a **Application Audience (AUD) Tag** e o **team domain** (`suaequipe.cloudflareaccess.com`).
-5. **Variáveis** — em `wrangler.toml` (ou no painel, Variables): `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`,
-   `OWNER_EMAIL` (o mesmo e-mail da política). Não são segredos.
+4. **Cloudflare Access** (o "porteiro" que exige login antes de abrir o gateway):
+   1. *Ativar o Zero Trust (uma vez)*: no painel, menu **Zero Trust**. Na primeira vez ele pede um **team name**
+      (ex.: `pedronucci`) e um plano: escolha **Free** (pode pedir um cartão para validar a conta; o Free não cobra).
+      O seu *team domain* passa a ser `pedronucci.cloudflareaccess.com`.
+   2. *Ligar o login por código no e-mail*: Zero Trust → **Settings** → **Authentication** → **Login methods** →
+      **Add new** → **One-time PIN** → **Save** (nas contas novas ele não vem ligado).
+   3. *Proteger o Worker*: **Workers & Pages** → `bst-gateway` → **Settings** → **Domains & Routes** → na linha
+      `workers.dev`, ative **Cloudflare Access** (em alguns layouts fica no menu ⋯ da linha). Isso cria um aplicativo
+      do Access para o endereço `bst-gateway.<sua-conta>.workers.dev`.
+   4. *Só o seu e-mail entra*: Zero Trust → **Access** → **Applications** → abra o aplicativo criado → **Policies** →
+      edite a política (ou **Add a policy**): **Action: Allow**; em **Include**, seletor **Emails** → o seu e-mail.
+      Apague qualquer regra que inclua "Everyone" ou um domínio inteiro. Em **Login methods** do aplicativo, deixe
+      marcado **One-time PIN**.
+   5. *Copiar dois valores*: no mesmo aplicativo (aba **Overview**/**Basic information**), copie a
+      **Application Audience (AUD) Tag** (64 caracteres hexadecimais). O *team domain* fica em Zero Trust →
+      **Settings** → **Team name and domain** (ou **Custom Pages**, em layouts antigos).
+5. **Variáveis** — no Worker → Settings → Variables and Secrets → **+ Add**, tipo **Text** (não são segredos, mas
+   ficam só no painel; o `wrangler.toml` tem `keep_vars = true` para o deploy não apagá-las):
+   `ACCESS_TEAM_DOMAIN` = `pedronucci.cloudflareaccess.com` (sem `https://`), `ACCESS_AUD` = a tag copiada,
+   `OWNER_EMAIL` = o mesmo e-mail da política. Clique em **Deploy**.
 6. **Deploy** — faça um commit/push (o Workers Builds publica). Abra `https://bst-gateway.<sua-conta>.workers.dev`:
    o Access pede o código do e-mail e depois mostra o terminal.
 7. **Seus dados** — o app no gateway tem um armazenamento próprio (outro endereço). No app do GitHub Pages:

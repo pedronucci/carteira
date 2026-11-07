@@ -4,6 +4,8 @@
 name = "bst-gateway"
 main = "src/index.ts"
 compatibility_date = "2026-11-01"
+# mantém as variáveis configuradas no painel a cada deploy (sem isso, o Wrangler as apagaria)
+keep_vars = true
 
 [assets]
 directory = "../local/dist"
@@ -17,14 +19,11 @@ run_worker_first = ["/api/*"]
 binding = "BST"
 id = "COLE_AQUI_O_ID_DO_KV"
 
-[vars]
-# domínio da equipe do Cloudflare One (ex.: "minhaequipe.cloudflareaccess.com")
-ACCESS_TEAM_DOMAIN = "COLE_AQUI.cloudflareaccess.com"
-# "Application Audience (AUD) Tag" do aplicativo do Access que protege este Worker
-ACCESS_AUD = "COLE_AQUI_O_AUD"
-# único e-mail autorizado (o seu)
-OWNER_EMAIL = "COLE_AQUI_SEU_EMAIL"
-
+# Variáveis configuradas SÓ no painel (Worker → Settings → Variables and Secrets, tipo Text), para não irem ao
+# repositório e não serem apagadas a cada deploy:
+#   ACCESS_TEAM_DOMAIN  ex.: "suaequipe.cloudflareaccess.com" (sem https://)
+#   ACCESS_AUD          "Application Audience (AUD) Tag" do aplicativo do Access que protege este Worker
+#   OWNER_EMAIL         o único e-mail autorizado (o mesmo da política do Access)
 # Segredos (NUNCA neste arquivo): npx wrangler secret put MASTER_KEY
 #   MASTER_KEY      32 bytes aleatórios em base64 (cifra as credenciais guardadas no KV)
 #   SOLANA_RPC_URL  opcional: URL de um RPC Solana indexado (ex.: Helius), para tokens SPL
