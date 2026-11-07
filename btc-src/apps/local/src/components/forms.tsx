@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { d, fmtMoney } from "@bst/domain";
-import { getStore, uid, updateStore, type Add, type Cycle, type Flow } from "@/lib/local/store";
+import { getStore, uid, updateStore, type Add, type Cycle, type Flow, backupNow } from "@/lib/local/store";
 import { prices } from "@/lib/local/prices";
 import { compute, cycleSizeBtc, cycleValue, estimateLiq, foldAdd, simulateEntry, withAdds } from "@/lib/local/engine";
 import { useFmt } from "@/lib/state";
@@ -95,6 +95,7 @@ export function EntrySheet({ edit: editIn, onClose }: { edit?: Cycle | null; onC
   const save = () => {
     if (!sim) return toast("Preencha preço de entrada, alavancagem e capital.", "loss");
     const c: Cycle = { ...(edit ?? {}), id: edit?.id ?? uid(), openedAt: date, entryPx: d(entry).toFixed(), leverage: d(lev).toFixed(), capital: d(capital).toFixed(), feesOpen: fees ? d(fees).toFixed() : undefined, liqPx: liq ? d(liq).toFixed() : undefined, stopPx: stop ? d(stop).toFixed() : undefined, targetPx: target ? d(target).toFixed() : undefined, platform: platform || undefined };
+    backupNow("antes de salvar uma posição");
     updateStore((s) => { const i = s.cycles.findIndex((x) => x.id === c.id); if (i >= 0) s.cycles[i] = c; else s.cycles.push(c); });
     toast(edit ? "Entrada atualizada." : "Entrada registrada. Você está em BTC.", "gain");
     onClose();
@@ -102,11 +103,13 @@ export function EntrySheet({ edit: editIn, onClose }: { edit?: Cycle | null; onC
   const remove = () => {
     if (!edit || !confirm("Apagar este ciclo (e os aumentos dele)?")) return;
     const deps = new Set((edit.adds ?? []).map((a) => `add-${a.id}`));
+    backupNow("antes de apagar uma posição");
     updateStore((s) => { s.cycles = s.cycles.filter((x) => x.id !== edit.id); s.flows = s.flows.filter((x) => !deps.has(x.id)); });
     onClose();
   };
   const removeAdd = (a: Add) => {
     if (!edit || !confirm("Apagar este aumento de posição?")) return;
+    backupNow("antes de apagar um aumento");
     updateStore((s) => { const c = s.cycles.find((x) => x.id === edit.id); if (c) c.adds = (c.adds ?? []).filter((x) => x.id !== a.id); s.flows = s.flows.filter((x) => x.id !== `add-${a.id}`); });
     toast("Aumento apagado.", "gain");
   };
@@ -174,11 +177,12 @@ export function ExitSheet({ cycle: cycleIn, onClose }: { cycle: Cycle; onClose: 
   const preview = pos(px) ? (() => { const c = { ...cycle, funding: funding || undefined, adds: undefined }; const out = cycleValue(c, d(px)).minus(fees || 0); return { out, pnl: out.minus(cycle.capital), pct: out.div(cycle.capital).minus(1) }; })() : null;
   const save = () => {
     if (!pos(px)) return toast("Informe o preço de saída.", "loss");
+    backupNow("antes de registrar uma saída");
     updateStore((s) => { const c = s.cycles.find((x) => x.id === cycle.id); if (c) Object.assign(c, { closedAt: date, exitPx: d(px).toFixed(), feesClose: fees ? d(fees).toFixed() : undefined, funding: funding ? d(funding).toFixed() : undefined }); });
     toast("Saída registrada. Você está em USDC.", "gain");
     onClose();
   };
-  const reopen = () => { updateStore((s) => { const c = s.cycles.find((x) => x.id === cycle.id); if (c) { delete c.closedAt; delete c.exitPx; delete c.feesClose; } }); onClose(); };
+  const reopen = () => { backupNow("antes de reabrir uma posição"); updateStore((s) => { const c = s.cycles.find((x) => x.id === cycle.id); if (c) { delete c.closedAt; delete c.exitPx; delete c.feesClose; } }); onClose(); };
   return (
     <Sheet title={cycle.closedAt ? "Editar saída" : "Sair para USDC"} onClose={onClose} footer={
       <div className="flex gap-2"><Button variant="primary" size="lg" className="flex-1" onClick={save} disabled={!preview}>{cycle.closedAt ? "Salvar" : "Registrar saída"}</Button>{cycle.closedAt && <Button size="lg" onClick={reopen}>Reabrir</Button>}</div>}>
@@ -212,7 +216,7 @@ export function FlowSheet({ edit, onClose }: { edit?: Flow | null; onClose: () =
     toast(kind === "IN" ? "Aporte registrado." : "Retirada registrada.", "gain");
     onClose();
   };
-  const remove = () => { if (!edit || !confirm("Apagar este lançamento?")) return; updateStore((s) => { s.flows = s.flows.filter((x) => x.id !== edit.id); }); onClose(); };
+  const remove = () => { if (!edit || !confirm("Apagar este lançamento?")) return; backupNow("antes de apagar um lançamento"); updateStore((s) => { s.flows = s.flows.filter((x) => x.id !== edit.id); }); onClose(); };
   return (
     <Sheet title={edit ? "Editar lançamento" : "Aporte ou retirada"} onClose={onClose} footer={
       <div className="flex gap-2"><Button variant="primary" size="lg" className="flex-1" onClick={save}>Salvar</Button>{edit && <Button variant="danger" size="lg" onClick={remove}>Apagar</Button>}</div>}>

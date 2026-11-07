@@ -74,7 +74,13 @@ export interface Trip {
   equityAtOpen: number; pnlPct: number | null; btcMove: number | null;
 }
 
-export interface SPoint { ts: number; equity: number; netFlow: number; contrib: number; hodl: number | null; price: number; inBtc: boolean; size: number }
+/**
+ * Ponto da série de patrimônio. `ts` é o instante real da avaliação (segundos UTC):
+ * o 1º ponto é o início do ciclo; os seguintes, o fechamento de cada dia (UTC) e, por último, o fim/agora.
+ * `netFlow` = aportes − retiradas desde o ponto anterior; `wFlow` = os mesmos fluxos ponderados pela
+ * fração do período em que ficaram aplicados (para o retorno de Dietz modificado).
+ */
+export interface SPoint { ts: number; equity: number; netFlow: number; wFlow: number; contrib: number; hodl: number | null; price: number; inBtc: boolean; size: number }
 
 export interface ReplayInput {
   startT: number; // ms
@@ -151,26 +157,50 @@ export function replay(inp: ReplayInput): ReplayOut {
     }
   };
 
-  // série diária (dias UTC); o último ponto usa o preço do fim
+  // série: início do ciclo → um ponto no instante de cada aporte/retirada → fechamento de cada dia (UTC) → fim/agora.
+  // Avaliar a carteira no instante de cada fluxo dá o retorno ponderado no tempo verdadeiro (padrão GIPS):
+  // cada fluxo abre um novo subperíodo, e o resultado de antes do fluxo é medido sobre o capital de antes.
+  const tradesPx = ev.filter((e): e is Extract<SEv, { k: "trade" }> => e.k === "trade");
+  const NEAR = 2 * 3600e3;
+  /** Melhor preço conhecido num instante: a execução mais próxima (até 2 h), senão o fechamento do dia. */
+  const pxAt = (t: number, fallback: number) => {
+    let best: number | null = null, gap = NEAR;
+    for (const x of tradesPx) { const g = Math.abs(x.t - t); if (g <= gap) { gap = g; best = x.px; } }
+    if (best != null) return best;
+    const day = Math.floor(t / 1000 / DAY) * DAY;
+    return day === Math.floor(inp.endT / 1000 / DAY) * DAY ? inp.pxEnd : inp.closeAt(day) ?? fallback;
+  };
   const points: SPoint[] = [];
+  let i = 0, contrib = inp.equity0, lastPx = inp.px0;
+  let prevMs = inp.startT;
+  let pending: { t: number; usd: number }[] = []; // fluxos do subperíodo em andamento
+  const push = (atMs: number, px: number) => {
+    const span = Math.max(1, atMs - prevMs);
+    const netFlow = pending.reduce((x, f) => x + f.usd, 0);
+    const wFlow = pending.reduce((x, f) => x + f.usd * (atMs - Math.max(f.t, prevMs)) / span, 0);
+    points.push({ ts: atMs / 1000, equity: eqAt(px), netFlow, wFlow, contrib, hodl: hodlUnits > 0 ? hodlUnits * px : null, price: px, inBtc: size > 0, size });
+    prevMs = atMs; pending = [];
+  };
+  points.push({ ts: inp.startT / 1000, equity: eqAt(inp.px0), netFlow: 0, wFlow: 0, contrib, hodl: hodlUnits > 0 ? hodlUnits * inp.px0 : null, price: inp.px0, inBtc: size > 0, size });
   const d0 = Math.floor(inp.startT / 1000 / DAY) * DAY;
   const dEnd = Math.floor(inp.endT / 1000 / DAY) * DAY;
-  let i = 0, contrib = inp.equity0, lastPx = inp.px0;
   for (let day = d0; day <= dEnd; day += DAY) {
-    const dayEndMs = (day + DAY) * 1000;
-    let netFlow = 0;
-    while (i < ev.length && ev[i]!.t < dayEndMs && ev[i]!.t <= inp.endT) {
+    const atMs = day === dEnd ? inp.endT : (day + DAY) * 1000 - 1; // instante da avaliação
+    if (atMs <= prevMs) continue;
+    while (i < ev.length && ev[i]!.t <= atMs) {
       const e = ev[i++]!;
-      const hint = e.k === "trade" ? e.px : inp.closeAt(Math.floor(e.t / 1000 / DAY) * DAY) ?? lastPx;
-      apply(e, hint);
-      if (e.k === "flow") { netFlow += e.usd; contrib += e.usd; }
+      if (e.k === "flow") {
+        const pf = pxAt(e.t, lastPx);
+        if (e.t - prevMs > 60e3) push(e.t, pf); // fecha o subperíodo antes do fluxo
+        apply(e, pf);
+        pending.push({ t: e.t, usd: e.usd }); contrib += e.usd;
+      } else apply(e, e.k === "trade" ? e.px : lastPx);
     }
     const px = day === dEnd ? inp.pxEnd : inp.closeAt(day) ?? lastPx;
     if (!px) continue;
     lastPx = px;
-    points.push({ ts: day, equity: eqAt(px), netFlow: points.length ? netFlow : 0, contrib, hodl: hodlUnits > 0 ? hodlUnits * px : null, price: px, inBtc: size > 0, size });
+    if (atMs > prevMs) push(atMs, px);
   }
-  while (i < ev.length && ev[i]!.t <= inp.endT) { const e = ev[i++]!; apply(e, e.k === "trade" ? e.px : lastPx); if (e.k === "flow") contrib += e.usd; }
 
   const equity = eqAt(inp.pxEnd);
   if (trip) {
@@ -202,21 +232,45 @@ export function positionAt(trades: Extract<SEv, { k: "trade" }>[], t: number, si
   return { size, entry };
 }
 
-/** Retorno ponderado no tempo da série. */
-export function twr(points: SPoint[]): number | null {
+/**
+ * Retorno de um período pelo método de Dietz modificado:
+ *   r = (E1 − E0 − F) / (E0 + W)
+ * F = fluxos externos do período; W = fluxos ponderados pelo tempo em que ficaram aplicados.
+ * Um aporte feito no meio do dia entra no denominador na proporção certa, em vez de ser
+ * tratado como se tivesse chegado no fim do dia.
+ */
+export function periodRet(a: { equity: number }, b: { equity: number; netFlow: number; wFlow: number }): number {
+  const base = a.equity + b.wFlow;
+  return base > 1e-9 ? (b.equity - a.equity - b.netFlow) / base : 0;
+}
+/** Retorno ponderado no tempo (encadeia os períodos da série). */
+export type FlowPoint = { ts: number; equity: number; netFlow: number; wFlow: number };
+export function twr(points: FlowPoint[]): number | null {
   if (points.length < 2) return null;
   let g = 1;
-  for (let i = 1; i < points.length; i++) { const a = points[i - 1]!, b = points[i]!; if (a.equity > 0) g *= (b.equity - b.netFlow) / a.equity; }
+  for (let i = 1; i < points.length; i++) g *= 1 + periodRet(points[i - 1]!, points[i]!);
   return g - 1;
 }
-export function maxDrawdown(points: SPoint[]): number {
-  let idx = 1, peak = 1, mdd = 0;
-  for (let i = 1; i < points.length; i++) {
-    const a = points[i - 1]!, b = points[i]!;
-    if (a.equity > 0) idx *= (b.equity - b.netFlow) / a.equity;
-    peak = Math.max(peak, idx); mdd = Math.max(mdd, 1 - idx / peak);
-  }
-  return mdd;
+/** Índice de rentabilidade e queda desde o pico, ponto a ponto. */
+export function drawdowns(points: FlowPoint[]): { ts: number; index: number; dd: number }[] {
+  let idx = 1, peak = 1;
+  return points.map((p, i) => {
+    if (i > 0) idx *= 1 + periodRet(points[i - 1]!, p);
+    peak = Math.max(peak, idx);
+    return { ts: p.ts, index: idx, dd: 1 - idx / peak };
+  });
+}
+export function maxDrawdown(points: FlowPoint[]): number {
+  return drawdowns(points).reduce((m, x) => Math.max(m, x.dd), 0);
+}
+/** Duração legível: "45 min", "19 h", "1 d 19 h", "12 d". */
+export function fmtDuration(ms: number): string {
+  const m = Math.max(0, Math.floor(ms / 60000));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} h`;
+  const dd = Math.floor(h / 24), rh = h % 24;
+  return dd < 10 && rh ? `${dd} d ${rh} h` : `${dd} d`;
 }
 
 // ───────── fuso horário ─────────

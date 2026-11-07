@@ -75,6 +75,9 @@ export interface Store {
 }
 
 const KEY = "bst.local.v2";
+/** Cópias automáticas (as mais recentes primeiro), feitas antes de qualquer operação que substitui dados. */
+const AUTO = "bst.local.v2.auto";
+const AUTO_MAX = 12;
 const OLD = "bst.local.v1";
 const DEFAULT: Store = {
   v: 3, initial: null, cycles: [], flows: [], updatedAt: new Date(0).toISOString(), strategies: [], view: "active",
@@ -92,6 +95,7 @@ export function getStore(): Store {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed.v !== 3 && !localStorage.getItem(KEY + ".bak")) localStorage.setItem(KEY + ".bak", raw); // cópia intacta antes da migração
+      if (parsed.v !== 3) pushAuto(raw, "antes da migração de versão");
       current = normalize(parsed);
       if (parsed.v !== 3) localStorage.setItem(KEY, JSON.stringify(current));
     }
@@ -143,12 +147,49 @@ function fromV1(o: V1): Store {
 }
 
 export function updateStore(fn: (s: Store) => void) {
+  // cópia periódica: no máximo uma a cada 6 h de uso
+  const lastAt = readAuto()[0]?.at;
+  if (!lastAt || Date.now() - new Date(lastAt).getTime() > 6 * 3600e3) backupNow("cópia periódica");
   const s = structuredClone(getStore());
   fn(s);
   s.updatedAt = new Date().toISOString();
   current = s;
   try { localStorage.setItem(KEY, JSON.stringify(s)); storageOk = true; } catch { storageOk = false; }
   subs.forEach((f) => f());
+}
+
+// ───────── cópias automáticas ─────────
+
+export interface AutoBackup { at: string; reason: string; data: string }
+
+function readAuto(): AutoBackup[] {
+  try { const a = JSON.parse(localStorage.getItem(AUTO) ?? "[]"); return Array.isArray(a) ? a : []; } catch { return []; }
+}
+function pushAuto(data: string, reason: string) {
+  try {
+    const list = readAuto();
+    if (list[0]?.data === data) return; // nada mudou desde a última cópia
+    list.unshift({ at: new Date().toISOString(), reason, data });
+    let keep = list.slice(0, AUTO_MAX);
+    // se o armazenamento estiver cheio, descarta as cópias mais antigas até caber
+    for (;;) {
+      try { localStorage.setItem(AUTO, JSON.stringify(keep)); return; }
+      catch { if (keep.length <= 1) return; keep = keep.slice(0, -1); }
+    }
+  } catch { /* sem armazenamento */ }
+}
+/** Guarda uma cópia dos dados atuais antes de uma operação que pode substituir ou apagar algo. */
+export function backupNow(reason: string) {
+  try { const raw = localStorage.getItem(KEY); if (raw) pushAuto(raw, reason); } catch { /* sem armazenamento */ }
+}
+export const listAutoBackups = (): AutoBackup[] => readAuto();
+/** Restaura uma cópia automática (fazendo antes uma cópia do estado atual, para poder voltar). */
+export function restoreAutoBackup(at: string) {
+  const b = readAuto().find((x) => x.at === at);
+  if (!b) throw new Error("Cópia não encontrada.");
+  const next = normalize(JSON.parse(b.data));
+  backupNow("antes de restaurar uma cópia automática");
+  updateStore((cur) => { for (const k of Object.keys(cur)) delete (cur as unknown as Record<string, unknown>)[k]; Object.assign(cur, next); });
 }
 
 export function subscribeStore(f: () => void) { subs.add(f); return () => { subs.delete(f); }; }
@@ -170,7 +211,8 @@ export function importBackup(text: string) {
     next = normalize(data);
   } else if (Array.isArray(data.ops)) next = fromV1(data);
   else throw new Error("Este arquivo não é um backup do Bitcoin Strategy Terminal.");
+  backupNow("antes de restaurar um backup");
   updateStore((cur) => Object.assign(cur, next));
 }
 
-export function resetStore() { updateStore((s) => Object.assign(s, structuredClone(DEFAULT))); }
+export function resetStore() { backupNow("antes de apagar tudo"); updateStore((s) => Object.assign(s, structuredClone(DEFAULT))); }

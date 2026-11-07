@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { Copy, Download, Trash2, Upload } from "lucide-react";
 import { DEFAULT_SCENARIO_RULES, type ScenarioRules } from "@bst/domain";
 import { useDataVersion } from "@/lib/api";
-import { exportBackup, getStore, importBackup, resetStore, storageAvailable, updateStore } from "@/lib/local/store";
+import { backupNow, exportBackup, getStore, importBackup, listAutoBackups, resetStore, restoreAutoBackup, storageAvailable, updateStore } from "@/lib/local/store";
 import { prices } from "@/lib/local/prices";
 import { Button, Field, Notice, Panel, SectionTitle } from "@/components/ui";
 import { num } from "@/components/forms";
@@ -87,6 +87,37 @@ function Rules() {
   );
 }
 
+/** Cópias feitas sozinhas antes de editar, apagar, restaurar ou migrar dados. */
+function AutoBackups() {
+  useDataVersion();
+  const [open, setOpen] = useState(false);
+  const list = listAutoBackups();
+  const fmt = (iso: string) => new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const restore = (at: string) => {
+    if (!window.confirm(`Voltar os dados para a cópia de ${fmt(at)}? O estado atual também fica guardado como cópia.`)) return;
+    try { restoreAutoBackup(at); toast("Cópia restaurada.", "gain"); } catch (e) { toast((e as Error).message, "loss"); }
+  };
+  return (
+    <div className="border-t border-line/70 pt-4">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between text-left text-[14px]">
+        <span><span className="font-semibold text-ink">Cópias automáticas</span><span className="block text-[12px] text-muted">Feitas antes de editar, apagar ou restaurar. Ficam neste aparelho.</span></span>
+        <span className="num shrink-0 text-muted">{list.length}</span>
+      </button>
+      {open && (list.length ? (
+        <ul className="mt-3 divide-y divide-line rounded-md border border-line">
+          {list.map((b) => (
+            <li key={b.at} className="flex items-center gap-3 px-3 py-2 text-[13px]">
+              <span className="num w-[92px] shrink-0 text-ink-2">{fmt(b.at)}</span>
+              <span className="min-w-0 flex-1 truncate text-muted">{b.reason}</span>
+              <Button size="sm" variant="ghost" onClick={() => restore(b.at)}>Restaurar</Button>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="mt-3 text-[13px] text-muted">Nenhuma cópia ainda. A primeira é feita na próxima alteração.</p>)}
+    </div>
+  );
+}
+
 function Backup() {
   const file = useRef<HTMLInputElement>(null);
   const [paste, setPaste] = useState("");
@@ -117,6 +148,7 @@ function Backup() {
         <textarea value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="…ou cole aqui o texto do backup" rows={3} className="mt-3 w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-[16px] text-ink placeholder:text-muted focus:border-accent focus:outline-none" />
         {paste.trim() && <Button variant="primary" className="mt-2 w-full" onClick={() => doImport(paste)}>Restaurar texto colado</Button>}
       </div>
+      <AutoBackups />
       <div className="border-t border-line/70 pt-4">
         {confirm === 0 && <Button variant="ghost" className="w-full text-loss" onClick={() => setConfirm(1)}><Trash2 className="size-4" />Apagar todos os dados</Button>}
         {confirm === 1 && (
@@ -141,6 +173,7 @@ function Cycles() {
   const remove = (c: StrategyCycle) => {
     if (c.status === "active") return toast("Encerre o ciclo atual criando um novo antes de apagá-lo.", "loss");
     if (!confirm(`Apagar o ciclo “${c.name}”? Os lançamentos e o histórico da conta não são apagados.`)) return;
+    backupNow("antes de apagar um ciclo");
     updateStore((x) => { x.strategies = x.strategies.filter((y) => y.id !== c.id); if (x.view === c.id) x.view = "active"; });
   };
   return (

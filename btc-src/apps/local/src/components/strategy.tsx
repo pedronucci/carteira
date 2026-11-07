@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, History, Layers, Plus, RefreshCw } from "lucide-react";
 import { fmtMoney } from "@bst/domain";
 import { useDataVersion } from "@/lib/api";
-import { getStore, localTz, uid, updateStore } from "@/lib/local/store";
+import { backupNow, getStore, localTz, uid, updateStore } from "@/lib/local/store";
 import { activeStrategy, account, compute, resolveScope } from "@/lib/local/engine";
 import { buildSnapshot, type SnapResult } from "@/lib/local/snapshot";
 import { localIso } from "@/lib/local/hl";
@@ -100,7 +100,9 @@ export function StrategyForm({ mode, edit, onDone }: { mode: "new" | "edit"; edi
   const [date, setDate] = useState(start0.date);
   const [time, setTime] = useState(start0.time);
   const [tz, setTz] = useState(tz0);
-  const [res, setRes] = useState<SnapResult | null>(null);
+  // o retrato de um ciclo existente fica travado: só é recalculado se o início mudar ou se o usuário pedir
+  const [res, setRes] = useState<SnapResult | null>(edit?.snapshot ? { snap: edit.snapshot, missing: [], detail: ["Retrato guardado no início do ciclo. Ele só muda se você alterar o início ou tocar em Recalcular."] } : null);
+  const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [manual, setManualS] = useState(edit?.snapshot?.source === "manual");
   const [userManual, setUserManual] = useState(edit?.snapshot?.source === "manual");
@@ -115,15 +117,17 @@ export function StrategyForm({ mode, edit, onDone }: { mode: "new" | "edit"; edi
   const startAt = useMemo(() => { try { return zonedToUtc(date, time, tz); } catch { return NaN; } }, [date, time, tz]);
   const firstManual = acc.kind === "manual" && !acc.firstT;
 
+  const locked = Boolean(edit?.snapshot) && !touched && startAt === edit?.startAt;
   const recalc = async () => {
     if (!Number.isFinite(startAt)) return;
+    setTouched(true);
     setBusy(true);
     const r = await buildSnapshot(startAt, { arbUsd: arb ? Number(num(arb)) : undefined });
     setRes(r); setBusy(false);
     if (r.snap) { setMEq(r.snap.equityUsd); setMSize(r.snap.positions.find((p) => p.coin === "BTC")?.size ?? ""); setMPx(r.snap.btcUsd); if (!userManual) setManual(false); }
     else setManual(true);
   };
-  useEffect(() => { if (!firstManual) { const id = setTimeout(recalc, 350); return () => clearTimeout(id); } return undefined; /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [startAt, arb]);
+  useEffect(() => { if (!firstManual && !locked) { const id = setTimeout(recalc, 350); return () => clearTimeout(id); } return undefined; /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [startAt, arb]);
 
   const save = () => {
     if (!Number.isFinite(startAt)) return toast("Data ou hora inválida.", "loss");
@@ -139,6 +143,7 @@ export function StrategyForm({ mode, edit, onDone }: { mode: "new" | "edit"; edi
     }
     if (!snap) return toast("Ainda não há patrimônio inicial. Aguarde o cálculo ou informe à mão.", "loss");
     const accounts: StrategyCycle["accounts"] = acc.kind === "hl" && s.settings.hl ? [{ kind: "hyperliquid", address: s.settings.hl.address, includeArb: s.settings.hl.includeArb }] : [{ kind: "manual" }];
+    backupNow(mode === "edit" ? "antes de editar o ciclo" : "antes de iniciar um novo ciclo");
     updateStore((x) => {
       if (mode === "edit" && edit) {
         const c = x.strategies.find((y) => y.id === edit.id);
@@ -183,7 +188,7 @@ export function StrategyForm({ mode, edit, onDone }: { mode: "new" | "edit"; edi
       <div className="rounded-2xl border border-line bg-surface-2 p-4">
         <div className="flex items-center justify-between gap-2">
           <p className="text-[15px] font-semibold">Patrimônio inicial</p>
-          {!firstManual && <button type="button" onClick={recalc} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-accent"><RefreshCw className={cn("size-3.5", busy && "animate-spin")} />Recalcular</button>}
+          {!firstManual && <button type="button" onClick={() => { if (!locked || window.confirm("Recalcular o patrimônio inicial deste ciclo? O retrato guardado será substituído.")) void recalc(); }} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-accent"><RefreshCw className={cn("size-3.5", busy && "animate-spin")} />Recalcular</button>}
         </div>
         {!firstManual && !manual && (busy && !snap ? <p className="mt-3 text-[14px] text-muted">Calculando pelo histórico…</p> : snap ? (
           <div className="mt-3 space-y-1.5 text-[14px]">

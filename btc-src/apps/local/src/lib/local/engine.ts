@@ -14,7 +14,7 @@ import {
 import { getStore, type Add, type Cycle, type Store } from "./store";
 import { closeUsdAt, prices, usdBrlAt } from "./prices";
 import { hlState, type HlLive } from "./hl";
-import { DAY as DAYS, maxDrawdown, replay, twr, windowEvents, type SEv, type SPoint, type StrategyCycle, type Trip } from "./strategy";
+import { DAY as DAYS, drawdowns, maxDrawdown, periodRet, replay, twr, windowEvents, type SEv, type SPoint, type StrategyCycle, type Trip } from "./strategy";
 
 const DAY = DAYS;
 export const tsOf = (iso: string) => Math.floor(new Date(iso.length === 10 ? `${iso}T12:00` : iso).getTime() / 1000);
@@ -158,7 +158,7 @@ export function resolveScope(s: Store = getStore(), view: string = s.view): Scop
   return null;
 }
 
-export interface CPointN { ts: number; equity: number; netFlow: number; contrib: number; hodl: number | null; price: number; inBtc: boolean; btc: number }
+export interface CPointN { ts: number; equity: number; netFlow: number; wFlow: number; contrib: number; hodl: number | null; price: number; inBtc: boolean; btc: number }
 
 export class NeedsSetup extends Error {}
 
@@ -232,8 +232,9 @@ export function compute(view?: string) {
       btcMove: r.basis ? pxNow.div(r.basis).minus(1) : ZERO,
       liq, liqDist: liq ? pxNow.minus(liq).div(pxNow) : null,
       effLeverage: equityN > 0 ? notional / equityN : null, leverageSetting: livePos?.leverage ?? (manualW ? Number(manualW.leverage) : null),
-      funding: livePos ? livePos.fundingSinceOpen : openTrip.funding,
-      days: Math.max(0, Math.floor((nowMs - openTrip.openT) / 1000 / DAY)),
+      // no ciclo, só o funding depois do início (o "desde a abertura" da corretora inclui o período anterior)
+      funding: scope.kind === "account" && livePos ? livePos.fundingSinceOpen : openTrip.funding,
+      heldMs: Math.max(0, (closed ? endT : nowMs) - openTrip.openT),
     };
   })() : null;
   if (current?.liqDist && current.liqDist.lt(s.settings.minLiqDistance)) warnings.unshift(`Preço a ${current.liqDist.mul(100).toFixed(1)}% da liquidação.`);
@@ -251,20 +252,20 @@ export function compute(view?: string) {
   const lastExit = !current ? trips[0] ?? null : null;
   const sinceExit = lastExit && lastExit.exit ? { t: lastExit.closeT!, px: lastExit.exit, move: pxEnd / lastExit.exit - 1 } : null;
 
-  const y = points.length >= 2 ? points[points.length - 2]! : null;
-  const lastPt = points[points.length - 1];
-  const dayChange = y && lastPt ? lastPt.equity - y.equity - lastPt.netFlow : null;
+  const day = periodReturn(points, 1, true);
   const free = acc.kind === "hl" ? live?.withdrawable ?? null : equityN - (manualW ? cycleValue(manualW, pxNow).toNumber() : 0);
 
   return {
     s, now, acc, scope, label, snapSource, startT, endT, closed, events,
     equity: d(equityN), equity0, contrib: r.contrib, flowsIn: r.flowsIn, flowsOut: r.flowsOut, result, fees: r.fees, funding: r.funding,
     realized: r.realized, unrealized: r.unrealized, modelEquity: r.equity, official, reconciliation,
-    twr: twr(r.points), maxDD: maxDrawdown(r.points), hodl: r.hodl, vsHodl: r.hodl != null ? equityN - r.hodl : null,
+    twr: twr(r.points), maxDD: maxDrawdown(r.points),
+    /** Retorno sobre o capital: resultado ÷ (patrimônio inicial + aportes). */
+    roc: equity0 + r.flowsIn > 0 ? result / (equity0 + r.flowsIn) : null, hodl: r.hodl, vsHodl: r.hodl != null ? equityN - r.hodl : null,
     vsHodlPct: r.hodl ? equityN / r.hodl - 1 : null, hodlRet: r.hodl && r.contrib > 0 ? r.hodl / r.contrib - 1 : null,
     state: current ? ("BTC" as const) : ("USDC" as const), current, trips, stats, sinceExit,
     inUsdcSince: !current ? (lastExit?.closeT ?? startT) : null,
-    dayChange, dayChangePct: y && y.equity > 0 && dayChange != null ? dayChange / y.equity : null,
+    dayChange: day?.money ?? null, dayChangePct: day?.pct ?? null, dayPartial: day?.partial ?? false,
     points, warnings, livePos, live, free,
   };
 }
@@ -331,34 +332,38 @@ export function market() {
 
 export type Ccy = "USD" | "BRL";
 export type CPoint = CPointN;
-/** Série convertida para a moeda escolhida, com o câmbio de cada dia (aportes somados no câmbio da data). */
+/** Série convertida para a moeda escolhida, com o câmbio de cada instante (aportes somados no câmbio da data). */
 export function inCcy(points: CPointN[], ccy: Ccy, fxNow: number | null): CPointN[] {
   let contrib = 0;
   return points.map((p, i) => {
-    const fx = ccy === "BRL" ? usdBrlAt(p.ts + DAY - 1) ?? fxNow ?? 1 : 1;
+    const fx = ccy === "BRL" ? usdBrlAt(p.ts) ?? fxNow ?? 1 : 1;
     contrib = i === 0 ? p.contrib * fx : contrib + p.netFlow * fx;
-    return { ...p, equity: p.equity * fx, netFlow: p.netFlow * fx, contrib, hodl: p.hodl != null ? p.hodl * fx : null };
+    return { ...p, equity: p.equity * fx, netFlow: p.netFlow * fx, wFlow: p.wFlow * fx, contrib, hodl: p.hodl != null ? p.hodl * fx : null };
   });
 }
-/** Retorno ponderado no tempo e resultado em dinheiro desde `days` atrás (null = desde o início). */
-export function periodReturn(pts: CPointN[], days: number | null): { pct: number; money: number } | null {
+/**
+ * Retorno ponderado no tempo (Dietz modificado, encadeado) e resultado em dinheiro desde `days` atrás.
+ * `days` = null: desde o início. `partial`: se a série for mais curta que o período, mede desde o início
+ * (e devolve partial = true) em vez de não mostrar nada.
+ */
+export function periodReturn(pts: CPointN[], days: number | null, partial = false): { pct: number; money: number; partial: boolean } | null {
   if (pts.length < 2) return null;
   const end = pts[pts.length - 1]!.ts;
-  let i0 = 0;
+  let i0 = 0, isPartial = false;
   if (days != null) {
     const cut = end - days * DAY;
-    if (pts[0]!.ts > cut) return null;
-    i0 = pts.findIndex((p) => p.ts >= cut);
-    if (i0 < 0) return null;
+    if (pts[0]!.ts > cut + 60) { if (!partial) return null; isPartial = true; }
+    else { i0 = pts.findIndex((p) => p.ts >= cut); if (i0 < 0 || i0 >= pts.length - 1) i0 = Math.max(0, pts.length - 2); }
   }
   let g = 1, money = 0;
   for (let i = i0 + 1; i < pts.length; i++) {
     const a = pts[i - 1]!, b = pts[i]!;
-    if (a.equity > 0) g *= (b.equity - b.netFlow) / a.equity;
+    g *= 1 + periodRet(a, b);
     money += b.equity - a.equity - b.netFlow;
   }
-  if (days == null) money = pts[pts.length - 1]!.equity - pts[pts.length - 1]!.contrib;
-  return { pct: g - 1, money };
+  return { pct: g - 1, money, partial: isPartial };
 }
+/** Queda desde o pico da carteira, ponto a ponto (sem o efeito de aportes e retiradas). */
+export const drawdownPoints = (pts: CPointN[]) => drawdowns(pts).map((x) => ({ ts: x.ts, dd: x.dd }));
 
 export function usdBrlOn(iso: string) { return usdBrlAt(tsOf(iso)); }
