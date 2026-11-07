@@ -18,7 +18,7 @@ O Bitcoin Strategy Terminal acompanha a estratégia "100% USDC ↔ 100% BTC (lon
 ## Operating Context
 - No iPhone, como PWA. O Safari e o app da Tela de Início guardam dados separados. O backup é feito em JSON por Ajustes > Backup.
 - Com a Hyperliquid conectada, atualiza a cada 20 s com o app aberto. Também aceita lançamentos manuais (o modo usado no ciclo atual).
-- Ciclo atual: começou em 05/11/2026 às 21:13 (America/Sao_Paulo), sem posição aberta no início, e já está cadastrado no app.
+- Ciclo atual: começou em 05/11/2026 às 21:13 (America/Sao_Paulo) com a primeira transação do ciclo (abertura do long em BTC). Não havia posição aberta antes disso. O ciclo já está cadastrado no app; na captura de 07/11, essa compra aparece às 21:20, horário a conferir.
 - Publicado pelo GitHub Pages em /carteira/btc/ (pasta `btc/`, a partir da branch `main`).
 
 ## Capabilities and Constraints
