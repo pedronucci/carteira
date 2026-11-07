@@ -15,7 +15,7 @@ run_worker_first = ["/api/*"]
 # Crie com: npx wrangler kv namespace create BST  — e cole o id abaixo.
 [[kv_namespaces]]
 binding = "BST"
-id = "COLE_AQUI_O_ID_DO_KV"
+id = "5a1f17983341443ab684c40827fbaf87"
 
 [vars]
 # domínio da equipe do Cloudflare One (ex.: "minhaequipe.cloudflareaccess.com")
