@@ -21,9 +21,9 @@ id = "5a1f17983341443ab684c40827fbaf87"
 
 # Variáveis configuradas SÓ no painel (Worker → Settings → Variables and Secrets, tipo Text), para não irem ao
 # repositório e não serem apagadas a cada deploy:
-#   ACCESS_TEAM_DOMAIN  ex.: "suaequipe.cloudflareaccess.com" (sem https://)
-#   ACCESS_AUD          "Application Audience (AUD) Tag" do aplicativo do Access que protege este Worker
-#   OWNER_EMAIL         o único e-mail autorizado (o mesmo da política do Access)
+#   ACCESS_TEAM_DOMAIN  ex.: "lively-cell-2d0e.cloudflareaccess.com"
+#   ACCESS_AUD          "aa16b7281ee369237c43ad990c4a8c7dd8abd763637aadef8b03c172f138dd0a" do aplicativo do Access que protege este Worker
+#   OWNER_EMAIL         pedro.nucci@hotmail.com (o mesmo da política do Access)
 # Segredos (NUNCA neste arquivo): npx wrangler secret put MASTER_KEY
 #   MASTER_KEY      32 bytes aleatórios em base64 (cifra as credenciais guardadas no KV)
 #   SOLANA_RPC_URL  opcional: URL de um RPC Solana indexado (ex.: Helius), para tokens SPL
