@@ -20,10 +20,12 @@ export interface PortfolioData {
   /** id CoinGecko por ativo econômico (para ativos fora do registro) e preço manual */
   priceIds: Record<string, string>;
   manualPrices: Record<string, number>;
+  /** estado da última sincronização de cada conta conectada */
+  sync: Record<string, { state: "ok" | "error" | "sync"; at: number; error?: string; info?: string }>;
 }
 
 const DB = "bst5", STORE = "kv", KEY = "portfolio";
-const EMPTY = (): PortfolioData => ({ v: 1, accounts: [], manual: [], synced: [], positions: [], events: [], snapshots: [], priceIds: {}, manualPrices: {} });
+const EMPTY = (): PortfolioData => ({ v: 1, accounts: [], manual: [], synced: [], positions: [], events: [], snapshots: [], priceIds: {}, manualPrices: {}, sync: {} });
 
 let data: PortfolioData = EMPTY();
 let ready = false;

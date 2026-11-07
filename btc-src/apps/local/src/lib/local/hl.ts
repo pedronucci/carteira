@@ -53,8 +53,12 @@ async function info<T>(body: Record<string, unknown>): Promise<T> {
   return r.json() as Promise<T>;
 }
 
-/** Busca paginada por tempo (a API devolve no máximo ~2000 itens por chamada). */
-async function paged<T extends { time: number }>(body: Record<string, unknown>, startTime: number, max = 15): Promise<{ rows: T[]; truncated: boolean }> {
+/**
+ * Busca paginada por tempo. Segundo a documentação oficial, userFillsByTime devolve no máximo 2000 itens por
+ * resposta e só as 10.000 execuções mais recentes. A próxima página recomeça NO último instante recebido
+ * (inclusivo), para não perder execuções do mesmo milissegundo; as repetidas saem na deduplicação por chave.
+ */
+async function paged<T extends { time: number }>(body: Record<string, unknown>, startTime: number, max = 15, pageSize = 500): Promise<{ rows: T[]; truncated: boolean }> {
   const rows: T[] = [];
   let from = startTime;
   for (let i = 0; i < max; i++) {
@@ -62,8 +66,8 @@ async function paged<T extends { time: number }>(body: Record<string, unknown>, 
     if (!Array.isArray(page) || page.length === 0) return { rows, truncated: false };
     rows.push(...page);
     const lastT = Math.max(...page.map((x) => x.time));
-    if (page.length < 500 || lastT <= from) return { rows, truncated: false };
-    from = lastT + 1;
+    if (page.length < pageSize) return { rows, truncated: false };
+    from = lastT > from ? lastT : lastT + 1;
   }
   return { rows, truncated: true };
 }
@@ -188,7 +192,7 @@ export async function refreshHistory(address: string, _opts: { includeArb?: bool
     const prev = state.address === user && state.history?.v === 2 ? state.history : null;
     const from = (rows: { time: number }[] | undefined) => (rows?.length ? Math.max(0, rows[rows.length - 1]!.time - 3600e3) : 0);
     const [f, l, fu, pf] = await Promise.all([
-      paged<RawFill>({ type: "userFillsByTime", user }, from(prev?.fills)),
+      paged<RawFill>({ type: "userFillsByTime", user }, from(prev?.fills), 15, 2000),
       paged<RawLedger>({ type: "userNonFundingLedgerUpdates", user }, from(prev?.ledger)),
       paged<RawFunding>({ type: "userFunding", user }, from(prev?.funding), 40),
       info<Portfolio>({ type: "portfolio", user }).catch(() => null),
@@ -212,7 +216,7 @@ export async function refreshHistory(address: string, _opts: { includeArb?: bool
       address: user, error: null, syncing: false,
       history: {
         at: Date.now(), fills: mergeBy(prev?.fills ?? [], fills), ledger: mergeBy(prev?.ledger ?? [], ledger), funding: mergeBy(prev?.funding ?? [], funding),
-        accountValue: av, pnl, truncated: Boolean(prev?.truncated) || f.truncated || l.truncated, syncs: (prev?.syncs ?? 0) + 1, v: 2,
+        accountValue: av, pnl, truncated: Boolean(prev?.truncated) || f.truncated || l.truncated || (!prev && new Set(f.rows.map((x) => x.tid ?? `${x.time}${x.px}${x.sz}`)).size >= 10000), syncs: (prev?.syncs ?? 0) + 1, v: 2,
       },
     });
   } catch (e) {

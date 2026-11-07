@@ -110,3 +110,17 @@ Recompensas resgatadas na Hyperliquid (`rewardsClaim`) entram no colateral e no 
 - **Cadastrar, alterar ou remover um saldo manual** registra um ajuste com a diferença de valor: não é lucro nem aporte.
 - A conta da Estratégia entra pelo patrimônio real dela (Hyperliquid ao vivo, ou modelo dos lançamentos manuais), e os
   aportes da Estratégia contam como fluxos dessa conta. O portfólio nunca altera os dados da Estratégia.
+
+## Conectores públicos (somente leitura)
+| Fonte | O que lê | De onde | Limite conhecido |
+|---|---|---|---|
+| Bitcoin | saldo (confirmado e não confirmado), UTXOs, transações recentes por endereço | mempool.space (CORS liberado) | xpub/ypub/zpub e descritores pkh/sh(wpkh)/wpkh: derivação local, limite de 20 endereços sem uso por cadeia; taproot (tr) ainda não |
+| EVM / Rabby | saldo nativo e tokens do registro verificado em Ethereum, Arbitrum, Base, Optimism e BNB Chain | RPC público PublicNode (lote JSON-RPC) | descoberta de outros tokens e histórico exigem explorador com chave → gateway |
+| Solana | saldo de SOL | RPC PublicNode (o RPC oficial recusa páginas web: 403) | tokens SPL exigem RPC indexado com chave → gateway |
+
+- Transação Bitcoin: líquido = saídas para endereços próprios − entradas de endereços próprios (o troco para um
+  endereço próprio não é saída). Valor em USD pelo fechamento diário do BTC na data.
+- Movimentação sem par fica **pendente** e conta como aporte/retirada até você classificar: entrada não
+  classificada nunca vira lucro.
+- O app recusa frase de recuperação, chave privada (EVM) e chave privada estendida (xprv) com mensagem clara.
+- Verificado em 07/11/2026 contra as APIs reais, a partir do navegador, com endereços públicos de teste.

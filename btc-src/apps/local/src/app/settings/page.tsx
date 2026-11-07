@@ -8,6 +8,7 @@ import { prices } from "@/lib/local/prices";
 import { Button, Field, Notice, Panel, SectionTitle } from "@/components/ui";
 import { num } from "@/components/forms";
 import { StrategySheet } from "@/components/strategy";
+import { PortfolioIntegrations } from "@/components/integrations";
 import { hlState } from "@/lib/local/hl";
 import { fmtZoned, type StrategyCycle } from "@/lib/local/strategy";
 import { compute } from "@/lib/local/engine";
@@ -245,13 +246,13 @@ export default function SettingsPage() {
         <SectionTitle sub="Conta da Estratégia BTC/USDC: posição, saldo e operações, somente leitura">Hyperliquid</SectionTitle>
         <Panel className="p-4"><HlConnect /></Panel>
       </section>
-      <section aria-label="Outras integrações">
-        <SectionTitle sub="Entram no Portfólio Consolidado, nunca no resultado da estratégia">Outras integrações</SectionTitle>
-        <Panel className="divide-y divide-line">
-          {[["OKX", "API v5 somente leitura, via gateway seguro (Fase 4b)"], ["Carteiras EVM / Rabby", "endereço público, modo observação (Fase 4a)"], ["Bitcoin", "endereços públicos ou xpub (Fase 4a)"], ["Solana", "endereço público (Fase 4a)"], ].map(([n, d]) => (
-            <div key={n} className="flex items-center gap-3 px-4 py-3"><span className="size-2 rounded-full bg-muted/40" aria-hidden /><span className="min-w-0 flex-1"><span className="block text-[14px]">{n}</span><span className="block text-[12px] text-muted">{d}</span></span><span className="lbl">não conectada</span></div>
-          ))}
-        </Panel>
+      <section aria-label="Carteiras">
+        <SectionTitle sub="Entram no Portfólio Consolidado, nunca no resultado da estratégia">Carteiras (Bitcoin, EVM/Rabby, Solana)</SectionTitle>
+        <PortfolioIntegrations />
+      </section>
+      <section aria-label="OKX">
+        <SectionTitle sub="API v5 somente leitura, por um gateway seguro na Cloudflare">OKX</SectionTitle>
+        <Panel className="flex items-center gap-3 px-4 py-3"><span className="size-2 rounded-full bg-muted/40" aria-hidden /><span className="flex-1 text-[13px] text-muted">Não conectada. A conexão fica disponível quando o gateway seguro estiver publicado (Fase 4b). As chaves da OKX nunca ficam neste aparelho nem no GitHub.</span></Panel>
         <p className="mt-2 text-[12px] text-muted">Cadastro manual e importação CSV de saldos: em <a href="#/portfolio" className="text-accent">Portfólio → Adicionar ativo / CSV</a>.</p>
       </section>
       <section aria-label="Ciclos da estratégia">

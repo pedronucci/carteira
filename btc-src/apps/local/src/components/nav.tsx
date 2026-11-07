@@ -17,6 +17,7 @@ import { useAppState, useFmt } from "@/lib/state";
 import { getStore } from "@/lib/local/store";
 import { hlState } from "@/lib/local/hl";
 import { prices } from "@/lib/local/prices";
+import { portfolio } from "@/lib/portfolio/db";
 import { cn, Segmented, toneCls, toneOf } from "./ui";
 
 type Icon = ComponentType<{ className?: string; strokeWidth?: number }>;
@@ -63,9 +64,13 @@ export function useIntegrations() {
   const sp = prices().spot;
   const hlOn = Boolean(s.settings.hl?.address);
   const hlFresh = Boolean(hl.live && Date.now() - hl.live.at < 10 * 60e3);
+  const conn = portfolio().accounts.filter((a) => a.kind === "bitcoin" || a.kind === "evm" || a.kind === "solana");
+  const st = conn.map((a) => portfolio().sync[a.id]?.state);
+  const wallets = { key: "wallets", label: "Carteiras", state: (!conn.length ? "none" : st.includes("error") ? "error" : st.includes("sync") ? "sync" : "ok") as "ok" | "error" | "sync" | "none", at: Math.max(0, ...conn.map((a) => portfolio().sync[a.id]?.at ?? 0)) || null, detail: conn.length ? `${conn.length} conectada(s)` : "nenhuma" };
   return [
     { key: "prices", label: "Cotações", state: !sp?.btcUsd ? "off" : sp.stale ? "stale" : "ok", at: sp?.at ?? null, detail: sp?.source || "—" },
     { key: "hl", label: "Hyperliquid", state: !hlOn ? "none" : hl.error ? "error" : hl.syncing ? "sync" : hlFresh ? "ok" : "stale", at: hl.live?.at ?? null, detail: hl.error ?? (hlOn ? "somente leitura" : "não conectada") },
+    wallets,
   ] as { key: string; label: string; state: "ok" | "stale" | "sync" | "error" | "off" | "none"; at: number | null; detail: string }[];
 }
 const DOT: Record<string, string> = { ok: "bg-gain", sync: "bg-accent animate-pulse", stale: "bg-warn", error: "bg-loss", off: "bg-loss", none: "bg-muted/60" };

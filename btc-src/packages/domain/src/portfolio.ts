@@ -26,6 +26,8 @@ export interface PAccount {
   network?: string;
   /** endereços públicos desta conta (para reconhecer transferências entre contas próprias) */
   addresses?: string[];
+  /** configuração do conector (endereços observados, chaves públicas estendidas, redes) — nunca segredos */
+  config?: Record<string, unknown>;
   createdAt: number;
 }
 
@@ -145,7 +147,7 @@ export function consolidate(accounts: PAccount[], holdings: PHolding[], prices: 
     const cost = allCost ? ls.reduce((x, l) => x + l.costUsd!, 0) : null;
     const p = prices[econ];
     return {
-      econ, symbol: ls.find((l) => !l.wrapped)?.symbol ?? ls[0]!.symbol, qty, priceUsd: p?.usd ?? null, valueUsd: value, share: value != null ? share(value) : null,
+      econ, symbol: econ.includes(":") ? ls[0]!.symbol : econ, qty, priceUsd: p?.usd ?? null, valueUsd: value, share: value != null ? share(value) : null,
       change24h: p?.change24h ?? null, costUsd: cost, pnlUsd: cost != null && value != null ? value - cost : null, avgCostUsd: cost != null && qty > 0 ? cost / qty : null,
       sources: ls.map(({ econ: _e, costUsd: _c, ...rest }) => rest),
     };

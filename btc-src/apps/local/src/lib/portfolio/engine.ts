@@ -108,7 +108,8 @@ export function portfolioView() {
   const classified = classifyFlows(p.events, accounts);
   const flows = [
     ...stratFlows,
-    ...classified.filter((e) => (e.cls === "external" || e.kind === "adjust") && e.usd != null).map((e) => ({ t: e.t, accountId: e.accountId, usd: (e.kind === "withdraw" || e.kind === "transfer_out" ? -1 : 1) * Math.abs(e.usd!) })),
+    // pendentes contam como aporte/retirada até o usuário classificar: entrada não classificada nunca vira lucro
+    ...classified.filter((e) => (e.cls === "external" || e.cls === "pending" || e.kind === "adjust") && e.usd != null).map((e) => ({ t: e.t, accountId: e.accountId, usd: (e.kind === "withdraw" || e.kind === "transfer_out" ? -1 : 1) * Math.abs(e.usd!) })),
   ];
   const series = portfolioReturns(p.snapshots, flows);
   return { accounts, holdings, positions, prices, c, classified, series, pending: classified.filter((e) => e.cls === "pending") };
