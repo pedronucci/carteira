@@ -1,0 +1,20 @@
+{
+  "name": "Bitcoin Strategy Terminal",
+  "short_name": "BTC Terminal",
+  "description": "Acompanhamento da estratégia 100% USDC ↔ 100% BTC. Dados salvos só no aparelho.",
+  "lang": "pt-BR",
+  "id": "btc-strategy-terminal",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1e1e1f",
+  "theme_color": "#1e1e1f",
+  "categories": ["finance"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

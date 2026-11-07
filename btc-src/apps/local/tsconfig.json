@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "jsx": "react-jsx", "noEmit": true, "noUncheckedIndexedAccess": false, "paths": { "@/*": ["./src/*"], "next/link": ["./src/lib/next-link.tsx"], "next/navigation": ["./src/lib/next-navigation.ts"] } },
+  "include": ["src"]
+}

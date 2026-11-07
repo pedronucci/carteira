@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --color-bg: #1e1e1f;
+  --color-surface: #262627;
+  --color-surface-2: #2d2d2e;
+  --color-surface-3: #363638;
+  --color-line: #343436;
+  --color-line-strong: #454547;
+  --color-ink: #f4f4f5;
+  --color-ink-2: #cfcfd2;
+  --color-muted: #a1a1a6;
+  --color-accent: #ebcd2f;
+  --color-accent-soft: #ebcd2f1f;
+  --color-btc: #f7931a;
+  --color-btc-soft: #f7931a22;
+  --color-usdc: #2775ca;
+  --color-gain: #2ec45a;
+  --color-gain-soft: #2ec45a1f;
+  --color-loss: #f0474f;
+  --color-loss-soft: #f0474f1f;
+  --color-warn: #f0b90b;
+  --color-warn-soft: #f0b90b1c;
+}
+
+:root { color-scheme: dark; -webkit-text-size-adjust: 100%; }
+html, body { background: var(--color-bg); color: var(--color-ink); }
+body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; font-feature-settings: "cv11"; overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; }
+button, a, input, select, label { touch-action: manipulation; }
+.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+::selection { background: #ebcd2f55; color: #fff; }
+input, textarea, select { caret-color: var(--color-accent); }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: 8px; }
+* { scrollbar-width: thin; scrollbar-color: var(--color-line-strong) transparent; }
+/* campos de data do iOS com a mesma cara dos demais */
+input[type="date"], input[type="datetime-local"] { -webkit-appearance: none; appearance: none; min-height: 44px; display: flex; align-items: center; }
+input::-webkit-date-and-time-value { text-align: left; }
+input[type="date"]::-webkit-calendar-picker-indicator, input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+@keyframes shimmer { 0% { background-position: -400px 0 } 100% { background-position: 400px 0 } }
+.skeleton { background: linear-gradient(90deg, var(--color-surface) 0%, var(--color-surface-2) 50%, var(--color-surface) 100%); background-size: 800px 100%; animation: shimmer 1.4s linear infinite; border-radius: 8px; }
+@keyframes sheet-in { from { transform: translateY(24px); opacity: 0 } to { transform: none; opacity: 1 } }
+.sheet-in { animation: sheet-in 260ms cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+.fade-in { animation: fade-in 200ms ease-out; }
+@media (prefers-reduced-motion: reduce) { .skeleton, .sheet-in, .fade-in { animation: none; } }
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.no-scrollbar { scrollbar-width: none; } .no-scrollbar::-webkit-scrollbar { display: none; }
