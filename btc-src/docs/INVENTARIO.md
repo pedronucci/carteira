@@ -1,0 +1,25 @@
+# Inventário de não-regressão (base: versão 4, commit 7339ebf)
+
+Tudo o que está aqui precisa continuar funcionando no Terminal 5.0. A coluna "Teste" indica onde o
+comportamento está fixado automaticamente; "manual" significa conferência visual a cada fase.
+
+| # | Funcionalidade | Teste |
+|---|---|---|
+| 1 | Ciclos: nome, início com hora e fuso, retrato inicial travado, novo ciclo encerra o anterior | `strategy.test.ts`, `regressao.test.ts` |
+| 2 | Janela do ciclo: nada antes do início entra no resultado | `regressao.test.ts` ("só eventos do ciclo") |
+| 3 | Resultado, capital, retorno sobre o capital e TWR do ciclo de 05/11/2026 21:13 | `regressao.test.ts`, `ciclo-nov2026.test.ts` |
+| 4 | Buy & Hold com o patrimônio inicial e os mesmos aportes | `regressao.test.ts`, `strategy.test.ts` |
+| 5 | Posição: tamanho, preço médio, alavancagem efetiva, liquidação, tempo na posição | `regressao.test.ts` |
+| 6 | Lançamentos manuais: entrar, aumentar (preço médio), sair, aportes e retiradas, editar e apagar | manual + `strategy.test.ts` |
+| 7 | Hyperliquid só leitura: saldos, posição, liquidação oficial, histórico bruto sem duplicar, CSV | `strategy.test.ts` (dedupe) + manual |
+| 8 | BRL/USD com o câmbio de cada data; modo privacidade | manual |
+| 9 | Backup: baixar, copiar, restaurar; cópias automáticas; backup inválido não altera nada | `regressao.test.ts` |
+| 10 | Migração v1 → v3 preservando a original | `regressao.test.ts` |
+| 11 | Abrir o app não altera os dados salvos | `regressao.test.ts` |
+| 12 | PWA offline; iPhone (área segura, campos de 16 px sem zoom) | manual |
+| 13 | Mercado: gráfico com MM50 e MM200, indicadores, leitura de cenário, simulador de entrada | manual |
+| 14 | Somente acompanhamento: nenhuma ordem, nenhuma chave privada, nenhuma frase de recuperação | revisão de código |
+
+## Cópia íntegra da versão 4
+- Tag `v4-final` → commit `7339ebf` (app publicado em `btc/` + fonte em `btc-src/`).
+- Para voltar: publicar o conteúdo de `btc/` dessa tag na `main`. Os dados no aparelho continuam compatíveis.
