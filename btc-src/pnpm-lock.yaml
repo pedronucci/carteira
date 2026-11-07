@@ -11,7 +11,7 @@ importers:
   apps/gateway:
     devDependencies:
       '@cloudflare/workers-types':
-        specifier: ^4.20260702.1
+        specifier: 4.20260702.1
         version: 4.20260702.1
       typescript:
         specifier: 5.9.3
@@ -20,7 +20,7 @@ importers:
         specifier: 3.2.4
         version: 3.2.4(jiti@2.7.0)(lightningcss@1.33.0)
       wrangler:
-        specifier: ^4.158.0
+        specifier: 4.158.0
         version: 4.158.0(@cloudflare/workers-types@4.20260702.1)
 
   apps/local:
