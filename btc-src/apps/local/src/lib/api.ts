@@ -5,6 +5,8 @@ export { NeedsSetup } from "./local/engine";
 import { subscribeStore } from "./local/store";
 import { prices, subscribePrices } from "./local/prices";
 import { subscribeHl } from "./local/hl";
+import { subscribePortfolio } from "./portfolio/db";
+import { portfolioView, subscribePortfolioPrices } from "./portfolio/engine";
 
 let version = 0;
 const vs = new Set<() => void>();
@@ -12,6 +14,8 @@ const bump = () => { version++; vs.forEach((f) => f()); };
 subscribeStore(bump);
 subscribePrices(bump);
 subscribeHl(bump);
+subscribePortfolio(bump);
+subscribePortfolioPrices(bump);
 export const useDataVersion = () => useSyncExternalStore((f) => { vs.add(f); return () => vs.delete(f); }, () => version, () => version);
 
 let loading = true;
@@ -31,3 +35,4 @@ function useSync<T>(fn: () => T) {
 
 export const useSnapshot = () => useSync(() => compute());
 export const useMarket = () => useSync(market);
+export const usePortfolio = () => useSync(portfolioView);

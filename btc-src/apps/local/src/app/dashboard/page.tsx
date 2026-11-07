@@ -6,8 +6,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpRight, Bitcoin, SlidersHorizontal } from "lucide-react";
-import { DEFAULT_SCENARIO_RULES, SCENARIO_LABEL } from "@bst/domain";
-import { NeedsSetup, useMarket, useSnapshot } from "@/lib/api";
+import { DEFAULT_SCENARIO_RULES, SCENARIO_LABEL, returnSince } from "@bst/domain";
+import { NeedsSetup, useMarket, usePortfolio, useSnapshot } from "@/lib/api";
 import { useFmt } from "@/lib/state";
 import { drawdownPoints, inCcy, periodReturn } from "@/lib/local/engine";
 import { fmtDuration } from "@/lib/local/strategy";
@@ -40,6 +40,7 @@ type Period = (typeof PERIODS)[number]["value"];
 
 export default function DashboardPage() {
   const q = useSnapshot();
+  const pq = usePortfolio();
   const f = useFmt();
   const [layout, setLayout] = useState<Layout>(loadLayout);
   const [edit, setEdit] = useState(false);
@@ -52,7 +53,8 @@ export default function DashboardPage() {
   const setup = q.error instanceof NeedsSetup;
   if (q.error && !setup) return <div className="pt-5"><Notice tone="loss">{q.error.message}</Notice></div>;
 
-  const pr = s ? periodReturn(pts, period === "all" ? null : Number(period), true) : null;
+  const pv = pq.data;
+  const pr = pv ? returnSince(pv.series, period === "all" ? null : Number(period) * 86400e3) : null;
   const shown = WIDGETS.length ? layout.order.filter((id) => !layout.hidden.includes(id)) : [];
 
   return (
@@ -78,19 +80,21 @@ export default function DashboardPage() {
 
         <Panel className="overflow-hidden lg:col-span-5">
           <PanelHead title="Patrimônio consolidado" right={<Link href="/portfolio" className="text-[12px] font-medium text-accent">Portfólio ›</Link>} />
-          {s ? (
+          {pv ? (
             <>
               <div className="px-4 pt-4">
-                <p className="lbl">Total</p>
-                <p className="num mt-1 text-[26px] font-semibold leading-none tracking-[-0.03em]">{f.money(s.equity)}</p>
-                <p className="num mt-1.5 text-[12px] text-muted">{f.ccy === "BRL" ? f.usd(s.equity) : f.brl(s.equity, s.now.usdBrl) ?? "—"} · ≈ {f.btc(s.equity.toNumber() / s.now.btcUsd.toNumber(), 6)} BTC</p>
+                <p className="lbl">Total · {pv.accounts.length} conta{pv.accounts.length === 1 ? "" : "s"}</p>
+                <p className="num mt-1 text-[26px] font-semibold leading-none tracking-[-0.03em]">{f.money(pv.c.totalUsd)}</p>
+                <p className="num mt-1.5 text-[12px] text-muted">{f.ccy === "BRL" ? f.usd(pv.c.totalUsd) : (s && f.brl(pv.c.totalUsd, s.now.usdBrl)) ?? "—"} · ≈ {pv.c.btcEquivalent != null ? f.btc(pv.c.btcEquivalent, 6) : "—"} BTC</p>
               </div>
               <div className="flex items-center justify-between gap-2 px-4 pt-3"><Segmented size="sm" label="Período" value={period} onChange={setPeriod} options={[...PERIODS]} /></div>
-              <div className="grid grid-cols-2 border-t border-line mt-3">
-                <Kpi className="border-r border-line" label={pr?.partial ? "Desde o início" : "Variação no período"} tone={toneOf(pr?.money)} value={pr ? f.cash(pr.money, { signed: true }) : "—"} sub="sem aportes e retiradas" />
-                <Kpi label="Rentabilidade (TWR)" tone={toneOf(pr?.pct)} value={pr ? f.pct(pr.pct) : "—"} sub="ajustada por fluxos" />
+              <div className="mt-3 grid grid-cols-2 border-t border-line">
+                <Kpi className="border-r border-line" label="Resultado no período" tone={toneOf(pr?.resultUsd)} value={pr ? f.money(pr.resultUsd, { signed: true }) : "—"} sub={pr ? "sem aportes, retiradas e ajustes" : "histórico ainda curto"} />
+                <Kpi label="Rentabilidade (TWR)" tone={toneOf(pr?.pct)} value={pr ? f.pct(pr.pct) : "—"} sub={pr ? `desde ${new Date(pr.fromT).toLocaleDateString("pt-BR")}` : "a partir do 2º retrato"} />
               </div>
-              <p className="border-t border-line px-4 py-2.5 text-[11px] leading-relaxed text-muted">Fontes incluídas: <span className="text-ink-2">Estratégia BTC/USDC</span>. Exchanges e carteiras entram aqui quando forem conectadas no Portfólio.</p>
+              <ul className="border-t border-line px-4 py-2.5 text-[11px] text-muted">
+                {pv.c.byAccount.slice(0, 4).map((x) => <li key={x.accountId} className="flex justify-between gap-2 py-0.5"><span className={cn("truncate", x.accountId === "strategy" && "text-gold")}>{x.name}</span><span className="num">{f.pct(x.share, false)}</span></li>)}
+              </ul>
             </>
           ) : <p className="px-4 py-6 text-[14px] text-muted">Sem dados ainda.</p>}
         </Panel>

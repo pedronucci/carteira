@@ -7,6 +7,8 @@ import { getStore, subscribeStore } from "@/lib/local/store";
 import { hlState, refreshHistory, refreshLive } from "@/lib/local/hl";
 import { tsOf } from "@/lib/local/engine";
 import { setPricesLoading } from "@/lib/api";
+import { loadPortfolio } from "@/lib/portfolio/db";
+import { recordSnapshot, refreshPortfolioPrices } from "@/lib/portfolio/engine";
 
 /** Cotação a cada 60 s e sempre que o app volta para a tela. */
 function PriceLoop() {
@@ -65,6 +67,18 @@ function HlLoop() {
   return null;
 }
 
+/** Portfólio: carrega o banco local, atualiza cotações a cada 5 min e guarda um retrato por hora. */
+function PortfolioLoop() {
+  useEffect(() => {
+    let alive = true;
+    const tick = async () => { await refreshPortfolioPrices(); if (alive) recordSnapshot(); };
+    loadPortfolio().then(tick);
+    const id = setInterval(tick, 5 * 60e3);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  return null;
+}
+
 export function Providers({ children }: { children: ReactNode }) {
-  return <AppStateProvider><PriceLoop /><HlLoop />{children}<Toaster /></AppStateProvider>;
+  return <AppStateProvider><PriceLoop /><HlLoop /><PortfolioLoop />{children}<Toaster /></AppStateProvider>;
 }

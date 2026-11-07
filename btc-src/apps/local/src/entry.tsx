@@ -9,13 +9,14 @@ import Market from "@/app/market/page";
 import Settings from "@/app/settings/page";
 import { Pending } from "@/app/pending";
 import Cycles from "@/app/cycles/page";
+import Portfolio from "@/app/portfolio/page";
 import { splitUrl, useUrl } from "@/lib/router";
 
 const PAGES: Record<string, () => React.ReactNode> = {
   "/": Dashboard,
   "/estrategia": StrategyMonitor, "/estrategia/performance": Performance, "/estrategia/transacoes": Operations, "/estrategia/ciclos": Cycles,
   "/mercado": Market, "/ajustes": Settings,
-  "/portfolio": () => <Pending path="/portfolio" />, "/trading": () => <Pending path="/trading" />, "/risco": () => <Pending path="/risco" />,
+  "/portfolio": Portfolio, "/trading": () => <Pending path="/trading" />, "/risco": () => <Pending path="/risco" />,
   "/inteligencia": () => <Pending path="/inteligencia" />, "/diario": () => <Pending path="/diario" />,
 };
 /** Endereços da versão 4 (favoritos e atalhos antigos continuam funcionando). */

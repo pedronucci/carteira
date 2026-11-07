@@ -8,6 +8,7 @@
 import type { ScenarioRules } from "@bst/domain";
 import type { StrategyCycle } from "./strategy";
 import { zonedToUtc } from "./strategy";
+import { exportPortfolio, importPortfolio } from "../portfolio/db";
 
 export interface Initial {
   date: string; // yyyy-mm-dd
@@ -195,8 +196,9 @@ export function restoreAutoBackup(at: string) {
 export function subscribeStore(f: () => void) { subs.add(f); return () => { subs.delete(f); }; }
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
+/** Backup v4: dados da Estratégia (data) + Portfólio Consolidado (portfolio). Restaura também backups v1 a v3. */
 export function exportBackup(): string {
-  return JSON.stringify({ app: "bitcoin-strategy-terminal", version: 3, exportedAt: new Date().toISOString(), data: getStore() }, null, 2);
+  return JSON.stringify({ app: "bitcoin-strategy-terminal", version: 4, exportedAt: new Date().toISOString(), data: getStore(), portfolio: exportPortfolio() }, null, 2);
 }
 
 export function importBackup(text: string) {
@@ -211,8 +213,10 @@ export function importBackup(text: string) {
     next = normalize(data);
   } else if (Array.isArray(data.ops)) next = fromV1(data);
   else throw new Error("Este arquivo não é um backup do Bitcoin Strategy Terminal.");
+  const pf = (parsed as { portfolio?: unknown }).portfolio;
   backupNow("antes de restaurar um backup");
   updateStore((cur) => Object.assign(cur, next));
+  if (pf) void importPortfolio(pf);
 }
 
 export function resetStore() { backupNow("antes de apagar tudo"); updateStore((s) => Object.assign(s, structuredClone(DEFAULT))); }

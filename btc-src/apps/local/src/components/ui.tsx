@@ -49,7 +49,7 @@ export function Kpi({ label, value, sub, tone, className, big }: { label: ReactN
   return (
     <div className={cn("min-w-0 px-3.5 py-3", className)}>
       <div className="lbl truncate">{label}</div>
-      <div className={cn("num mt-1 truncate font-semibold leading-tight", big ? "text-[20px]" : "text-[16px]", tone === "gain" && "text-gain", tone === "loss" && "text-loss", tone === "warn" && "text-warn")}>{value}</div>
+      <div className={cn("num mt-1 truncate font-semibold leading-tight", big ? "text-[17px] sm:text-[20px]" : "text-[16px]", tone === "gain" && "text-gain", tone === "loss" && "text-loss", tone === "warn" && "text-warn")}>{value}</div>
       {sub && <div className="num mt-0.5 text-[12px] leading-snug text-muted">{sub}</div>}
     </div>
   );

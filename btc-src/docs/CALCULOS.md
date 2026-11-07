@@ -87,3 +87,26 @@ Recompensas resgatadas na Hyperliquid (`rewardsClaim`) entram no colateral e no 
   `tamanho × (preço no início − preço naquele ponto)`, em vez de interpolar em linha reta.
 - Pendente de verificação na documentação oficial (o acesso a ela está bloqueado neste ambiente): o campo de
   valor de `rewardsClaim` e a taxa de saque (`withdraw.fee`).
+
+## Portfólio Consolidado (motor em `packages/domain/src/portfolio.ts`)
+- **Um saldo por (conta, ativo exato):** a leitura mais recente vence; sincronizações repetidas não duplicam.
+- **Contas com derivativos** (Hyperliquid, futuros da OKX) entram pelo **patrimônio líquido** oficial (margem e P&L
+  aberto já incluídos). As posições aparecem em "Posições em derivativos" e **nunca** são somadas; o nocional também não.
+  Na conta unificada da Hyperliquid, o colateral está no saldo spot e o P&L aberto entra como linha própria.
+- **Identidade dos ativos:** agrupa pelo ativo econômico só quando a identidade é conhecida (símbolos de exchange do
+  registro e contratos verificados em `assets.ts`). Representações (WBTC, cbBTC, UBTC, USDT0) aparecem marcadas;
+  token desconhecido fica no próprio grupo ("não reconhecido"), nunca somado a outro pelo símbolo.
+- **Sem preço:** fica fora do total e listado como "sem preço", nunca vale zero em silêncio. Preço: CoinGecko (id
+  conhecido ou informado), BTC igual ao da Estratégia, ou preço manual (marcado).
+- **Custo:** total informado por saldo; preço médio = custo ÷ quantidade. Se algum saldo do grupo não tem custo, o
+  custo do grupo é "desconhecido" (não zero) e o P&L não é calculado.
+- **BTC possuído:** soma do BTC spot e das representações conhecidas, por custódia. Perpétuo não conta.
+- **Movimentações** (`classifyFlows`): interna = contraparte própria, mesmo txid, ou par saída → entrada do mesmo
+  ativo com quantidade compatível (taxa ≤ 1%) em até 6 h. Depósito/saque sem par = aporte/retirada externa.
+  Transferência sem par = **pendente** (o usuário classifica). Compra, venda, swap, taxa, funding e recompensa = resultado.
+- **Rentabilidade** (`portfolioReturns`): retratos por hora com o valor de cada conta. Em cada intervalo só entram as
+  contas presentes nos dois retratos (conta nova não vira lucro) e os fluxos externos e **ajustes de cadastro** de cada
+  conta saem do resultado (Dietz modificado por intervalo, encadeado).
+- **Cadastrar, alterar ou remover um saldo manual** registra um ajuste com a diferença de valor: não é lucro nem aporte.
+- A conta da Estratégia entra pelo patrimônio real dela (Hyperliquid ao vivo, ou modelo dos lançamentos manuais), e os
+  aportes da Estratégia contam como fluxos dessa conta. O portfólio nunca altera os dados da Estratégia.
