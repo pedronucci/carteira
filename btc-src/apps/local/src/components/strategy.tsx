@@ -33,7 +33,7 @@ export function ScopeButton() {
   const sub = sc?.kind === "strategy" ? `desde ${shortDate(sc.strategy.startAt, sc.strategy.tz)}` : null;
   return (
     <>
-      <button onClick={() => setOpen(true)} className="inline-flex max-w-full items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-2 text-left text-[14px]">
+      <button onClick={() => setOpen(true)} className="inline-flex max-w-full items-center gap-2 rounded-md border border-line bg-surface px-3 py-1.5 text-left text-[13px] [@media(hover:hover)]:hover:border-line-strong">
         <Layers className="size-4 shrink-0 text-accent" aria-hidden />
         <span className="truncate font-semibold">{text}</span>
         {sub && <span className="shrink-0 text-muted">{sub}</span>}
@@ -55,7 +55,7 @@ function ScopeSheet({ onClose }: { onClose: () => void }) {
   const cur = s.view;
   if (form) return <StrategySheet mode={form} edit={form === "edit" ? active ?? undefined : undefined} onClose={onClose} />;
   const Item = ({ id, title, sub, res }: { id: string; title: string; sub: string; res?: { result: number; pct: number | null } | null }) => (
-    <button onClick={() => pick(id)} className={cn("flex w-full items-center gap-3 rounded-2xl border px-4 py-3.5 text-left", (cur === id || (id === "active" && cur === active?.id)) ? "border-accent bg-accent-soft" : "border-line bg-surface")}>
+    <button onClick={() => pick(id)} className={cn("flex w-full items-center gap-3 rounded-lg border px-4 py-3.5 text-left", (cur === id || (id === "active" && cur === active?.id)) ? "border-accent bg-accent-soft" : "border-line bg-surface")}>
       <span className="min-w-0 flex-1"><span className="block truncate text-[16px] font-semibold">{title}</span><span className="block text-[13px] text-muted">{sub}</span></span>
       {res && <span className={cn("num shrink-0 text-right text-[14px] font-semibold", toneCls(res.result > 0 ? "gain" : res.result < 0 ? "loss" : null))}>{f.money(res.result, { signed: true, compact: true })}{res.pct != null && <span className="block text-[12px] font-normal">{f.pct(res.pct)}</span>}</span>}
     </button>
@@ -66,7 +66,7 @@ function ScopeSheet({ onClose }: { onClose: () => void }) {
         <div>
           <p className="mb-2 text-[13px] font-semibold uppercase tracking-[0.06em] text-muted">Ciclo atual</p>
           {active ? <Item id="active" title={active.name} sub={`desde ${fmtZoned(active.startAt, active.tz)} · ${active.snapshot ? SRC_LABEL[active.snapshot.source] : "sem patrimônio inicial"}`} res={results[active.id]} />
-            : <p className="rounded-2xl border border-dashed border-line px-4 py-4 text-[14px] text-muted">Nenhum ciclo em andamento.</p>}
+            : <p className="rounded-lg border border-dashed border-line px-4 py-4 text-[14px] text-muted">Nenhum ciclo em andamento.</p>}
           <div className="mt-2 grid grid-cols-2 gap-2">
             {active && <Button onClick={() => setForm("edit")}>Editar ciclo</Button>}
             <Button variant={active ? "secondary" : "primary"} className={active ? "" : "col-span-2"} onClick={() => setForm("new")}><Plus className="size-4" />Novo ciclo</Button>
@@ -178,14 +178,14 @@ export function StrategyForm({ mode, edit, onDone }: { mode: "new" | "edit"; edi
       </div>
       <label className="block">
         <span className="mb-1.5 block text-[13px] text-muted">Fuso horário</span>
-        <select value={tz} onChange={(e) => setTz(e.target.value)} className="h-12 w-full rounded-xl border border-line bg-surface-2 px-3.5 text-[16px] text-ink focus:border-accent focus:outline-none">
+        <select value={tz} onChange={(e) => setTz(e.target.value)} className="h-12 w-full rounded-md border border-line bg-surface-2 px-3.5 text-[16px] text-ink focus:border-accent focus:outline-none">
           {[...new Set([localTz(), ...TZS])].map((z) => <option key={z} value={z}>{z.replace("_", " ")}</option>)}
         </select>
       </label>
       {Number.isFinite(startAt) && <p className="text-[13px] text-muted">Início: {fmtZoned(startAt, tz)} ({tz.replace("_", " ")}) · {new Date(startAt).toISOString().slice(0, 16).replace("T", " ")} UTC</p>}
       {mode === "new" && active && <Notice tone="info">O ciclo “{active.name}” será encerrado nesse instante. Ele continua salvo em Ciclos anteriores.</Notice>}
 
-      <div className="rounded-2xl border border-line bg-surface-2 p-4">
+      <div className="rounded-lg border border-line bg-surface-2 p-4">
         <div className="flex items-center justify-between gap-2">
           <p className="text-[15px] font-semibold">Patrimônio inicial</p>
           {!firstManual && <button type="button" onClick={() => { if (!locked || window.confirm("Recalcular o patrimônio inicial deste ciclo? O retrato guardado será substituído.")) void recalc(); }} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-accent"><RefreshCw className={cn("size-3.5", busy && "animate-spin")} />Recalcular</button>}
@@ -238,7 +238,7 @@ export function StrategySetup() {
         <h1 className="text-[28px] font-bold tracking-tight">Quando começou a estratégia?</h1>
         <p className="mt-1.5 text-[15px] leading-relaxed text-muted">O histórico antigo da conta fica guardado, mas só o que acontecer a partir do início entra no resultado, nos gráficos e na comparação com Buy & Hold.</p>
       </div>
-      <div className="rounded-2xl border border-line bg-surface p-5"><StrategyForm mode="new" onDone={() => undefined} /></div>
+      <div className="rounded-lg border border-line bg-surface p-5"><StrategyForm mode="new" onDone={() => undefined} /></div>
       <p className="flex items-center gap-2 text-[13px] text-muted"><History className="size-4" />Quer ver tudo sem separar? Depois de criar, escolha “Histórico completo da conta” no topo.</p>
     </div>
   );

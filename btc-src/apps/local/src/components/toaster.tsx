@@ -29,7 +29,7 @@ export function Toaster() {
   return (
     <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+76px)] z-[60] flex flex-col items-center gap-2 px-4 md:bottom-6 md:items-end md:pr-6">
       {items.map((t) => (
-        <div key={t.id} className={cn("pointer-events-auto flex max-w-sm items-start gap-3 rounded-xl border bg-surface-2 px-4 py-3 text-[14px] shadow-[0_8px_24px_rgba(0,0,0,0.5)]",
+        <div key={t.id} className={cn("pointer-events-auto flex max-w-sm items-start gap-3 rounded-md border bg-surface-2 px-4 py-3 text-[14px] shadow-[0_8px_24px_rgba(0,0,0,0.5)]",
           t.tone === "loss" ? "border-loss/40" : t.tone === "gain" ? "border-gain/40" : t.tone === "btc" ? "border-btc/40" : "border-line-strong")}>
           <span className="flex-1">{t.msg}</span>
           <button aria-label="Fechar" onClick={() => setItems((s) => s.filter((x) => x.id !== t.id))} className="text-muted hover:text-ink"><X className="size-4" /></button>

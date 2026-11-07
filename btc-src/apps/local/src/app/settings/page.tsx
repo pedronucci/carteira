@@ -74,7 +74,7 @@ function Rules() {
     toast("Regras salvas.", "gain");
   };
   return (
-    <details className="group rounded-2xl border border-line bg-surface">
+    <details className="group rounded-lg border border-line bg-surface">
       <summary className="flex h-12 cursor-pointer list-none items-center justify-between px-4 text-[15px] font-medium">Regras da leitura de mercado<span className="text-muted transition-transform group-open:rotate-90">›</span></summary>
       <div className="space-y-3 border-t border-line/70 p-4">
         <div className="grid grid-cols-2 gap-3">{keys.map((k) => <Field key={k} label={RULE_LABEL[k]!} inputMode="decimal" value={v[k]} onChange={(e) => setV({ ...v, [k]: e.target.value })} />)}</div>
@@ -145,7 +145,7 @@ function Backup() {
       <div className="border-t border-line/70 pt-4">
         <input ref={file} type="file" accept="application/json,.json,text/plain" className="hidden" onChange={async (e) => { const fl = e.target.files?.[0]; if (fl) doImport(await fl.text()); e.target.value = ""; }} />
         <Button className="w-full" onClick={() => file.current?.click()}><Upload className="size-4" />Restaurar de arquivo</Button>
-        <textarea value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="…ou cole aqui o texto do backup" rows={3} className="mt-3 w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-[16px] text-ink placeholder:text-muted focus:border-accent focus:outline-none" />
+        <textarea value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="…ou cole aqui o texto do backup" rows={3} className="mt-3 w-full rounded-md border border-line bg-surface-2 px-3 py-2.5 text-[16px] text-ink placeholder:text-muted focus:border-accent focus:outline-none" />
         {paste.trim() && <Button variant="primary" className="mt-2 w-full" onClick={() => doImport(paste)}>Restaurar texto colado</Button>}
       </div>
       <AutoBackups />

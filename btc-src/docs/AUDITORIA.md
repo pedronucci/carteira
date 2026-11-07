@@ -13,7 +13,7 @@ Base auditada: `btc/index.html`, commit `d92791c` (bundle compilado; o código-f
 
 ## Cálculos
 5. A série diária começa no fechamento UTC do dia de início, não no instante do início. O TWR e o drawdown ignoram o primeiro dia parcial, e os aportes desse dia ficam com fluxo zero.
-   - **Confirmado nas capturas:** 24H e "Total" mostram −2,65%, enquanto o resultado real é −1,62%. A perda (US$ 211,93) foi dividida pelo patrimônio antes do depósito de US$ 5.103,58.
+   - **Correção desta auditoria:** o −2,65% das capturas não era simplesmente errado. É um TWR, uma medida diferente do −1,62% (retorno sobre o capital). O defeito real era o TWR impreciso (aporte tratado como se chegasse no fim do dia UTC) e os dois números aparecerem sem rótulo. Com a carteira avaliada no instante do aporte, o TWR correto é −2,92%. Ver CALCULOS.md.
 6. O preço inicial vem do fechamento do candle de 1 h (até 59 min depois do início) e mistura o spot da Binance com o mark da Hyperliquid.
 7. O início é arredondado para o minuto, mas o retrato ao vivo pode ter até 10 min de atraso. Execuções nesse intervalo podem ser duplicadas ou ficar de fora.
 8. Ciclo encerrado é avaliado pelo fechamento diário, não pelo preço no momento do encerramento.
@@ -36,3 +36,20 @@ Base auditada: `btc/index.html`, commit `d92791c` (bundle compilado; o código-f
 4. Hyperliquid: itens 12 a 14, mark price e candle de 1 min.
 5. Documentação: ARQUITETURA.md e CALCULOS.md.
 6. Visual de terminal profissional (ver DESIGN-BRIEF.md).
+
+## Status (07/11/2026, branch `claude/friendly-hopper-ocnkxv`)
+| Item | Status |
+|---|---|
+| Código-fonte no repositório | feito (`btc-src/`) |
+| 1. Funding da posição herdada | corrigido (só depois do início) |
+| 2. Outras moedas no resultado | mantido; aviso e reconciliação explícitos (só afeta conta Hyperliquid com outros ativos) |
+| 3. Último ponto trocado pelo saldo oficial | mantido de propósito (o saldo oficial prevalece); a diferença aparece como reconciliação |
+| 4. Retrato inicial recalculado ao editar | corrigido (travado; só muda se o início mudar ou com "Recalcular" confirmado) |
+| 5. Série sem o 1º dia parcial e aportes no fim do dia | corrigido (TWR por subperíodo no instante de cada aporte) |
+| 6, 7, 9. Preço inicial, horário e reconstrução na Hyperliquid | pendente; exige dados reais da Hyperliquid para validar |
+| 8. Ciclo encerrado pelo fechamento diário | pendente (o patrimônio oficial no encerramento prevalece quando existe) |
+| 10. Dias em UTC | corrigido nos rótulos (pontos datados no instante real); preços diários seguem em UTC (Binance) |
+| 11. "Dias no ciclo: 0" | corrigido (duração em min, h e d) |
+| 12, 13, 14. Livro-razão, deduplicação, quota | pendente (Hyperliquid) |
+| 15. Restaurar ou zerar sem backup | corrigido (cópias automáticas + restauração em Ajustes) |
+| Schema v4 | não foi necessário: esta versão não muda o formato dos dados |

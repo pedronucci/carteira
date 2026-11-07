@@ -237,7 +237,7 @@ export function compute(view?: string) {
       heldMs: Math.max(0, (closed ? endT : nowMs) - openTrip.openT),
     };
   })() : null;
-  if (current?.liqDist && current.liqDist.lt(s.settings.minLiqDistance)) warnings.unshift(`Preço a ${current.liqDist.mul(100).toFixed(1)}% da liquidação.`);
+  if (current?.liqDist && current.liqDist.lt(s.settings.minLiqDistance)) warnings.unshift(`Preço a ${current.liqDist.mul(100).toFixed(1).replace(".", ",")}% da liquidação (seu limite: ${(Number(s.settings.minLiqDistance) * 100).toLocaleString("pt-BR")}%).`);
 
   // operações encerradas (entrada → saída) dentro do escopo
   const trips = r.trips.filter((t) => t.closeT != null).sort((a, b) => b.closeT! - a.closeT!);

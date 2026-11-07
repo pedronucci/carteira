@@ -21,7 +21,12 @@ margem em USDC). Cada entrada e saída forma um ciclo.
   início entra no resultado, nos gráficos e no Buy & Hold. Posição já aberta no
   início é herdada pelo preço daquele momento. O histórico completo da conta
   continua guardado e pode ser visto no seletor do topo.
-- Arquivo único (index.html). Sem servidor, Docker ou instalação.
+- RESULTADO: dois percentuais, cada um com rótulo. "s/ capital" = resultado ÷ (patrimônio inicial
+  + aportes). "TWR" = retorno ponderado no tempo (a carteira é avaliada no instante de cada aporte).
+  Fórmulas em btc-src/docs/CALCULOS.md.
+- CÓPIAS AUTOMÁTICAS: antes de editar, apagar, restaurar ou migrar dados, e a cada 6 h de uso.
+  Ajustes > Backup > Cópias automáticas (restaura com um toque).
+- Arquivo único (index.html), gerado a partir de btc-src/ (ver btc-src/README.md).
 - Os dados ficam SOMENTE no aparelho. Nada vai para o GitHub.
   Use Ajustes > Backup para levar os dados de um aparelho para outro.
 - Somente acompanhamento: não conecta à corretora nem executa ordens.

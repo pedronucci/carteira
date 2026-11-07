@@ -1,30 +1,16 @@
 "use client";
 import { useMemo, useState } from "react";
-import { TrendingDown, TrendingUp } from "lucide-react";
 import { NeedsSetup, useSnapshot } from "@/lib/api";
 import { StrategySetup } from "@/components/strategy";
 import { useFmt } from "@/lib/state";
-import { inCcy, periodReturn } from "@/lib/local/engine";
-import { drawdownSeries, d } from "@bst/domain";
-import { Notice, Panel, Segmented, Skeleton, cn, toneCls, toneOf } from "@/components/ui";
+import { drawdownPoints, inCcy, periodReturn } from "@/lib/local/engine";
+import { Kpi, KpiGrid, Notice, Panel, PanelHead, Row, Segmented, Skeleton, cn, toneCls, toneOf } from "@/components/ui";
 import { Hero } from "@/components/shell";
 import { BtcChart, C, DrawdownChart, EquityChart } from "@/components/charts";
 
-function PeriodCard({ label, r, icon }: { label: string; r: { pct: number; money: number } | null; icon?: boolean }) {
+function PeriodKpi({ label, r }: { label: string; r: { pct: number; money: number } | null }) {
   const f = useFmt();
-  const t = r ? toneOf(r.money) : null;
-  return (
-    <Panel className="min-h-[132px] p-5">
-      <div className="flex items-center justify-between text-[17px] text-ink-2">{label}
-        {icon && r && (r.money >= 0 ? <TrendingUp className="size-5 text-gain" /> : <TrendingDown className="size-5 text-loss" />)}</div>
-      {r ? (
-        <>
-          <p className={cn("num mt-3 text-[26px] font-bold", toneCls(t))}>{f.pct(r.pct)}</p>
-          <p className="num mt-1 text-[16px] text-ink-2">{f.cash(r.money, { signed: true })}</p>
-        </>
-      ) : <p className="mt-3 text-[19px] text-muted">Sem dados</p>}
-    </Panel>
-  );
+  return <Kpi label={label} tone={r ? toneOf(r.pct) : null} value={r ? f.pct(r.pct) : "—"} sub={r ? f.cash(r.money, { signed: true }) : "sem histórico"} />;
 }
 
 export default function PerformancePage() {
@@ -40,7 +26,7 @@ export default function PerformancePage() {
     const i = Math.max(0, pts.findIndex((p) => p.ts >= day) - 1);
     return pts.slice(i);
   }, [pts, view, cycleFrom]);
-  const dd = useMemo(() => drawdownSeries(pts.map((p) => ({ ts: p.ts, equityUsd: d(p.equity), netFlowUsd: d(p.netFlow) }))), [pts]);
+  const dd = useMemo(() => drawdownPoints(pts), [pts]);
   if (q.loading) return <div className="space-y-3 pt-4"><Skeleton className="h-28" /><Skeleton className="h-60" /></div>;
   if (q.error instanceof NeedsSetup) return <StrategySetup />;
   if (q.error || !s) return <div className="pt-4"><Notice tone="loss">{q.error?.message}</Notice></div>;
@@ -49,97 +35,101 @@ export default function PerformancePage() {
   const invested = lastP?.contrib ?? 0;
   const value = lastP?.equity ?? s.equity.toNumber() * f.fx;
   const gain = value - invested;
-  const total = periodReturn(pts, null);
   const hodlRet = s.hodlRet;
   const st = s.stats;
-  const maxDD = dd.reduce((m, x) => Math.max(m, x.drawdown.toNumber()), 0);
+  const maxDD = dd.reduce((m, x) => Math.max(m, x.dd), 0);
+
+  const legend = (
+    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink-2">
+      <span className="inline-flex items-center gap-1.5"><span className="h-[2px] w-4" style={{ background: C.accent }} />Carteira</span>
+      <span className="inline-flex items-center gap-1.5"><span className="w-4 border-t border-dashed border-muted" />Capital</span>
+      <span className="inline-flex items-center gap-1.5"><span className="h-[2px] w-4" style={{ background: C.btc }} />Só BTC</span>
+    </div>
+  );
 
   return (
     <div>
       <Hero />
-      <Panel className="p-6">
-        <h2 className="text-[22px] font-semibold tracking-tight">Performance da carteira</h2>
-        <dl className="mt-6 space-y-6 text-[17px]">
-          <div className="flex items-baseline justify-between gap-4"><dt className="text-ink-2">{s.closed ? "Valor no encerramento" : "Valor atual"}</dt><dd className="num text-[21px] font-bold">{f.cash(value)}</dd></div>
-          <div className="flex items-baseline justify-between gap-4"><dt className="text-ink-2">Capital da estratégia</dt><dd className="num text-[21px] font-bold">{f.cash(invested)}</dd></div>
-          <div className="flex items-start justify-between gap-4"><dt className="pt-1 text-ink-2">Resultado</dt>
-            <dd className={cn("num text-right", toneCls(toneOf(gain)))}><span className="block text-[21px] font-bold">{f.cash(gain, { signed: true })}</span><span className="text-[16px]">{s.twr != null ? f.pct(s.twr) : "—"}</span></dd></div>
-        </dl>
-        <div className="mt-5 space-y-1.5 border-t border-line pt-4 text-[14px]">
-          <div className="flex justify-between gap-3 text-muted"><span>{s.scope.kind === "account" ? "Saldo no início da conta" : "Patrimônio inicial do ciclo"}</span><span className="num">{f.money(s.equity0)}</span></div>
-          <div className="flex justify-between gap-3 text-muted"><span>+ Aportes depois do início</span><span className="num">{f.money(s.flowsIn)}</span></div>
-          <div className="flex justify-between gap-3 text-muted"><span>− Retiradas</span><span className="num">{f.money(s.flowsOut)}</span></div>
-          <div className="flex justify-between gap-3 text-muted"><span>Taxas pagas · funding</span><span className="num">{f.money(-s.fees, { signed: true })} · {f.money(s.funding, { signed: true })}</span></div>
-          {s.reconciliation != null && <div className="flex justify-between gap-3 text-muted"><span>Reconciliação com a Hyperliquid</span><span className="num">{Math.abs(s.reconciliation) < 0.01 ? "ok" : f.money(s.reconciliation, { signed: true })}</span></div>}
-        </div>
-        <p className="mt-4 border-t border-line pt-4 text-[15px] text-ink-2">Buy & Hold no mesmo período: <span className="text-accent">{hodlRet != null ? f.pct(hodlRet) : "—"}</span>
-          {s.vsHodlPct != null ? <span className="text-muted"> · estratégia {f.pct(s.vsHodlPct)} vs. BTC</span> : null}</p>
-        <p className="mt-2 text-[12px] leading-relaxed text-muted">Aportes e retiradas mudam o capital, nunca o resultado. Resultado = patrimônio {s.closed ? "no encerramento" : "atual"} − capital da estratégia. Percentual ponderado no tempo.</p>
-      </Panel>
+      <KpiGrid className="mb-4 grid-cols-2 sm:grid-cols-4">
+        <PeriodKpi label="7 dias" r={periodReturn(pts, 7)} />
+        <PeriodKpi label="30 dias" r={periodReturn(pts, 30)} />
+        <Kpi label="Queda máxima" tone={maxDD > 0 ? "loss" : null} value={f.pct(-maxDD)} sub="desde o pico" />
+        <Kpi label="vs. só BTC" tone={toneOf(s.vsHodlPct)} value={s.vsHodlPct != null ? f.pct(s.vsHodlPct) : "—"} sub={hodlRet != null ? `BTC ${f.pct(hodlRet)} no período` : undefined} />
+      </KpiGrid>
 
-      <h2 className="mt-9 mb-4 text-[24px] font-semibold tracking-tight">Variações por período</h2>
-      <div className="grid grid-cols-2 gap-3">
-        <PeriodCard label="Total" r={total} icon />
-        <PeriodCard label="30 dias" r={periodReturn(pts, 30)} />
-        <PeriodCard label="7 dias" r={periodReturn(pts, 7)} />
-        <PeriodCard label="24h" r={periodReturn(pts, 1)} />
-      </div>
-      <p className="mt-3 px-1 text-[12px] leading-relaxed text-muted">Percentuais ponderados no tempo: aportes e retiradas não contam como ganho.</p>
+      <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
+        <div className="space-y-4 lg:col-span-8">
+          <Panel className="overflow-hidden">
+            <PanelHead title="Patrimônio" right={<Segmented size="sm" label="Período do gráfico" value={view} onChange={setView} options={[{ value: "all", label: "Ciclo inteiro" }, { value: "cycle", label: s.current ? "Posição atual" : "Desde a saída" }]} />} />
+            <div className="px-1 pt-4 pb-3">
+              {shown.length >= 2 ? <EquityChart ccy={f.ccy} points={shown.map((p) => ({ ts: p.ts, equity: p.equity, contrib: p.contrib, hodl: p.hodl, inBtc: p.inBtc }))} height={280} />
+                : <p className="px-4 py-14 text-center text-[14px] text-muted">O gráfico aparece a partir do segundo ponto de histórico.</p>}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-2.5">{legend}<span className="text-[11px] text-muted">faixa laranja: em BTC</span></div>
+          </Panel>
 
-      <div className="mt-9 mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-[24px] font-semibold leading-tight tracking-tight">Gráfico de<br />performance</h2>
-        <Segmented label="Período do gráfico" value={view} onChange={setView} options={[{ value: "all", label: "Histórico" }, { value: "cycle", label: s.current ? "Posição atual" : "Desde a saída" }]} />
-      </div>
-      <Panel className="px-2 pt-5 pb-4">
-        {shown.length >= 2 ? <EquityChart ccy={f.ccy} points={shown.map((p) => ({ ts: p.ts, equity: p.equity, contrib: p.contrib, hodl: p.hodl, inBtc: p.inBtc }))} height={280} />
-          : <p className="px-4 py-14 text-center text-[15px] text-muted">O gráfico aparece a partir do segundo dia de histórico.</p>}
-        <div className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-2 text-[15px] text-ink-2">
-          <span className="inline-flex items-center gap-2"><span className="h-[3px] w-6 rounded" style={{ background: C.accent }} />Carteira</span>
-          <span className="inline-flex items-center gap-2"><span className="w-6 border-t-2 border-dashed border-muted" />Investido</span>
-          <span className="inline-flex items-center gap-2"><span className="h-[3px] w-6 rounded" style={{ background: C.btc }} />Só BTC</span>
-        </div>
-        <p className="mt-2 text-center text-[12px] text-muted">Faixas alaranjadas: períodos em BTC</p>
-      </Panel>
-
-      <Panel className="mt-6 px-2 pt-5 pb-4">
-        <div className="px-4">
-          <h3 className="text-[19px] font-semibold">Patrimônio em BTC</h3>
-          <p className="mt-1.5 text-[15px] leading-relaxed text-muted">Quanto a carteira valeria em bitcoin em cada data. A estratégia funciona quando esta linha sobe: sair antes das quedas e voltar mais barato rende mais BTC.</p>
-        </div>
-        <div className="mt-4">{pts.length >= 2 ? <BtcChart points={pts.map((p) => ({ ts: p.ts, btc: p.btc }))} /> : null}</div>
-      </Panel>
-
-      <Panel className="mt-6 px-2 pt-5 pb-4">
-        <div className="flex items-baseline justify-between px-4">
-          <h3 className="text-[19px] font-semibold">Quedas</h3>
-          <span className="num text-[15px] text-loss">máx. {f.pct(-maxDD)}</span>
-        </div>
-        <p className="mt-1 px-4 text-[15px] text-muted">Distância do pico anterior da carteira</p>
-        <div className="mt-3">{dd.length >= 2 ? <DrawdownChart points={dd.map((x) => ({ ts: x.ts, dd: x.drawdown.toNumber() }))} height={150} /> : null}</div>
-      </Panel>
-
-      {st.count > 0 && (
-        <Panel className="mt-6 p-6">
-          <h3 className="text-[19px] font-semibold">Operações encerradas</h3>
-          <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-5">
-            <div><p className="text-[14px] text-muted">Acertos</p><p className="num mt-1 text-[20px] font-bold">{st.wins} de {st.count}</p></div>
-            <div><p className="text-[14px] text-muted">Resultado somado</p><p className={cn("num mt-1 text-[20px] font-bold", toneCls(toneOf(st.net)))}>{f.money(st.net, { signed: true })}</p></div>
-            <div><p className="text-[14px] text-muted">Ganho médio</p><p className="num mt-1 text-[20px] font-bold text-gain">{st.avgWinPct ? f.pct(st.avgWinPct) : "—"}</p></div>
-            <div><p className="text-[14px] text-muted">Perda média</p><p className="num mt-1 text-[20px] font-bold text-loss">{st.avgLossPct ? f.pct(st.avgLossPct) : "—"}</p></div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Panel className="overflow-hidden">
+              <PanelHead title="Patrimônio em BTC" right={pts.length ? <span className="num">{f.btc(pts.at(-1)!.btc, 6)} BTC</span> : undefined} />
+              <p className="px-4 pt-3 text-[12px] leading-relaxed text-muted">A estratégia funciona quando esta linha sobe: sair antes das quedas e voltar mais barato rende mais BTC.</p>
+              <div className="px-1 pt-2 pb-3">{pts.length >= 2 ? <BtcChart points={pts.map((p) => ({ ts: p.ts, btc: p.btc }))} height={170} /> : null}</div>
+            </Panel>
+            <Panel className="overflow-hidden">
+              <PanelHead title="Queda desde o pico" right={<span className="num text-loss">máx. {f.pct(-maxDD)}</span>} />
+              <p className="px-4 pt-3 text-[12px] leading-relaxed text-muted">Distância do melhor momento da carteira, sem o efeito de aportes e retiradas.</p>
+              <div className="px-1 pt-2 pb-3">{dd.length >= 2 ? <DrawdownChart points={dd} height={170} /> : null}</div>
+            </Panel>
           </div>
-          {st.profitFactor != null && <p className="mt-5 text-[14px] text-muted">Fator de lucro {st.profitFactor.toFixed(2).replace(".", ",")}: ganhos somados ÷ perdas somadas.</p>}
-          <ul className="mt-5 divide-y divide-line border-t border-line">
-            {s.trips.slice(0, 12).map((t) => (
-              <li key={t.openT} className="flex items-center gap-3 py-3 text-[14px]">
-                <span className="min-w-0 flex-1"><span className="block font-medium">{new Date(t.openT).toLocaleDateString("pt-BR", { day: "numeric", month: "short" })} → {t.closeT ? new Date(t.closeT).toLocaleDateString("pt-BR", { day: "numeric", month: "short" }) : "—"}{t.inherited ? " · herdada" : ""}</span>
-                  <span className="num block text-muted">{f.px(t.entry)} → {t.exit ? f.px(t.exit) : "—"}</span></span>
-                <span className={cn("num text-right font-semibold", toneCls(toneOf(t.pnl)))}>{f.money(t.pnl, { signed: true })}<span className="block text-[12px] font-normal">{t.pnlPct != null ? f.pct(t.pnlPct) : ""}</span></span>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      )}
-      <p className="mt-6 px-1 text-[12px] leading-relaxed text-muted">Fechamento diário da Binance; o ponto de hoje usa o valor atual{s.acc.kind === "hl" ? " da Hyperliquid" : ""}. Só eventos depois do início entram no cálculo. Em reais, cada dia usa o dólar daquele dia. “Só BTC” compra BTC com o patrimônio inicial do ciclo e com cada aporte posterior, na data, e nunca vende.</p>
+        </div>
+
+        <div className="space-y-4 lg:col-span-4">
+          <Panel className="overflow-hidden">
+            <PanelHead title={s.scope.kind === "account" ? "Resultado da conta" : "Resultado do ciclo"} />
+            <div className="divide-y divide-line px-4">
+              <Row label={s.scope.kind === "account" ? "Saldo no início" : "Patrimônio inicial"}>{f.money(s.equity0)}</Row>
+              <Row label="+ Aportes">{f.money(s.flowsIn)}</Row>
+              <Row label="− Retiradas">{f.money(s.flowsOut)}</Row>
+              <Row label="= Capital">{f.cash(invested)}</Row>
+              <Row label={s.closed ? "Valor no encerramento" : "Valor atual"}>{f.cash(value)}</Row>
+            </div>
+            <div className="border-t border-line bg-surface-2 px-4 py-3">
+              <div className="flex items-baseline justify-between gap-3"><span className="lbl">Resultado</span><span className={cn("num text-[20px] font-semibold", toneCls(toneOf(gain)))}>{f.cash(gain, { signed: true })}</span></div>
+              <div className="mt-1.5 flex items-baseline justify-between gap-3 text-[13px]"><span className="text-muted">Retorno sobre o capital</span><span className={cn("num", toneCls(toneOf(gain)))}>{s.roc != null ? f.pct(s.roc) : "—"}</span></div>
+              <div className="mt-1 flex items-baseline justify-between gap-3 text-[13px]"><span className="text-muted">TWR (ponderado no tempo)</span><span className={cn("num", toneCls(toneOf(s.twr)))}>{s.twr != null ? f.pct(s.twr) : "—"}</span></div>
+            </div>
+            <div className="divide-y divide-line border-t border-line px-4">
+              <Row label="Taxas pagas" tone={s.fees ? "loss" : null}>{f.money(-s.fees, { signed: true })}</Row>
+              <Row label="Funding" tone={toneOf(s.funding)}>{f.money(s.funding, { signed: true })}</Row>
+              <Row label="Buy & Hold no período" tone={toneOf(hodlRet)}>{hodlRet != null ? f.pct(hodlRet) : "—"}</Row>
+              <Row label="Estratégia vs. só BTC" tone={toneOf(s.vsHodlPct)}>{s.vsHodlPct != null ? f.pct(s.vsHodlPct) : "—"}</Row>
+              {s.reconciliation != null && <Row label="Reconciliação Hyperliquid">{Math.abs(s.reconciliation) < 0.01 ? "ok" : f.money(s.reconciliation, { signed: true })}</Row>}
+            </div>
+            <p className="border-t border-line px-4 py-3 text-[11px] leading-relaxed text-muted">Aportes e retiradas mudam o capital, nunca o resultado. <b className="font-semibold text-ink-2">Retorno sobre o capital</b> = resultado ÷ capital. <b className="font-semibold text-ink-2">TWR</b> mede a estratégia sem o peso do tamanho de cada aporte: a carteira é avaliada no instante de cada aporte e os períodos são encadeados.</p>
+          </Panel>
+
+          {st.count > 0 && (
+            <Panel className="overflow-hidden">
+              <PanelHead title="Operações encerradas" right={<span className="num">{st.wins} de {st.count} com lucro</span>} />
+              <div className="grid grid-cols-3 border-b border-line">
+                <Kpi className="border-r border-line" label="Somado" tone={toneOf(st.net)} value={f.money(st.net, { signed: true, compact: true })} />
+                <Kpi className="border-r border-line" label="Ganho médio" tone="gain" value={st.avgWinPct ? f.pct(st.avgWinPct) : "—"} />
+                <Kpi label="Perda média" tone="loss" value={st.avgLossPct ? f.pct(st.avgLossPct) : "—"} />
+              </div>
+              <ul className="divide-y divide-line">
+                {s.trips.slice(0, 12).map((t) => (
+                  <li key={t.openT} className="flex items-center gap-3 px-4 py-2.5 text-[13px]">
+                    <span className="min-w-0 flex-1"><span className="block text-ink-2">{new Date(t.openT).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} → {t.closeT ? new Date(t.closeT).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) : "—"}{t.inherited ? " · herdada" : ""}</span>
+                      <span className="num block text-[12px] text-muted">{f.px(t.entry)} → {t.exit ? f.px(t.exit) : "—"}</span></span>
+                    <span className={cn("num text-right font-semibold", toneCls(toneOf(t.pnl)))}>{f.money(t.pnl, { signed: true })}<span className="block text-[11px] font-normal">{t.pnlPct != null ? f.pct(t.pnlPct) : ""}</span></span>
+                  </li>
+                ))}
+              </ul>
+              {st.profitFactor != null && <p className="border-t border-line px-4 py-2.5 text-[12px] text-muted">Fator de lucro <span className="num text-ink-2">{st.profitFactor.toFixed(2).replace(".", ",")}</span>: ganhos ÷ perdas.</p>}
+            </Panel>
+          )}
+        </div>
+      </div>
+      <p className="mt-5 px-0.5 text-[11px] leading-relaxed text-muted">Pontos: início do ciclo, cada aporte ou retirada, fechamento diário (Binance, UTC) e agora{s.acc.kind === "hl" ? " (Hyperliquid)" : ""}. Só eventos a partir do início entram no cálculo. Em reais, cada ponto usa o dólar daquela data. “Só BTC” compra BTC com o patrimônio inicial do ciclo e com cada aporte posterior, e nunca vende.</p>
     </div>
   );
 }

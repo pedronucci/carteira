@@ -6,7 +6,7 @@ import { StrategySetup } from "@/components/strategy";
 import { useFmt } from "@/lib/state";
 import { usdBrlAt } from "@/lib/local/prices";
 import type { Cycle, Flow } from "@/lib/local/store";
-import { Button, CoinIcon, Notice, Segmented, Skeleton, cn } from "@/components/ui";
+import { Button, CoinIcon, Notice, Segmented, Skeleton, cn, Panel } from "@/components/ui";
 import { Hero } from "@/components/shell";
 import { Sheet } from "@/components/sheet";
 import { AddSheet, EntrySheet, ExitSheet, FlowSheet } from "@/components/forms";
@@ -43,20 +43,20 @@ export default function TransactionsPage() {
       if (e.k === "trade") {
         const buy = e.side === "B";
         const c = e.src === "manual" ? cyc(e.ref) : undefined;
-        out.push({ key: e.key, ms: e.t, kind: "trade", icon: <CoinIcon kind="btc" size={46} />, title: buy ? "Compra" : "Venda", sub: `${hhmm(e.t)} · ${e.label ?? (buy ? "compra" : "venda")} a ${f.px(e.px)}`,
+        out.push({ key: e.key, ms: e.t, kind: "trade", icon: <CoinIcon kind="btc" size={26} />, title: buy ? "Compra" : "Venda", sub: `${hhmm(e.t)} · ${e.label ?? (buy ? "compra" : "venda")} a ${f.px(e.px)}`,
           amount: `${buy ? "+" : "−"} ${btcAmt(e.sz)} BTC`, tone: buy ? "gain" : "loss", usd: e.px * e.sz,
           onClick: c ? () => setSheet(!buy || e.key.endsWith("|close") ? { k: "exit", c } : { k: "edit", c }) : undefined });
       } else if (e.k === "flow") {
         const fl = e.src === "manual" ? flw(e.ref) : undefined;
-        out.push({ key: e.key, ms: e.t, kind: "cash", icon: <CoinIcon kind="cash" size={46} />, title: e.usd >= 0 ? "Depósito" : "Saque", sub: `${hhmm(e.t)} · ${e.label}`,
+        out.push({ key: e.key, ms: e.t, kind: "cash", icon: <CoinIcon kind="cash" size={26} />, title: e.usd >= 0 ? "Depósito" : "Saque", sub: `${hhmm(e.t)} · ${e.label}`,
           amount: `${e.usd >= 0 ? "+" : "−"} ${usdcAmt(Math.abs(e.usd))} USDC`, tone: e.usd >= 0 ? "gain" : "loss", usd: null, onClick: fl ? () => setSheet({ k: "flow", fl }) : undefined });
       }
     }
     // funding: um resumo por dia, para não poluir a lista
     const byDay = new Map<string, { t: number; usd: number }>();
     for (const e of s.events) if (e.k === "funding") { const k = dayLabel(e.t); const v = byDay.get(k) ?? { t: e.t, usd: 0 }; v.usd += e.usd; v.t = Math.max(v.t, e.t); byDay.set(k, v); }
-    for (const [k, v] of byDay) out.push({ key: `fund-${k}`, ms: v.t, kind: "trade", icon: <CoinIcon kind="other" size={46} />, title: "Funding", sub: "soma do dia", amount: `${v.usd >= 0 ? "+" : "−"} ${usdcAmt(Math.abs(v.usd))} USDC`, tone: v.usd >= 0 ? "gain" : "loss", usd: null });
-    if (s.scope.kind === "strategy") out.push({ key: "start", ms: s.startT, kind: "cash", icon: <CoinIcon kind="strategy" size={46} />, title: "Início do ciclo", sub: `patrimônio inicial · ${s.snapSource === "manual" ? "referência manual" : s.snapSource === "live" ? "oficial" : "reconstruído"}`, amount: `${usdcAmt(s.equity0)} USD`, tone: null, usd: null });
+    for (const [k, v] of byDay) out.push({ key: `fund-${k}`, ms: v.t, kind: "trade", icon: <CoinIcon kind="other" size={26} />, title: "Funding", sub: "soma do dia", amount: `${v.usd >= 0 ? "+" : "−"} ${usdcAmt(Math.abs(v.usd))} USDC`, tone: v.usd >= 0 ? "gain" : "loss", usd: null });
+    if (s.scope.kind === "strategy") out.push({ key: "start", ms: s.startT, kind: "cash", icon: <CoinIcon kind="strategy" size={26} />, title: "Início do ciclo", sub: `patrimônio inicial · ${s.snapSource === "manual" ? "referência manual" : s.snapSource === "live" ? "oficial" : "reconstruído"}`, amount: `${usdcAmt(s.equity0)} USD`, tone: null, usd: null });
     return out.sort((x, y) => y.ms - x.ms);
   }, [s, f]);
 
@@ -77,36 +77,39 @@ export default function TransactionsPage() {
   return (
     <div>
       <Hero />
-      <div className="mb-6 flex items-center gap-2">
-        <Segmented label="Tipo" value={filter} onChange={setFilter} options={[{ value: "all", label: "Tudo" }, { value: "trade", label: "Operações" }, { value: "cash", label: "Depósitos" }]} />
+      <div className="mb-4 flex items-center gap-2">
+        <Segmented size="sm" label="Tipo" value={filter} onChange={setFilter} options={[{ value: "all", label: "Tudo" }, { value: "trade", label: "Operações" }, { value: "cash", label: "Depósitos" }]} />
         <div className="ml-auto flex gap-1">
-          {items.length > 0 && <Button variant="ghost" size="sm" className="h-11 w-11 px-0" aria-label="Exportar CSV" onClick={exportCsv}><Download className="size-5" /></Button>}
-          <Button variant="primary" size="sm" className="h-11 w-11 rounded-full px-0" aria-label="Lançar" onClick={() => setSheet({ k: "menu" })}><Plus className="size-5" /></Button>
+          {items.length > 0 && <Button variant="ghost" size="sm" className="h-9 px-2.5" aria-label="Exportar CSV" onClick={exportCsv}><Download className="size-4" /><span className="hidden sm:inline">CSV</span></Button>}
+          <Button variant="primary" size="sm" className="h-9 px-3" aria-label="Lançar" onClick={() => setSheet({ k: "menu" })}><Plus className="size-4" />Lançar</Button>
         </div>
       </div>
 
-      <p className="-mt-2 mb-5 text-[13px] text-muted">{s.scope.kind === "account" ? "Histórico completo da conta (bruto, para auditoria)." : `Só o que aconteceu dentro de “${s.label}”. Para ver tudo, escolha “Histórico completo da conta” no topo.`}</p>
+      <p className="-mt-2 mb-4 text-[12px] text-muted">{s.scope.kind === "account" ? "Histórico completo da conta (bruto, para auditoria)." : `Só o que aconteceu dentro de “${s.label}”. Para ver tudo, escolha “Histórico completo da conta” no topo.`}</p>
       {groups.length === 0 && <p className="py-14 text-center text-[16px] text-muted">Nenhuma transação ainda.</p>}
       {groups.map((g) => (
-        <section key={g.day} className="mb-6">
-          <h2 className="mb-1 text-[17px] text-muted">{g.day}</h2>
-          <ul className="divide-y divide-line">
-            {g.rows.map((i) => {
-              const Tag = i.onClick ? "button" : "div";
-              return (
-                <li key={i.key}>
-                  <Tag onClick={i.onClick} className="flex w-full items-center gap-4 py-4 text-left">
-                    {i.icon}
-                    <span className="min-w-0 flex-1"><span className="block text-[18px] font-medium">{i.title}</span>{i.sub && <span className="block truncate text-[15px] text-muted">{i.sub}</span>}</span>
-                    <span className="shrink-0 text-right">
-                      <span className={cn("num block text-[17px] font-medium", i.tone === "gain" ? "text-gain" : i.tone === "loss" ? "text-loss" : "text-ink")}>{f.hidden ? "•••" : i.amount}</span>
-                      {i.usd != null && <span className="num block text-[15px] text-muted">{f.cash(conv(i.usd, i.ms))}</span>}
-                    </span>
-                  </Tag>
-                </li>
-              );
-            })}
-          </ul>
+        <section key={g.day} className="mb-4">
+          <h2 className="lbl sticky top-[calc(env(safe-area-inset-top)+92px)] z-10 bg-bg/95 py-1.5 backdrop-blur lg:top-[calc(env(safe-area-inset-top)+48px)]">{g.day}</h2>
+          <Panel className="overflow-hidden">
+            <ul className="divide-y divide-line">
+              {g.rows.map((i) => {
+                const Tag = i.onClick ? "button" : "div";
+                return (
+                  <li key={i.key}>
+                    <Tag onClick={i.onClick} className={cn("flex w-full items-center gap-3 px-3.5 py-2.5 text-left", i.onClick && "[@media(hover:hover)]:hover:bg-surface-2")}>
+                      <span className="num w-11 shrink-0 text-[12px] text-muted">{hhmm(i.ms)}</span>
+                      {i.icon}
+                      <span className="min-w-0 flex-1"><span className="block text-[14px] font-medium">{i.title}</span>{i.sub && <span className="block truncate text-[12px] text-muted">{i.sub.replace(/^\d{2}:\d{2} · /, "")}</span>}</span>
+                      <span className="shrink-0 text-right">
+                        <span className={cn("num block text-[13.5px] font-medium", i.tone === "gain" ? "text-gain" : i.tone === "loss" ? "text-loss" : "text-ink")}>{f.hidden ? "•••" : i.amount}</span>
+                        {i.usd != null && <span className="num block text-[12px] text-muted">{f.cash(conv(i.usd, i.ms))}</span>}
+                      </span>
+                    </Tag>
+                  </li>
+                );
+              })}
+            </ul>
+          </Panel>
         </section>
       ))}
 

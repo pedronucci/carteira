@@ -72,6 +72,8 @@ export interface Trip {
   maxSize: number; realized: number; fees: number; funding: number;
   pnl: number; // realizado − taxas + funding (+ aberto, se em andamento)
   equityAtOpen: number; pnlPct: number | null; btcMove: number | null;
+  /** aportes feitos com a posição aberta (entram no capital da operação para o percentual) */
+  flowIn: number;
 }
 
 /**
@@ -113,7 +115,7 @@ export function replay(inp: ReplayInput): ReplayOut {
   let trip: Trip | null = null;
   let exitN = 0, exitS = 0;
   const eqAt = (px: number) => col + size * (px - basis);
-  if (size > 0) trip = { openT: inp.startT, closeT: null, inherited: true, entry: basis, exit: null, maxSize: size, realized: 0, fees: 0, funding: 0, pnl: 0, equityAtOpen: inp.equity0, pnlPct: null, btcMove: null };
+  if (size > 0) trip = { openT: inp.startT, closeT: null, inherited: true, entry: basis, exit: null, maxSize: size, realized: 0, fees: 0, funding: 0, pnl: 0, equityAtOpen: inp.equity0, pnlPct: null, btcMove: null, flowIn: 0 };
 
   const apply = (e: SEv, pxHint: number) => {
     if (e.k === "flow") {
@@ -121,6 +123,7 @@ export function replay(inp: ReplayInput): ReplayOut {
       if (e.usd >= 0) flowsIn += e.usd; else flowsOut -= e.usd;
       const p = pxHint > 0 ? pxHint : 0;
       if (p > 0) hodlUnits += e.usd / p;
+      if (trip && e.usd > 0) trip.flowIn += e.usd;
       return;
     }
     if (e.k === "funding") {
@@ -131,7 +134,7 @@ export function replay(inp: ReplayInput): ReplayOut {
     // trade
     col -= e.fee; fees += e.fee;
     if (e.side === "B") {
-      if (size <= 1e-12) { size = 0; basis = 0; trip = { openT: e.t, closeT: null, inherited: false, entry: 0, exit: null, maxSize: 0, realized: 0, fees: 0, funding: 0, pnl: 0, equityAtOpen: eqAt(e.px), pnlPct: null, btcMove: null }; exitN = 0; exitS = 0; }
+      if (size <= 1e-12) { size = 0; basis = 0; trip = { openT: e.t, closeT: null, inherited: false, entry: 0, exit: null, maxSize: 0, realized: 0, fees: 0, funding: 0, pnl: 0, equityAtOpen: eqAt(e.px), pnlPct: null, btcMove: null, flowIn: 0 }; exitN = 0; exitS = 0; }
       basis = (size * basis + e.sz * e.px) / (size + e.sz);
       size += e.sz;
       if (trip) { trip.entry = basis; trip.maxSize = Math.max(trip.maxSize, size); trip.fees += e.fee; }
@@ -148,7 +151,7 @@ export function replay(inp: ReplayInput): ReplayOut {
         if (trip) {
           trip.closeT = e.t; trip.exit = exitS ? exitN / exitS : null;
           trip.pnl = trip.realized - trip.fees + trip.funding;
-          trip.pnlPct = trip.equityAtOpen > 0 ? trip.pnl / trip.equityAtOpen : null;
+          trip.pnlPct = trip.equityAtOpen + trip.flowIn > 0 ? trip.pnl / (trip.equityAtOpen + trip.flowIn) : null;
           trip.btcMove = trip.exit && trip.entry ? trip.exit / trip.entry - 1 : null;
           trips.push(trip); trip = null;
         }
@@ -206,7 +209,7 @@ export function replay(inp: ReplayInput): ReplayOut {
   if (trip) {
     const unreal = size * (inp.pxEnd - basis);
     trip.pnl = trip.realized - trip.fees + trip.funding + unreal;
-    trip.pnlPct = trip.equityAtOpen > 0 ? trip.pnl / trip.equityAtOpen : null;
+    trip.pnlPct = trip.equityAtOpen + trip.flowIn > 0 ? trip.pnl / (trip.equityAtOpen + trip.flowIn) : null;
     trip.btcMove = trip.entry ? inp.pxEnd / trip.entry - 1 : null;
     trips.push(trip);
   }

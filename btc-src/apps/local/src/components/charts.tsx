@@ -12,13 +12,14 @@ export interface Candle { t: number; o: number; h: number; l: number; c: number;
 export interface TradeMarker { id: string; ts: number; kind: "ENTRY" | "EXIT"; price: number }
 
 export const C = { btc: "#f7931a", accent: "#ebcd2f", gain: "#2ec45a", loss: "#f0474f", muted: "#a1a1a6", grid: "#343436", line: "#3a3a3c", ink2: "#cfcfd2", usdc: "#2775ca" };
-const axis = { stroke: C.muted, fontSize: 12, tickLine: false, axisLine: false } as const;
-const dateFmt = (ts: number, long = false) => new Intl.DateTimeFormat("pt-BR", long ? { day: "2-digit", month: "short", year: "numeric" } : { day: "2-digit", month: "short" }).format(ts * 1000).replace(".", "");
+const MONO = "JetBrains Mono Variable, ui-monospace, monospace";
+const axis = { stroke: C.muted, fontSize: 11, fontFamily: MONO, tickLine: false, axisLine: false } as const;
+const dateFmt = (ts: number, long = false) => new Intl.DateTimeFormat("pt-BR", long ? { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" } : { day: "2-digit", month: "short" }).format(ts * 1000).replace(".", "");
 
 function Tip({ active, payload, label, fmt, names }: { active?: boolean; payload?: { dataKey: string; value: number; color: string }[]; label?: number; fmt: (v: number) => string; names: Record<string, string> }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl border border-line-strong bg-surface-3 px-3 py-2 text-[12px] shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
+    <div className="rounded-md border border-line-strong bg-surface-3 px-3 py-2 text-[12px] shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
       <div className="mb-1 text-muted">{label ? dateFmt(label, true) : ""}</div>
       {payload.filter((p) => p.value != null && names[p.dataKey]).map((p) => <div key={p.dataKey} className="num flex items-center gap-2"><span className="size-2 rounded-full" style={{ background: p.color }} />{names[p.dataKey]}: <b>{fmt(p.value)}</b></div>)}
     </div>
@@ -42,15 +43,15 @@ export function EquityChart({ points, height = 260, ccy = "USD" }: { points: Ser
   }, [points]);
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <ComposedChart data={points} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
+      <ComposedChart data={points} margin={{ top: 8, right: 18, left: 0, bottom: 0 }}>
         <CartesianGrid stroke={C.grid} strokeDasharray="3 4" vertical={false} />
         {bands.map((b) => <ReferenceArea key={b.x1} x1={b.x1} x2={b.x2} fill={C.btc} fillOpacity={0.08} ifOverflow="visible" />)}
         <XAxis dataKey="ts" type="number" domain={["dataMin", "dataMax"]} scale="time" {...axis} tickFormatter={(t) => dateFmt(t)} minTickGap={48} />
         <YAxis {...axis} width={52} tickFormatter={(v) => fmt(v)} domain={["auto", "auto"]} />
         <Tooltip content={<Tip fmt={(v) => (hidden ? "•••" : fmtMoney(v, ccy))} names={{ equity: "Carteira", hodl: "Só segurar BTC", contrib: "Investido" }} />} />
         <Line type="stepAfter" dataKey="contrib" stroke={C.muted} strokeDasharray="6 5" dot={false} strokeWidth={1.5} isAnimationActive={false} />
-        <Line type="monotone" dataKey="hodl" stroke={C.btc} dot={false} strokeWidth={1.75} isAnimationActive={false} connectNulls />
-        <Line type="monotone" dataKey="equity" stroke={C.accent} dot={false} strokeWidth={2.5} isAnimationActive={false} />
+        <Line type="linear" dataKey="hodl" stroke={C.btc} dot={false} strokeWidth={1.75} isAnimationActive={false} connectNulls />
+        <Line type="linear" dataKey="equity" stroke={C.accent} dot={false} strokeWidth={2.5} isAnimationActive={false} />
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -62,13 +63,13 @@ export function BtcChart({ points, height = 200 }: { points: { ts: number; btc: 
   const f = (v: number) => (hidden ? "•••" : v.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }));
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <AreaChart data={points} margin={{ top: 8, right: 6, left: 0, bottom: 0 }}>
+      <AreaChart data={points} margin={{ top: 8, right: 18, left: 0, bottom: 0 }}>
         <defs><linearGradient id="btcq" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.accent} stopOpacity={0.18} /><stop offset="100%" stopColor={C.accent} stopOpacity={0} /></linearGradient></defs>
         <CartesianGrid stroke={C.grid} strokeDasharray="3 4" vertical={false} />
         <XAxis dataKey="ts" type="number" domain={["dataMin", "dataMax"]} scale="time" {...axis} tickFormatter={(t) => dateFmt(t)} minTickGap={48} />
         <YAxis {...axis} width={56} tickFormatter={f} domain={["auto", "auto"]} />
         <Tooltip content={<Tip fmt={(v) => `${f(v)} BTC`} names={{ btc: "Patrimônio" }} />} />
-        <Area type="monotone" dataKey="btc" stroke={C.accent} fill="url(#btcq)" strokeWidth={2} isAnimationActive={false} />
+        <Area type="linear" dataKey="btc" stroke={C.accent} fill="url(#btcq)" strokeWidth={2} isAnimationActive={false} />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -135,7 +136,7 @@ export function DrawdownChart({ points, height = 140 }: { points: { ts: number; 
         <XAxis dataKey="ts" type="number" domain={["dataMin", "dataMax"]} scale="time" {...axis} tickFormatter={(t) => dateFmt(t)} minTickGap={56} />
         <YAxis {...axis} width={44} orientation="right" allowDecimals tickFormatter={(v) => { const n = Number(v); const k = Math.abs(minDd) < 5 ? 1 : 0; return `${(Object.is(n, -0) ? 0 : n).toFixed(k).replace(".", ",")}%`; }} />
         <Tooltip content={<Tip fmt={(v) => `${v.toFixed(2).replace(".", ",")}%`} names={{ dd: "Queda desde o pico" }} />} />
-        <Area type="monotone" dataKey="dd" stroke={C.loss} fill={C.loss} fillOpacity={0.12} strokeWidth={1.25} isAnimationActive={false} />
+        <Area type="linear" dataKey="dd" stroke={C.loss} fill={C.loss} fillOpacity={0.12} strokeWidth={1.25} isAnimationActive={false} />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -159,7 +160,7 @@ export function PriceChart({ candles, markers = [], avgCost, levels = [], height
     if (!el.current) return;
     const chart = createChart(el.current, {
       height, autoSize: true,
-      layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: C.muted, fontFamily: "Inter Variable, -apple-system, sans-serif", fontSize: 11, attributionLogo: true },
+      layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: C.muted, fontFamily: MONO, fontSize: 11, attributionLogo: true },
       handleScroll: { vertTouchDrag: false }, // no celular, arrastar na vertical rola a página
       grid: { vertLines: { color: C.grid }, horzLines: { color: C.grid } },
       rightPriceScale: { borderColor: C.line }, timeScale: { borderColor: C.line, rightOffset: 4 },

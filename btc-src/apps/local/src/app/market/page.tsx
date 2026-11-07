@@ -100,15 +100,17 @@ export default function MarketPage() {
     return Math.round(i.value).toString();
   };
   return (
-    <div className="space-y-6 pt-3">
+    <div className="space-y-4 pt-3">
       <div>
-        <p className="text-[17px] text-muted">Bitcoin</p>
+        <p className="lbl">Bitcoin · BTCUSDT</p>
         <div className="mt-1 flex items-baseline gap-2">
-          <span className="num text-[34px] font-bold tracking-tight">{f.px(spot)}</span>
+          <span className="num text-[30px] font-semibold tracking-[-0.03em] lg:text-[38px]">{f.px(spot)}</span>
           {prev && <span className={cn("num text-[14px]", toneCls(spot >= prev ? "gain" : "loss"))}>{f.pct(d(spot).div(prev).minus(1))} hoje</span>}
         </div>
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
+      <div className="space-y-4 lg:col-span-8">
       <section aria-label="Gráfico">
         <div className="mb-2 flex items-center justify-between gap-3">
           <p className="text-[13px] text-muted"><span className="text-btc">—</span> MM50 · <span className="text-muted">—</span> MM200{markers.length ? " · setas: suas entradas e saídas" : ""}</p>
@@ -120,11 +122,11 @@ export default function MarketPage() {
       <section aria-label="Leitura do cenário">
         <SectionTitle sub="Regras objetivas, não é recomendação">Leitura dos indicadores</SectionTitle>
         <Panel className="p-4">
-          <div className="flex items-baseline justify-between gap-3">
-            <span className={cn("text-[22px] font-semibold", SC_TONE[sc.scenario])}>{SCENARIO_LABEL[sc.scenario]}</span>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <span className={cn("text-[18px] font-semibold", SC_TONE[sc.scenario])}>{SCENARIO_LABEL[sc.scenario]}</span>
             <span className="num text-[13px] text-muted">pontuação {sc.score > 0 ? "+" : ""}{sc.score}{m.trend ? ` · tendência ${m.trend.state.toLowerCase()}` : ""}</span>
           </div>
-          <p className="mt-1 text-[15px] leading-relaxed text-ink-2">{SC_TEXT[sc.scenario]}</p>
+          <p className="mt-1 text-[14px] leading-relaxed text-ink-2">{SC_TEXT[sc.scenario]}</p>
           {sc.hits.filter((h) => h.points !== 0 || h.risk).length > 0 && (
             <ul className="mt-3 space-y-1.5 border-t border-line/70 pt-3 text-[14px] text-ink-2">
               {sc.hits.filter((h) => h.points !== 0 || h.risk).map((h) => (
@@ -136,14 +138,16 @@ export default function MarketPage() {
       </section>
 
       <Simulator />
+      </div>
 
+      <div className="space-y-4 lg:col-span-4">
       <section aria-label="Indicadores">
         <SectionTitle>Indicadores</SectionTitle>
         <Panel className="divide-y divide-line/70 px-4">
           {m.indicators.map((i) => (
-            <div key={i.key} className="py-3">
-              <div className="flex items-baseline justify-between gap-3"><span className="text-[15px] text-ink-2">{i.label}</span><span className="num text-[15px] font-medium">{fmtInd(i)}</span></div>
-              {i.hint && <p className="mt-0.5 text-[13px] text-muted">{i.hint}</p>}
+            <div key={i.key} className="py-2.5">
+              <div className="flex items-baseline justify-between gap-3"><span className="text-[13.5px] text-ink-2">{i.label}</span><span className="num text-right text-[13.5px] font-medium">{fmtInd(i)}</span></div>
+              {i.hint && <p className="mt-0.5 text-[11.5px] text-muted">{i.hint}</p>}
             </div>
           ))}
         </Panel>
@@ -159,7 +163,9 @@ export default function MarketPage() {
           </Panel>
         </section>
       )}
-      <p className="text-[12px] text-muted">Velas diárias {m.source} · última {new Date(m.updatedAt).toLocaleDateString("pt-BR")}. Funding não incluído (sem integração com a corretora).</p>
+      </div>
+      </div>
+      <p className="text-[11px] text-muted">Velas diárias {m.source} · última {new Date(m.updatedAt).toLocaleDateString("pt-BR")}. Funding não incluído (sem integração com a corretora).</p>
     </div>
   );
 }

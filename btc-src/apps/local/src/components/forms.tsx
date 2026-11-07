@@ -125,7 +125,7 @@ export function EntrySheet({ edit: editIn, onClose }: { edit?: Cycle | null; onC
         <Field label="Capital (margem em USDC)" suffix="US$" inputMode="decimal" value={capital} onChange={(e) => setCapital(num(e.target.value))} hint={free.gt(0) ? <>Disponível: {f.usd(free.toFixed(), { reveal: true })}. <button type="button" className="text-accent" onClick={() => setCapital(free.toDecimalPlaces(2).toFixed())}>Usar tudo</button></> : undefined} />
         <Field label="Data e hora" type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} />
         {sim && (
-          <div className="rounded-2xl bg-surface-2 px-4 py-1">
+          <div className="rounded-lg bg-surface-2 px-4 py-1">
             <Row label="Exposição">{f.btc(sim.sizeBtc.toFixed())} BTC · {f.usd(sim.notional.toFixed(), { compact: true })}</Row>
             <Row label="Liquidação" tone={sim.liq ? "loss" : null}>{sim.liq ? `${fmtMoney(sim.liq, "USD")} (${f.pct(sim.liqDist?.neg(), false)})` : "não há em 1x"}</Row>
             <div className="flex justify-between gap-2 border-t border-line/70 py-2.5 text-[12px] text-muted">
@@ -136,7 +136,7 @@ export function EntrySheet({ edit: editIn, onClose }: { edit?: Cycle | null; onC
           </div>
         )}
         {adds.length > 0 && (
-          <div className="rounded-2xl border border-line px-4 py-2">
+          <div className="rounded-lg border border-line px-4 py-2">
             <p className="py-1.5 text-[14px] font-semibold">Aumentos desta posição</p>
             {adds.map((a) => (
               <div key={a.id} className="flex items-center gap-3 border-t border-line py-2.5 text-[14px]">
@@ -194,7 +194,7 @@ export function ExitSheet({ cycle: cycleIn, onClose }: { cycle: Cycle; onClose: 
           <Field label="Funding no ciclo" suffix="US$" inputMode="decimal" placeholder="− pago, + recebido" value={funding} onChange={(e) => setFunding(e.target.value.replace(",", "."))} />
         </div>
         {preview && (
-          <div className="rounded-2xl bg-surface-2 px-4 py-1">
+          <div className="rounded-lg bg-surface-2 px-4 py-1">
             <Row label="Volta para USDC">{f.usd(preview.out.toFixed())}</Row>
             <Row label="Resultado do ciclo" tone={toneOf(preview.pnl)}>{f.usd(preview.pnl.toFixed(), { signed: true })} · {f.pct(preview.pct)}</Row>
           </div>
@@ -266,7 +266,7 @@ export function AddSheet({ cycle: cycleIn, onClose }: { cycle: Cycle; onClose: (
   return (
     <Sheet title="Aumentar posição" onClose={onClose} footer={<Button variant="primary" size="lg" className="w-full" onClick={save} disabled={!ok}>Adicionar à posição</Button>}>
       <div className="space-y-4">
-        <div className="rounded-2xl bg-surface-2 px-4 py-1">
+        <div className="rounded-lg bg-surface-2 px-4 py-1">
           <Row label="Posição atual">{f.btc(cycleSizeBtc(cur).toFixed(), 6)} BTC</Row>
           <Row label="Preço médio">{fmtMoney(cur.entryPx, "USD")}</Row>
           <Row label="Margem">{f.usd(cur.capital)}</Row>
@@ -287,7 +287,7 @@ export function AddSheet({ cycle: cycleIn, onClose }: { cycle: Cycle; onClose: (
           <Field label="Nova liquidação" suffix="US$" inputMode="decimal" placeholder="da corretora" value={liq} onChange={(e) => setLiq(num(e.target.value))} />
         </div>
         {next && (
-          <div className="rounded-2xl border border-accent/40 bg-accent-soft px-4 py-1">
+          <div className="rounded-lg border border-accent/40 bg-accent-soft px-4 py-1">
             <Row label="Nova posição">{f.btc(cycleSizeBtc(next).toFixed(), 6)} BTC</Row>
             <Row label="Novo preço médio" tone={d(next.entryPx).lt(cur.entryPx) ? "gain" : d(next.entryPx).gt(cur.entryPx) ? "loss" : null}>{fmtMoney(next.entryPx, "USD")} <span className="text-muted">(era {fmtMoney(cur.entryPx, "USD")})</span></Row>
             <Row label="Margem total">{f.usd(next.capital, { reveal: true })} · {Number(next.leverage).toLocaleString("pt-BR")}x</Row>

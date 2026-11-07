@@ -79,6 +79,10 @@ describe("ciclo de 05/11/2026 21:13", () => {
   it("queda máxima vem do subperíodo antes do depósito", () => {
     expect(maxDrawdown(run().points)).toBeCloseTo(1 - 7739.5 / 8006, 3);
   });
+  it("percentual da posição considera o aporte feito com ela aberta (−1,62%, não −2,65%)", () => {
+    const t = run().trips.find((x) => x.closeT == null)!;
+    expect(t.pnlPct!).toBeCloseTo(-211.93 / 13109.58, 3);
+  });
   it("tempo na posição: 19 h, não \"0 dias\"", () => {
     expect(fmtDuration(NOW - open.t)).toBe("19 h");
     expect(fmtDuration(2 * 86400e3 + 5 * 3600e3)).toBe("2 d 5 h");

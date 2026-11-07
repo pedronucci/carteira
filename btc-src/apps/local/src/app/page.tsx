@@ -4,10 +4,11 @@ import { navigate } from "@/lib/router";
 import { NeedsSetup, useSnapshot } from "@/lib/api";
 import { useFmt } from "@/lib/state";
 import { getStore } from "@/lib/local/store";
-import { fmtZoned } from "@/lib/local/strategy";
-import { BarRow, Button, CoinIcon, GroupLabel, Notice, Panel, Row, Skeleton, toneCls, toneOf } from "@/components/ui";
+import { fmtDuration, fmtZoned } from "@/lib/local/strategy";
+import { BarRow, Button, CoinIcon, Kpi, Notice, Panel, PanelHead, Pill, RiskMeter, Skeleton, cn, toneCls, toneOf } from "@/components/ui";
+import { DEFAULT_SCENARIO_RULES } from "@bst/domain";
 import { Hero } from "@/components/shell";
-import { SemiDonut, C } from "@/components/charts";
+import { C } from "@/components/charts";
 import { AddSheet, EntrySheet, ExitSheet } from "@/components/forms";
 import { HlConnect } from "@/components/hl-connect";
 import { StrategyForm, StrategySetup } from "@/components/strategy";
@@ -61,76 +62,115 @@ export default function AllocationPage() {
   const canAct = manual && !s.closed && s.scope.kind === "strategy";
   const strat = s.scope.kind === "strategy" ? s.scope.strategy : null;
 
+  const rules = { ...DEFAULT_SCENARIO_RULES, ...(s.s.settings.scenarioRules ?? {}) };
+  const minLiq = Number(s.s.settings.minLiqDistance);
+  const liqD = c?.liqDist ? c.liqDist.toNumber() : null;
+  const levMax = Math.max(6, Math.ceil((lev || 0) * 1.25));
+  const allocBar = parts.filter((p) => p.value > 0);
+
   return (
     <div>
       <Hero />
-      {s.warnings.length > 0 && <div className="mb-5 space-y-2">{s.warnings.map((w) => <Notice key={w}>{w}</Notice>)}</div>}
+      {s.warnings.length > 0 && <div className="mb-4 space-y-2">{s.warnings.map((w) => <Notice key={w}>{w}</Notice>)}</div>}
 
-      <SemiDonut parts={parts} center={c ? `${levTxt}x` : "100%"} sub={c ? "exposição em BTC" : "em USDC"} />
-
-      <GroupLabel className="mt-8">Estratégia</GroupLabel>
-      <Panel className="overflow-hidden">
-        <BarRow color={C.accent} icon={<CoinIcon kind="strategy" />} title={s.label} right={<span className="flex items-center gap-1">{pctOf(strategy)}<span className="text-muted">›</span></span>}
-          value={f.money(strategy)} sub={c ? `Long ${levTxt}x desde ${fmtDay(c.trip.openT)}${c.inherited ? " (herdado)" : ""}` : s.inUsdcSince ? `100% em USDC desde ${fmtDay(s.inUsdcSince)}` : "100% em USDC"}
-          onClick={() => navigate("/performance")} />
-        <div className="divide-y divide-line border-t border-line px-5">
-          <Row label={s.scope.kind === "account" ? "Início da conta" : "Início do ciclo"}>{strat ? fmtZoned(strat.startAt, strat.tz) : new Date(s.startT).toLocaleDateString("pt-BR")}</Row>
-          {strat && <Row label="Patrimônio inicial">{f.money(s.equity0)} <span className="text-[13px] text-muted">({SRC[s.snapSource] ?? s.snapSource})</span></Row>}
-          <Row label="Resultado" tone={toneOf(s.result)}>{f.money(s.result, { signed: true })}</Row>
-        </div>
-      </Panel>
-
-      {c ? (
-        <>
-          <GroupLabel className="mt-7">{s.closed ? "Posição no encerramento" : "Posição"}</GroupLabel>
-          <Panel className="overflow-hidden">
-            <BarRow color={C.btc} icon={<CoinIcon kind="btc" />} title={`Bitcoin · long ${levTxt}x`}
-              right={c.pnlPct != null ? <span className={toneCls(toneOf(c.pnl))}>{f.pct(c.pnlPct)}</span> : undefined} value={<span className={toneCls(toneOf(c.pnl))}>{f.money(c.pnl, { signed: true })}</span>}
-              sub={`${f.btc(c.sizeBtc.toFixed(6))} BTC · exposição ${f.money(c.notional, { compact: true })}${c.inherited ? " · resultado desde o início do ciclo" : ""}`} />
-            <div className="divide-y divide-line border-t border-line px-5">
-              <Row label={c.inherited ? "Entrada oficial (corretora)" : c.cycle?.adds?.length ? "Preço médio" : "Entrada"}>{f.px(c.officialEntry)}</Row>
-              {c.inherited && <Row label="Referência do ciclo">{f.px(c.basis)}</Row>}
-              {c.cycle?.adds?.length ? <Row label="Margem">{f.money(c.cycle.capital)} · {c.cycle.adds.length} aumento{c.cycle.adds.length > 1 ? "s" : ""}</Row> : null}
-              <Row label={s.closed ? "Preço no encerramento" : "Preço agora"}>{f.px(s.closed ? s.points.at(-1)?.price ?? null : s.now.btcUsd.toFixed())} <span className={toneCls(toneOf(c.btcMove))}>({f.pct(c.btcMove)})</span></Row>
-              {!s.closed && <Row label="Liquidação" tone={c.liqDist && c.liqDist.lt(s.s.settings.minLiqDistance) ? "loss" : null}>{c.liq ? `${f.px(c.liq)} (${f.pct(c.liqDist!.neg())})` : "sem risco"}</Row>}
-              {c.funding ? <Row label="Funding" tone={toneOf(c.funding)}>{f.money(c.funding, { signed: true })}</Row> : null}
-              <Row label="Dias na posição">{c.days}</Row>
-            </div>
-            {canAct && c.cycle && (
-              <div className="space-y-2 border-t border-line p-4">
-                <Button variant="primary" size="lg" className="w-full" onClick={() => setSheet("add")}>Aumentar posição</Button>
-                <div className="grid grid-cols-2 gap-2">
+      <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
+        <div className="space-y-4 lg:col-span-7">
+          {c ? (
+            <Panel className="overflow-hidden">
+              <PanelHead title={s.closed ? "Posição no encerramento" : "Posição"} right={<Pill tone="btc">BTC long {levTxt}×</Pill>} />
+              <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 px-4 pt-4 pb-3">
+                <div className="flex items-center gap-3">
+                  <CoinIcon kind="btc" size={32} />
+                  <div>
+                    <p className="lbl">{c.inherited ? "Resultado desde o início do ciclo" : "Resultado da posição"}</p>
+                    <p className={cn("num mt-1 text-[24px] font-semibold leading-none", toneCls(toneOf(c.pnl)))}>{f.money(c.pnl, { signed: true })}</p>
+                  </div>
+                </div>
+                {c.pnlPct != null && <p className={cn("num text-[15px] font-semibold", toneCls(toneOf(c.pnl)))}>{f.pct(c.pnlPct)}</p>}
+              </div>
+              <p className="num px-4 pb-3 text-[12px] text-muted">{f.btc(c.sizeBtc.toFixed(6))} BTC · exposição {f.money(c.notional, { compact: true })} · aberta {fmtDay(c.trip.openT)}{c.inherited ? " (herdada)" : ""}</p>
+              <div className="grid grid-cols-2 border-t border-line sm:grid-cols-3">
+                <Kpi className="border-b border-r border-line" label={c.inherited ? "Entrada oficial" : c.cycle?.adds?.length ? "Preço médio" : "Entrada"} value={f.px(c.officialEntry)} />
+                <Kpi className="border-b border-line sm:border-r" label={s.closed ? "Preço no fim" : "Preço agora"} value={f.px(s.closed ? s.points.at(-1)?.price ?? null : s.now.btcUsd.toFixed())}
+                  sub={<span className={toneCls(toneOf(c.btcMove))}>{f.pct(c.btcMove)} vs. entrada</span>} />
+                {!s.closed ? <Kpi className="border-b border-r border-line sm:border-r-0" label="Liquidação" tone={liqD != null && liqD < minLiq ? "loss" : null} value={c.liq ? f.px(c.liq) : "sem risco"} sub={c.liqDist ? `${f.pct(c.liqDist.neg())} do preço` : undefined} />
+                  : <Kpi className="border-b border-r border-line sm:border-r-0" label="Base do ciclo" value={f.px(c.basis)} />}
+                {c.inherited && <Kpi className="border-b border-line sm:border-r" label="Referência do ciclo" value={f.px(c.basis)} />}
+                <Kpi className="border-b border-r border-line" label="Margem" value={c.cycle ? f.money(c.cycle.capital) : lp ? f.money(lp.marginUsed) : "—"} sub={c.cycle?.adds?.length ? `${c.cycle.adds.length} aumento${c.cycle.adds.length > 1 ? "s" : ""}` : undefined} />
+                <Kpi className="border-b border-line sm:border-r" label="Funding no ciclo" tone={toneOf(c.funding)} value={c.funding ? f.money(c.funding, { signed: true }) : f.money(0)} />
+                <Kpi className="border-b border-r border-line sm:border-r-0" label="Tempo na posição" value={fmtDuration(c.heldMs)} />
+              </div>
+              {canAct && c.cycle && (
+                <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-3">
+                  <Button variant="primary" className="col-span-2 sm:col-span-1" onClick={() => setSheet("add")}>Aumentar posição</Button>
                   <Button onClick={() => setSheet("exit")}>Sair para USDC</Button>
                   <Button onClick={() => setSheet("edit")}>Editar</Button>
                 </div>
+              )}
+            </Panel>
+          ) : (
+            <Panel className="overflow-hidden">
+              <PanelHead title="Posição" right={<Pill tone="accent">100% USDC</Pill>} />
+              <div className="px-4 py-4">
+                <p className="text-[14px] leading-relaxed text-ink-2">Sem posição em BTC{s.inUsdcSince ? ` desde ${fmtDay(s.inUsdcSince)}` : ""}.</p>
+                {s.sinceExit && <p className="mt-1.5 text-[14px] leading-relaxed text-ink-2">Desde a última saída, a <span className="num">{f.px(s.sinceExit.px)}</span>, o BTC <span className={toneCls(toneOf(s.sinceExit.move))}>{s.sinceExit.move >= 0 ? "subiu" : "caiu"} <span className="num">{f.pct(Math.abs(s.sinceExit.move), false)}</span></span>.</p>}
+                {canAct && <Button variant="primary" size="lg" className="mt-4 w-full" onClick={() => setSheet("enter")}>Entrar em BTC</Button>}
               </div>
-            )}
-          </Panel>
-        </>
-      ) : (
-        <>
-          {s.sinceExit && <p className="mt-4 px-1 text-[15px] leading-relaxed text-ink-2">Desde a última saída, a {f.px(s.sinceExit.px)}, o BTC <span className={toneCls(toneOf(s.sinceExit.move))}>{s.sinceExit.move >= 0 ? "subiu" : "caiu"} {f.pct(Math.abs(s.sinceExit.move), false)}</span>.</p>}
-          {canAct && <Button variant="primary" size="lg" className="mt-4 w-full" onClick={() => setSheet("enter")}>Entrar em BTC</Button>}
-        </>
-      )}
+            </Panel>
+          )}
 
-      {!s.closed && (
-        <>
-          <GroupLabel className="mt-7">Saldos agora</GroupLabel>
           <Panel className="overflow-hidden">
-            {live ? live.balances.map((b) => (
-              <BarRow key={`${b.where}${b.coin}`} color={b.where === "arb" ? C.usdc : b.coin === "UBTC" ? C.btc : C.gain}
-                icon={<CoinIcon kind={b.coin === "UBTC" ? "btc" : b.where === "arb" ? "usdc" : "cash"} />}
-                title={`${b.coin} · ${b.where === "perp" ? "Hyperliquid perp" : b.where === "spot" ? "Hyperliquid spot" : "carteira Arbitrum"}`}
-                right={b.usd != null ? pctOf(b.usd) : undefined} value={b.usd != null ? f.money(b.usd) : `${b.total.toLocaleString("pt-BR")} ${b.coin}`} />
-            )) : (
-              <BarRow color={C.gain} icon={<CoinIcon kind="cash" />} title="USDC livre" right={pctOf(Math.max(0, s.free ?? 0))} value={f.money(Math.max(0, s.free ?? 0))} />
-            )}
-            {live && live.balances.length === 0 && <p className="px-5 py-6 text-[15px] text-muted">Nenhum saldo na conta.</p>}
+            <PanelHead title="Ciclo da estratégia" right={<button onClick={() => navigate("/performance")} className="text-[12px] font-medium text-accent">Performance ›</button>} />
+            <div className="grid grid-cols-2 sm:grid-cols-4">
+              <Kpi className="border-r border-b border-line sm:border-b-0" label={s.scope.kind === "account" ? "Início da conta" : "Início"} value={strat ? fmtZoned(strat.startAt, strat.tz).split(",")[0] : new Date(s.startT).toLocaleDateString("pt-BR")}
+                sub={strat ? `${fmtZoned(strat.startAt, strat.tz).split(", ")[1] ?? ""} · ${strat.tz.split("/").pop()!.replace("_", " ")}` : undefined} />
+              <Kpi className="border-b border-line sm:border-r sm:border-b-0" label="Patrimônio inicial" value={f.money(s.equity0)} sub={SRC[s.snapSource] ?? s.snapSource} />
+              <Kpi className="border-r border-line" label="Aportes líquidos" value={f.money(s.flowsIn - s.flowsOut, { signed: true })} />
+              <Kpi label="Capital" value={f.money(s.contrib)} sub={s.roc != null ? <span className={toneCls(toneOf(s.result))}>{f.pct(s.roc)} de retorno</span> : undefined} />
+            </div>
           </Panel>
-          {live && <p className="mt-3 px-1 text-[12px] text-muted">Saldos oficiais da conta inteira. {live.mode === "unifiedAccount" || live.mode === "portfolioMargin" ? "Conta unificada: o colateral fica no saldo spot." : "Conta padrão: margem no perp, saldo spot à parte."}</p>}
-        </>
-      )}
+        </div>
+
+        <div className="space-y-4 lg:col-span-5">
+          <Panel className="overflow-hidden">
+            <PanelHead title="Risco" right={!s.closed && c ? <span className="num">limite {rules.leverageMax}× · liq. {f.pct(minLiq, false)}</span> : undefined} />
+            <div className="space-y-5 px-4 py-4">
+              <RiskMeter label="Alavancagem efetiva" value={c ? lev : 0} display={c ? `${levTxt}×` : "0×"} max={levMax} zones={[rules.leverageMax, rules.leverageMax * 2]} limit={rules.leverageMax} limitLabel="limite"
+                sub={<><span>0×</span><span>{levMax}×</span></>} />
+              {c && !s.closed && <RiskMeter label="Distância da liquidação" value={liqD} display={liqD != null ? f.pct(liqD, false) : "sem risco"} max={0.6} zones={[minLiq, minLiq * 2]} limit={minLiq} invert
+                sub={<><span>0%</span><span>60%+</span></>} />}
+              <div>
+                <div className="flex items-baseline justify-between"><span className="lbl">Alocação</span><span className="num text-[12px] text-muted">{c ? `${pctOf(inPos)} em BTC` : "100% USDC"}</span></div>
+                <div className="mt-2 flex h-1.5 gap-px overflow-hidden rounded-[2px] bg-surface-3">
+                  {allocBar.map((p) => <span key={p.label} style={{ width: `${(p.value / total) * 100}%`, background: p.color }} />)}
+                </div>
+                <ul className="mt-2.5 space-y-1">
+                  {allocBar.map((p) => (
+                    <li key={p.label} className="flex items-center gap-2 text-[12px]">
+                      <span className="size-2 rounded-[2px]" style={{ background: p.color }} aria-hidden /><span className="flex-1 text-ink-2">{p.label}</span>
+                      <span className="num text-ink-2">{f.money(p.value)}</span><span className="num w-14 text-right text-muted">{pctOf(p.value)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </Panel>
+
+          {!s.closed && live && (
+            <Panel className="overflow-hidden">
+              <PanelHead title="Saldos agora" right={live ? (live.mode === "unifiedAccount" || live.mode === "portfolioMargin" ? "conta unificada" : "conta padrão") : undefined} />
+              {live ? live.balances.map((b) => (
+                <BarRow key={`${b.where}${b.coin}`} color={b.where === "arb" ? C.usdc : b.coin === "UBTC" ? C.btc : C.gain}
+                  title={`${b.coin} · ${b.where === "perp" ? "Hyperliquid perp" : b.where === "spot" ? "Hyperliquid spot" : "carteira Arbitrum"}`}
+                  right={b.usd != null ? pctOf(b.usd) : undefined} value={b.usd != null ? f.money(b.usd) : `${b.total.toLocaleString("pt-BR")} ${b.coin}`} />
+              )) : (
+                <BarRow color={C.accent} title="USDC livre" right={pctOf(Math.max(0, s.free ?? 0))} value={f.money(Math.max(0, s.free ?? 0))} />
+              )}
+              {live && live.balances.length === 0 && <p className="px-4 py-5 text-[14px] text-muted">Nenhum saldo na conta.</p>}
+            </Panel>
+          )}
+        </div>
+      </div>
 
       {sheet === "enter" && <EntrySheet onClose={() => setSheet(null)} />}
       {sheet === "edit" && c?.cycle && <EntrySheet edit={c.cycle} onClose={() => setSheet(null)} />}
