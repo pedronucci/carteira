@@ -235,4 +235,5 @@ export const STRATEGY_TABS = [
   { href: "/estrategia", label: "Monitor" },
   { href: "/estrategia/performance", label: "Performance" },
   { href: "/estrategia/transacoes", label: "Transações" },
+  { href: "/estrategia/ciclos", label: "Ciclos" },
 ];

@@ -8,7 +8,7 @@
  */
 import { getStore } from "./store";
 import { closeUsdAt, prices } from "./prices";
-import { hlState, btcMarkAt, seriesAt } from "./hl";
+import { hlState, btcMarkAt, seriesAt, nearestPoint } from "./hl";
 import { account, accountStateAt, officialNow } from "./engine";
 import { DAY, type StartSnapshot } from "./strategy";
 
@@ -51,17 +51,30 @@ export async function buildSnapshot(startAt: number, opts: { arbUsd?: number } =
     // posição BTC no instante: a primeira execução depois do início diz o tamanho que havia (startPosition)
     const btcFills = h.fills.filter((f) => f.coin === "BTC");
     const after = btcFills.find((f) => f.time > startAt);
-    let size: number | null = after ? Math.max(0, after.startPosition) : (live ? Math.max(0, live.positions.find((p) => p.coin === "BTC")?.szi ?? 0) : null);
+    let size: number | null = after ? after.startPosition : (live ? live.positions.find((p) => p.coin === "BTC")?.szi ?? 0 : null);
     if (size == null) missing.push("position");
-    else detail.push(size > 0 ? "Posição em BTC aberta no início (herdada)." : "Sem posição em BTC no início.");
+    else detail.push(size > 0 ? "Posição comprada (long) em BTC aberta no início (herdada)." : size < 0 ? "Posição vendida (short) em BTC aberta no início (herdada)." : "Sem posição em BTC no início.");
     // entrada oficial da posição herdada: média das compras desde que ela abriu
     let officialEntry: number | undefined;
-    if (size && size > 0) {
+    if (size) {
+      // média das execuções que abriram/aumentaram a posição, desde a última vez que ela esteve zerada
+      const side = size > 0 ? "B" : "A";
       let sz = 0, n = 0;
-      for (const f of btcFills) { if (f.time > startAt) break; if (f.startPosition <= 1e-9 && f.side === "B") { sz = 0; n = 0; } if (f.side === "B") { sz += f.sz; n += f.sz * f.px; } }
+      for (const f of btcFills) { if (f.time > startAt) break; if (Math.abs(f.startPosition) <= 1e-9 && f.side === side) { sz = 0; n = 0; } if (f.side === side) { sz += f.sz; n += f.sz * f.px; } }
       if (sz > 0) officialEntry = n / sz;
     }
     const mark = (await btcMarkAt(startAt)) ?? closeUsdAt(Math.floor(startAt / 1000 / DAY) * DAY + DAY - 1) ?? spot ?? 0;
+    // com posição aberta, o valor da conta muda com o preço: em vez de interpolar em linha reta entre dois pontos,
+    // parte do ponto oficial mais próximo e corrige pela variação do BTC entre ele e o início
+    if (size && equity != null && mark) {
+      const near = nearestPoint(h.accountValue, startAt);
+      const nearMark = near ? await btcMarkAt(near[0]) : null;
+      if (near && nearMark) {
+        const fl = flows.reduce((x, [ft, v]) => (near[0] < startAt ? (ft > near[0] && ft <= startAt ? x + v : x) : (ft > startAt && ft <= near[0] ? x - v : x)), 0);
+        equity = near[1] + fl + size * (mark - nearMark);
+        detail.push("Corrigido pela variação do BTC entre o ponto oficial mais próximo e o início.");
+      }
+    }
     if (acc.includeArb) {
       if (opts.arbUsd == null) missing.push("arb");
       else if (equity != null) equity += opts.arbUsd;

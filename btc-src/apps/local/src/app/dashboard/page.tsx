@@ -129,17 +129,17 @@ function StrategyCard({ s }: { s: Snap }) {
   const f = useFmt();
   const pts = useMemo(() => inCcy(s.points, f.ccy, f.fx), [s, f.ccy, f.fx]);
   const c = s.current;
-  const btc0 = s.points[0] && s.points[0].price > 0 ? s.points[0].equity / s.points[0].price : null;
-  const btcNow = s.equity.toNumber() / (s.points.at(-1)?.price || s.now.btcUsd.toNumber());
+  const btc0 = s.btc.start;
+  const btcNow = s.btc.equivalent ?? 0;
   // BTC que a estratégia tem a mais (ou a menos) do que teria só segurando BTC com os mesmos aportes
-  const hodlBtc = s.hodl != null ? s.hodl / (s.points.at(-1)?.price || s.now.btcUsd.toNumber()) : null;
+  const hodlBtc = s.btc.hodl;
   const btcChg = hodlBtc && hodlBtc > 0 ? btcNow / hodlBtc - 1 : null;
   const integ = useIntegrations().find((i) => i.key === "hl")!;
-  const pos = c ? "LONG" : "FLAT";
+  const pos = c ? c.dir : "FLAT";
   return (
     <Panel className="overflow-hidden border-gold/40 lg:col-span-7">
       <PanelHead title={<span className="flex items-center gap-2 text-gold"><Bitcoin className="size-4" />Estratégia BTC/USDC</span>}
-        right={<span className="flex items-center gap-2"><Pill tone={c ? "btc" : "accent"}>{pos}{c?.effLeverage ? ` ${c.effLeverage.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}×` : ""}</Pill>
+        right={<span className="flex items-center gap-2"><Pill tone={!c ? "accent" : c.dir === "LONG" ? "btc" : "loss"}>{pos}{c?.effLeverage ? ` ${c.effLeverage.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}×` : ""}</Pill>
           <span className="num hidden text-[11px] sm:inline">{s.acc.kind === "hl" ? `Hyperliquid · ${integ.state === "ok" ? "ao vivo" : integ.state === "none" ? "—" : integ.state}` : "lançamento manual"}</span></span>} />
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 px-4 pt-4">
         <div>
@@ -224,7 +224,7 @@ function Widget({ id, s }: { id: WidgetId; s: Snap }) {
     );
   }
   if (id === "moves") {
-    const rows = [...s.events].filter((e) => e.k !== "funding").sort((a, b) => b.t - a.t).slice(0, 6);
+    const rows = [...s.events].filter((e) => e.k === "trade" || e.k === "flow").sort((a, b) => b.t - a.t).slice(0, 6);
     return (
       <Panel className={cn("overflow-hidden", span)}>
         <PanelHead title="Últimas movimentações" right={<Link href="/estrategia/transacoes" className="text-[12px] font-medium text-accent">Todas ›</Link>} />

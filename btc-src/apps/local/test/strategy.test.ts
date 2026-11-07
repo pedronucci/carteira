@@ -62,10 +62,12 @@ describe("posições", () => {
     expect(r.result).toBeCloseTo(-22);
     expect(r.trips[0]!.pnl).toBeCloseTo(-22);
   });
-  it("venda maior que a posição não abre short", () => {
+  // Mudança intencional do Terminal 5.0 (motor v2): a venda maior que a posição fecha o long e abre um short
+  // com o restante. Na versão 4 o excesso era ignorado (shortIgnored). Ver test/motor-v2.test.ts.
+  it("venda maior que a posição reverte para short (motor v2)", () => {
     const r = replay({ ...base, events: [buy(T0 + H, 100_000, 0.1), sell(T0 + 2 * H, 100_000, 0.3)] });
-    expect(r.size).toBe(0);
-    expect(r.shortIgnored).toBe(true);
+    expect(r.size).toBeCloseTo(-0.2);
+    expect(r.shortIgnored).toBe(false);
   });
   it("posição oficial em um instante", () => {
     const tr = [buy(1, 100, 1), buy(2, 200, 1), sell(3, 300, 0.5)] as Extract<SEv, { k: "trade" }>[];

@@ -123,6 +123,7 @@ export function account(s: Store = getStore()): Account {
     for (const u of h.funding) if (u.coin === "BTC") ev.push({ t: u.time, k: "funding", usd: u.usd, key: u.key, src: "hl" });
     for (const l of h.ledger) {
       if (l.kind === "INTERNAL") continue;
+      if (l.kind === "INCOME") { ev.push({ t: l.time, k: "income", usd: l.amount, key: l.key, src: "hl", label: l.label }); continue; }
       if (includeArb && (l.type === "deposit" || l.type === "withdraw")) continue; // carteira somada: movimento interno
       ev.push({ t: l.time, k: "flow", usd: l.kind === "IN" ? l.amount : -l.amount, key: l.key, src: "hl", label: l.label });
     }
@@ -208,21 +209,21 @@ export function compute(view?: string) {
   const result = equityN - r.contrib;
 
   if (acc.kind === "hl" && acc.live && !acc.liveFresh && !closed) warnings.push("Saldo da Hyperliquid desatualizado: sem conexão nos últimos minutos.");
-  if (r.shortIgnored) warnings.push("Há vendas maiores que a posição (short). O app acompanha só posições compradas.");
+  if (acc.kind === "hl" && hlState().storageError) warnings.push(hlState().storageError!);
   if (acc.otherCoins.length) warnings.push(`A conta também opera ${acc.otherCoins.slice(0, 4).join(", ")}. Esses resultados entram no patrimônio oficial, mas não no modelo dos ciclos (veja a reconciliação).`);
   if (reconciliation != null && Math.abs(reconciliation) > Math.max(5, equityN * 0.01)) warnings.push(`O modelo difere do saldo oficial em ${reconciliation.toFixed(2)} USD. O app usa o saldo oficial; confira o patrimônio inicial do ciclo.`);
 
   // posição aberta
   const openTrip = r.trips.find((t) => t.closeT == null) ?? null;
   const live = !closed && acc.liveFresh ? acc.live : null;
-  const livePos = live?.positions.find((p) => p.coin === "BTC" && p.szi > 0) ?? null;
+  const livePos = live?.positions.find((p) => p.coin === "BTC" && p.szi !== 0) ?? null;
   const manualOpen = acc.kind === "manual" ? s.cycles.find((c) => !c.closedAt) ?? null : null;
   const manualW = manualOpen ? withAdds(manualOpen) : null;
   const mRate = s.settings.maintenanceRate;
   const pxNow = d(pxEnd);
-  const current = openTrip && r.size > 0 ? (() => {
+  const current = openTrip && r.size !== 0 ? (() => {
     const size = livePos?.szi ?? r.size;
-    const notional = size * pxEnd;
+    const notional = Math.abs(size) * pxEnd;
     const liq = livePos ? (livePos.liqPx ? d(livePos.liqPx) : null) : manualW ? estimateLiq(manualW, mRate) : null;
     const officialEntry = livePos?.entryPx ?? (manualW ? Number(manualW.entryPx) : r.basis);
     return {
@@ -230,7 +231,9 @@ export function compute(view?: string) {
       basis: r.basis, officialEntry, sizeBtc: d(size), notional, value: d(equityN), pnl: d(openTrip.pnl),
       pnlPct: openTrip.pnlPct != null ? d(openTrip.pnlPct) : null,
       btcMove: r.basis ? pxNow.div(r.basis).minus(1) : ZERO,
-      liq, liqDist: liq ? pxNow.minus(liq).div(pxNow) : null,
+      dir: size > 0 ? ("LONG" as const) : ("SHORT" as const),
+      // distância até a liquidação, sempre positiva enquanto a posição está viva (long: abaixo; short: acima)
+      liq, liqDist: liq ? (size > 0 ? pxNow.minus(liq) : liq.minus(pxNow)).div(pxNow) : null,
       effLeverage: equityN > 0 ? notional / equityN : null, leverageSetting: livePos?.leverage ?? (manualW ? Number(manualW.leverage) : null),
       // no ciclo, só o funding depois do início (o "desde a abertura" da corretora inclui o período anterior)
       funding: scope.kind === "account" && livePos ? livePos.fundingSinceOpen : openTrip.funding,
@@ -266,7 +269,20 @@ export function compute(view?: string) {
     state: current ? ("BTC" as const) : ("USDC" as const), current, trips, stats, sinceExit,
     inUsdcSince: !current ? (lastExit?.closeT ?? startT) : null,
     dayChange: day?.money ?? null, dayChangePct: day?.pct ?? null, dayPartial: day?.partial ?? false,
-    points, warnings, livePos, live, free,
+    points, warnings, livePos, live, free, income: r.income,
+    /**
+     * Três medidas de Bitcoin que NÃO se misturam:
+     * - equivalent: patrimônio ÷ preço do BTC (quanto BTC o patrimônio compraria agora);
+     * - spot: BTC efetivamente possuído em custódia (saldo spot na Hyperliquid; lançamento manual não tem spot);
+     * - synthetic: exposição econômica dos derivativos (tamanho do perpétuo, com sinal).
+     */
+    btc: {
+      start: px0 > 0 ? equity0 / px0 : null,
+      equivalent: pxEnd > 0 ? equityN / pxEnd : null,
+      hodl: pxEnd > 0 && r.hodl != null ? r.hodl / pxEnd : null,
+      spot: live ? live.balances.filter((b) => b.where === "spot" && (b.coin === "UBTC" || b.coin === "BTC")).reduce((x, b) => x + b.total, 0) : 0,
+      synthetic: current ? current.sizeBtc.toNumber() : 0,
+    },
   };
 }
 export type Snapshot = ReturnType<typeof compute>;

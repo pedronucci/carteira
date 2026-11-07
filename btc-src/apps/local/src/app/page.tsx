@@ -77,7 +77,7 @@ export default function AllocationPage() {
         <div className="space-y-4 lg:col-span-7">
           {c ? (
             <Panel className="overflow-hidden">
-              <PanelHead title={s.closed ? "Posição no encerramento" : "Posição"} right={<Pill tone="btc">BTC long {levTxt}×</Pill>} />
+              <PanelHead title={s.closed ? "Posição no encerramento" : "Posição"} right={<Pill tone={c.dir === "LONG" ? "btc" : "loss"}>BTC {c.dir === "LONG" ? "long" : "short"} {levTxt}×</Pill>} />
               <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 px-4 pt-4 pb-3">
                 <div className="flex items-center gap-3">
                   <CoinIcon kind="btc" size={32} />
@@ -118,6 +118,8 @@ export default function AllocationPage() {
               </div>
             </Panel>
           )}
+
+          <BtcAccumulation s={s} />
 
           <Panel className="overflow-hidden">
             <PanelHead title="Ciclo da estratégia" right={<button onClick={() => navigate("/estrategia/performance")} className="text-[12px] font-medium text-accent">Performance ›</button>} />
@@ -177,5 +179,28 @@ export default function AllocationPage() {
       {sheet === "exit" && c?.cycle && <ExitSheet cycle={c.cycle} onClose={() => setSheet(null)} />}
       {sheet === "add" && c?.cycle && <AddSheet cycle={c.cycle} onClose={() => setSheet(null)} />}
     </div>
+  );
+}
+
+/** Acumulação de Bitcoin: três medidas que não se misturam. */
+function BtcAccumulation({ s }: { s: NonNullable<ReturnType<typeof useSnapshot>["data"]> }) {
+  const f = useFmt();
+  const b = s.btc;
+  const chg = b.start != null && b.equivalent != null ? b.equivalent - b.start : null;
+  const vsHodl = b.hodl != null && b.equivalent != null ? b.equivalent - b.hodl : null;
+  const sgn = (v: number) => `${v >= 0 ? "+" : "−"}${f.btc(Math.abs(v), 6)}`;
+  return (
+    <Panel className="overflow-hidden">
+      <PanelHead title="Acumulação de Bitcoin" right="patrimônio ÷ preço do BTC" />
+      <div className="grid grid-cols-2 sm:grid-cols-4">
+        <Kpi className="border-r border-b border-line sm:border-b-0" label="BTC eq. no início" value={b.start != null ? f.btc(b.start, 6) : "—"} />
+        <Kpi className="border-b border-line sm:border-r sm:border-b-0" label="BTC eq. agora" value={b.equivalent != null ? f.btc(b.equivalent, 6) : "—"}
+          sub={chg != null ? <span className={toneCls(toneOf(chg))}>{sgn(chg)} no ciclo (com aportes)</span> : undefined} />
+        <Kpi className="border-r border-line" label="vs. só BTC" tone={toneOf(vsHodl)} value={vsHodl != null ? sgn(vsHodl) : "—"}
+          sub={b.hodl != null ? `só BTC teria ${f.btc(b.hodl, 6)}` : undefined} />
+        <Kpi label="Spot · sintético" value={`${f.btc(b.spot, 6)}`} sub={`perpétuo ${b.synthetic >= 0 ? "+" : "−"}${f.btc(Math.abs(b.synthetic), 6)} BTC`} />
+      </div>
+      <p className="border-t border-line px-4 py-2.5 text-[11px] leading-relaxed text-muted"><b className="font-semibold text-ink-2">Equivalente</b>: quanto BTC o patrimônio compraria. <b className="font-semibold text-ink-2">Spot</b>: BTC realmente em custódia. <b className="font-semibold text-ink-2">Sintético</b>: exposição do perpétuo (não é posse de BTC). A estratégia acumula BTC quando o equivalente fica acima do “só BTC”.</p>
+    </Panel>
   );
 }

@@ -48,7 +48,7 @@ function ScopeSheet({ onClose }: { onClose: () => void }) {
   const f = useFmt();
   const s = getStore();
   const active = activeStrategy(s);
-  const closed = s.strategies.filter((x) => x.status === "closed").sort((a, b) => b.startAt - a.startAt);
+  const closed = s.strategies.filter((x) => x.status === "closed" && !x.archived).sort((a, b) => b.startAt - a.startAt);
   const [form, setForm] = useState<null | "new" | "edit">(null);
   const results = useMemo(() => Object.fromEntries(s.strategies.map((x) => [x.id, cycleResult(x.id)])), [s.strategies]);
   const pick = (view: string) => { updateStore((x) => { x.view = view; }); onClose(); };

@@ -44,6 +44,8 @@ export interface StrategyCycle {
   accounts: AccountLink[];
   snapshot: StartSnapshot | null;
   endEquityUsd?: string; // patrimônio oficial no encerramento (quando conhecido)
+  /** ciclo encerrado guardado fora da lista principal (continua disponível para consulta e auditoria) */
+  archived?: boolean;
   createdAt: number;
 }
 
@@ -52,9 +54,11 @@ export interface StrategyCycle {
 export type SEv =
   | { t: number; k: "trade"; side: "B" | "A"; px: number; sz: number; fee: number; key: string; src: "hl" | "manual"; ref?: string; label?: string }
   | { t: number; k: "funding"; usd: number; key: string; src: "hl" | "manual"; ref?: string }
-  | { t: number; k: "flow"; usd: number; key: string; src: "hl" | "manual"; label: string; ref?: string };
+  | { t: number; k: "flow"; usd: number; key: string; src: "hl" | "manual"; label: string; ref?: string }
+  /** receita que não é aporte (ex.: recompensa resgatada): entra no resultado */
+  | { t: number; k: "income"; usd: number; key: string; src: "hl" | "manual"; label: string; ref?: string };
 
-const RANK = { flow: 0, funding: 1, trade: 2 } as const;
+const RANK = { flow: 0, funding: 1, income: 1, trade: 2 } as const;
 export const sortEvents = (e: SEv[]) => [...e].sort((a, b) => a.t - b.t || RANK[a.k] - RANK[b.k] || a.key.localeCompare(b.key));
 
 /** Remove duplicatas pela chave (sincronizações repetidas). */
@@ -67,6 +71,8 @@ export function dedupe<T extends { key: string }>(rows: T[]): T[] {
 
 export interface Trip {
   openT: number; closeT: number | null; inherited: boolean;
+  /** direção da operação: comprada (LONG) ou vendida (SHORT) */
+  dir: "LONG" | "SHORT";
   entry: number; // base média da estratégia
   exit: number | null; // preço médio de saída
   maxSize: number; realized: number; fees: number; funding: number;
@@ -103,19 +109,20 @@ export interface ReplayOut {
   contrib: number; // patrimônio inicial + aportes − retiradas
   result: number; // equity − contrib
   hodlUnits: number; hodl: number | null;
-  trips: Trip[]; shortIgnored: boolean;
+  trips: Trip[]; shortIgnored: boolean; income: number;
 }
 
 export function replay(inp: ReplayInput): ReplayOut {
   const ev = sortEvents(inp.events);
-  let col = inp.equity0, size = inp.size0, basis = inp.size0 > 0 ? inp.px0 : 0;
-  let flowsIn = 0, flowsOut = 0, fees = 0, funding = 0, realized = 0, shortIgnored = false;
+  let col = inp.equity0, size = inp.size0, basis = inp.size0 !== 0 ? inp.px0 : 0;
+  let flowsIn = 0, flowsOut = 0, fees = 0, funding = 0, realized = 0, income = 0;
+  const shortIgnored = false; // mantido por compatibilidade: vendas a descoberto agora são acompanhadas
   let hodlUnits = inp.px0 > 0 ? inp.equity0 / inp.px0 : 0;
   const trips: Trip[] = [];
   let trip: Trip | null = null;
   let exitN = 0, exitS = 0;
   const eqAt = (px: number) => col + size * (px - basis);
-  if (size > 0) trip = { openT: inp.startT, closeT: null, inherited: true, entry: basis, exit: null, maxSize: size, realized: 0, fees: 0, funding: 0, pnl: 0, equityAtOpen: inp.equity0, pnlPct: null, btcMove: null, flowIn: 0 };
+  if (size !== 0) trip = { openT: inp.startT, closeT: null, inherited: true, dir: size > 0 ? "LONG" : "SHORT", entry: basis, exit: null, maxSize: Math.abs(size), realized: 0, fees: 0, funding: 0, pnl: 0, equityAtOpen: inp.equity0, pnlPct: null, btcMove: null, flowIn: 0 };
 
   const apply = (e: SEv, pxHint: number) => {
     if (e.k === "flow") {
@@ -126,37 +133,54 @@ export function replay(inp: ReplayInput): ReplayOut {
       if (trip && e.usd > 0) trip.flowIn += e.usd;
       return;
     }
+    if (e.k === "income") { col += e.usd; income += e.usd; return; }
     if (e.k === "funding") {
       col += e.usd; funding += e.usd;
       if (trip) trip.funding += e.usd;
       return;
     }
-    // trade
+    // trade — tamanho com sinal: compra soma, venda subtrai. Aumentar na mesma direção recalcula a base
+    // (preço médio); reduzir realiza (preço − base) × quantidade × direção; cruzar o zero fecha a operação
+    // e abre outra na direção oposta, com base no preço da execução (reversão).
     col -= e.fee; fees += e.fee;
-    if (e.side === "B") {
-      if (size <= 1e-12) { size = 0; basis = 0; trip = { openT: e.t, closeT: null, inherited: false, entry: 0, exit: null, maxSize: 0, realized: 0, fees: 0, funding: 0, pnl: 0, equityAtOpen: eqAt(e.px), pnlPct: null, btcMove: null, flowIn: 0 }; exitN = 0; exitS = 0; }
-      basis = (size * basis + e.sz * e.px) / (size + e.sz);
-      size += e.sz;
-      if (trip) { trip.entry = basis; trip.maxSize = Math.max(trip.maxSize, size); trip.fees += e.fee; }
-    } else {
-      const q = Math.min(e.sz, size);
-      if (e.sz - q > 1e-9) shortIgnored = true;
-      if (q <= 0) return;
-      const r = (e.px - basis) * q;
-      col += r; realized += r; size -= q;
-      exitN += e.px * q; exitS += q;
-      if (trip) { trip.realized += r; trip.fees += e.fee; }
-      if (size <= 1e-9) {
-        size = 0;
-        if (trip) {
-          trip.closeT = e.t; trip.exit = exitS ? exitN / exitS : null;
-          trip.pnl = trip.realized - trip.fees + trip.funding;
-          trip.pnlPct = trip.equityAtOpen + trip.flowIn > 0 ? trip.pnl / (trip.equityAtOpen + trip.flowIn) : null;
-          trip.btcMove = trip.exit && trip.entry ? trip.exit / trip.entry - 1 : null;
-          trips.push(trip); trip = null;
-        }
-        basis = 0;
+    const delta = e.side === "B" ? e.sz : -e.sz;
+    let feeLeft = e.fee;
+    const open = (qty: number) => {
+      size = qty; basis = e.px; exitN = 0; exitS = 0;
+      trip = { openT: e.t, closeT: null, inherited: false, dir: qty > 0 ? "LONG" : "SHORT", entry: e.px, exit: null, maxSize: Math.abs(qty), realized: 0, fees: feeLeft, funding: 0, pnl: 0, equityAtOpen: eqAt(e.px), pnlPct: null, btcMove: null, flowIn: 0 };
+      feeLeft = 0;
+    };
+    if (Math.abs(size) <= 1e-12) { size = 0; open(delta); return; }
+    if (Math.sign(delta) === Math.sign(size)) { // aumenta a posição
+      basis = (Math.abs(size) * basis + e.sz * e.px) / (Math.abs(size) + e.sz);
+      size += delta;
+      if (trip) { trip.entry = basis; trip.maxSize = Math.max(trip.maxSize, Math.abs(size)); trip.fees += feeLeft; }
+      return;
+    }
+    // reduz, fecha ou reverte
+    const q = Math.min(e.sz, Math.abs(size));
+    const r = (e.px - basis) * q * Math.sign(size);
+    col += r; realized += r;
+    exitN += e.px * q; exitS += q;
+    const rest = e.sz - q;
+    if (trip) {
+      trip.realized += r;
+      // na reversão, a taxa é dividida na proporção do que fechou e do que abriu
+      const part = rest > 1e-9 ? e.fee * (q / e.sz) : e.fee;
+      trip.fees += part; feeLeft = e.fee - part;
+    }
+    size += Math.sign(delta) * q;
+    if (Math.abs(size) <= 1e-9) {
+      size = 0;
+      if (trip) {
+        trip.closeT = e.t; trip.exit = exitS ? exitN / exitS : null;
+        trip.pnl = trip.realized - trip.fees + trip.funding;
+        trip.pnlPct = trip.equityAtOpen + trip.flowIn > 0 ? trip.pnl / (trip.equityAtOpen + trip.flowIn) : null;
+        trip.btcMove = trip.exit && trip.entry ? trip.exit / trip.entry - 1 : null;
+        trips.push(trip); trip = null;
       }
+      basis = 0;
+      if (rest > 1e-9) open(Math.sign(delta) * rest);
     }
   };
 
@@ -181,10 +205,10 @@ export function replay(inp: ReplayInput): ReplayOut {
     const span = Math.max(1, atMs - prevMs);
     const netFlow = pending.reduce((x, f) => x + f.usd, 0);
     const wFlow = pending.reduce((x, f) => x + f.usd * (atMs - Math.max(f.t, prevMs)) / span, 0);
-    points.push({ ts: atMs / 1000, equity: eqAt(px), netFlow, wFlow, contrib, hodl: hodlUnits > 0 ? hodlUnits * px : null, price: px, inBtc: size > 0, size });
+    points.push({ ts: atMs / 1000, equity: eqAt(px), netFlow, wFlow, contrib, hodl: hodlUnits > 0 ? hodlUnits * px : null, price: px, inBtc: size !== 0, size });
     prevMs = atMs; pending = [];
   };
-  points.push({ ts: inp.startT / 1000, equity: eqAt(inp.px0), netFlow: 0, wFlow: 0, contrib, hodl: hodlUnits > 0 ? hodlUnits * inp.px0 : null, price: inp.px0, inBtc: size > 0, size });
+  points.push({ ts: inp.startT / 1000, equity: eqAt(inp.px0), netFlow: 0, wFlow: 0, contrib, hodl: hodlUnits > 0 ? hodlUnits * inp.px0 : null, price: inp.px0, inBtc: size !== 0, size });
   const d0 = Math.floor(inp.startT / 1000 / DAY) * DAY;
   const dEnd = Math.floor(inp.endT / 1000 / DAY) * DAY;
   for (let day = d0; day <= dEnd; day += DAY) {
@@ -216,7 +240,7 @@ export function replay(inp: ReplayInput): ReplayOut {
   return {
     points, equity, size, basis, collateral: col, flowsIn, flowsOut, fees, funding, realized,
     unrealized: size * (inp.pxEnd - basis), contrib, result: equity - contrib,
-    hodlUnits, hodl: hodlUnits > 0 ? hodlUnits * inp.pxEnd : null, trips, shortIgnored,
+    hodlUnits, hodl: hodlUnits > 0 ? hodlUnits * inp.pxEnd : null, trips, shortIgnored, income,
   };
 }
 

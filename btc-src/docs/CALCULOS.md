@@ -54,3 +54,36 @@ resultado da operação ÷ (patrimônio na abertura + aportes feitos com a posi�
 ## Moeda
 Em reais, cada ponto é convertido pelo dólar daquela data (implícito BTCBRL ÷ BTCUSDT). Os aportes são somados no câmbio
 da data.
+
+## Motor v2 (Terminal 5.0)
+
+### Posições compradas e vendidas
+O tamanho tem sinal: compra soma e venda subtrai.
+- **Aumentar** na mesma direção recalcula o preço médio (média ponderada pelo tamanho).
+- **Reduzir** realiza `(preço − base) × quantidade × direção`.
+- **Cruzar o zero** (reversão) fecha a operação e abre outra na direção oposta, com base no preço da execução. A taxa
+  dessa execução é dividida na proporção do que fechou e do que abriu.
+- Uma posição herdada no início pode ser comprada ou vendida; nos dois casos, só a variação depois do início conta.
+- Distância da liquidação: comprado = (preço − liquidação) ÷ preço; vendido = (liquidação − preço) ÷ preço.
+
+### Três medidas de Bitcoin (nunca somadas entre si)
+| Medida | Definição |
+|---|---|
+| BTC equivalente | patrimônio ÷ preço do BTC |
+| BTC spot | BTC efetivamente em custódia (saldo spot UBTC/BTC na Hyperliquid; lançamento manual não tem spot) |
+| Exposição sintética | tamanho do perpétuo, com sinal (exposição econômica, não posse) |
+
+"vs. só BTC" = BTC equivalente − unidades do Buy & Hold (patrimônio inicial e cada aporte convertidos em BTC no
+preço do instante). Positivo = a estratégia acumulou mais BTC do que só segurar.
+
+### Receitas que não são aporte
+Recompensas resgatadas na Hyperliquid (`rewardsClaim`) entram no colateral e no resultado, mas não no capital.
+
+### Hyperliquid
+- Execuções individuais (sem agregação por tempo), com chave pelo id do negócio (`tid`). Um histórico salvo no
+  formato anterior é buscado de novo do zero (a Hyperliquid devolve as execuções mais recentes, até o limite dela).
+- Preço do BTC no início do ciclo: vela de 1 minuto da Hyperliquid que contém o instante.
+- Retrato reconstruído com posição aberta: parte do ponto oficial de valor da conta mais próximo e corrige por
+  `tamanho × (preço no início − preço naquele ponto)`, em vez de interpolar em linha reta.
+- Pendente de verificação na documentação oficial (o acesso a ela está bloqueado neste ambiente): o campo de
+  valor de `rewardsClaim` e a taxa de saque (`withdraw.fee`).

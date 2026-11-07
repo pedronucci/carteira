@@ -23,7 +23,7 @@ export const isAddress = (a: string) => /^0x[0-9a-fA-F]{40}$/.test(a.trim());
 export interface HlPosition { coin: string; szi: number; entryPx: number; leverage: number; levType: string; liqPx: number | null; upnl: number; marginUsed: number; posValue: number; fundingSinceOpen: number }
 export interface HlBalance { coin: string; total: number; usd: number | null; where: "perp" | "spot" | "arb" }
 export interface HlLive { at: number; mode: string; perpValue: number; withdrawable: number; balances: HlBalance[]; positions: HlPosition[]; total: number; arbTotal: number | null }
-export interface HlState { address: string | null; live: HlLive | null; history: HlHistory | null; error: string | null; syncing: boolean }
+export interface HlState { address: string | null; live: HlLive | null; history: HlHistory | null; error: string | null; syncing: boolean; storageError?: string | null }
 
 let state: HlState = load();
 const subs = new Set<() => void>();
@@ -31,7 +31,8 @@ export const hlState = () => state;
 export const subscribeHl = (f: () => void) => { subs.add(f); return () => { subs.delete(f); }; };
 function set(p: Partial<HlState>) {
   state = { ...state, ...p };
-  try { localStorage.setItem(KEY, JSON.stringify({ ...state, syncing: false })); } catch { /* sem armazenamento */ }
+  try { localStorage.setItem(KEY, JSON.stringify({ ...state, syncing: false, storageError: null })); state.storageError = null; }
+  catch { state.storageError = "O armazenamento do navegador está cheio: o histórico da Hyperliquid não pôde ser salvo neste aparelho (os números de agora continuam certos)."; }
   subs.forEach((f) => f());
 }
 function load(): HlState {
@@ -131,13 +132,16 @@ export async function refreshLive(address: string, opts: { includeArb?: boolean;
 
 /** Execução (todas as moedas), compacta. */
 export interface HlFill { key: string; time: number; coin: string; px: number; sz: number; side: "B" | "A"; dir: string; fee: number; closedPnl: number; startPosition: number }
-export interface HlLedger { key: string; time: number; kind: "IN" | "OUT" | "INTERNAL"; amount: number; label: string; type: string }
+/** IN/OUT: fluxo externo · INTERNAL: entre spot e perp da mesma conta · INCOME: recompensa (resultado, não aporte) */
+export interface HlLedger { key: string; time: number; kind: "IN" | "OUT" | "INTERNAL" | "INCOME"; amount: number; label: string; type: string }
 export interface HlFunding { key: string; time: number; coin: string; usd: number }
 export interface HlHistory {
   at: number; fills: HlFill[]; ledger: HlLedger[]; funding: HlFunding[];
   /** Valor oficial da conta ao longo do tempo (endpoint portfolio): [ms, usd] */
   accountValue: [number, number][]; pnl: [number, number][];
   truncated: boolean; syncs: number;
+  /** 2 = execuções individuais com chave pelo id do negócio (tid). Versões anteriores são re-sincronizadas. */
+  v?: number;
 }
 
 type RawFill = { coin: string; px: string; sz: string; side: "B" | "A"; time: number; startPosition: string; dir: string; closedPnl: string; fee: string; hash?: string; oid?: number; tid?: number };
@@ -149,6 +153,10 @@ export const localIso = (ms: number) => { const t = new Date(ms); const p2 = (n:
 
 function ledgerRow(r: RawLedger, me: string): HlLedger | null {
   const x = r.delta;
+  if (x.type === "rewardsClaim") {
+    const v = Number(x.amount ?? 0);
+    return v ? { key: `l|${r.time}|${r.hash ?? ""}|${x.type}|${v}`, time: r.time, kind: "INCOME", amount: v, label: "recompensa resgatada", type: x.type } : null;
+  }
   const amt = Number(x.usdc ?? x.usdcValue ?? (x.token && STABLE.has(x.token) ? x.amount : 0) ?? 0);
   if (!amt) return null;
   const key = `l|${r.time}|${r.hash ?? ""}|${x.type}|${amt}`;
@@ -176,15 +184,16 @@ export async function refreshHistory(address: string, _opts: { includeArb?: bool
   const user = address.trim().toLowerCase();
   set({ syncing: true });
   try {
-    const prev = state.address === user ? state.history : null;
+    // histórico de versões anteriores (execuções agregadas) é buscado de novo do zero: a Hyperliquid guarda tudo
+    const prev = state.address === user && state.history?.v === 2 ? state.history : null;
     const from = (rows: { time: number }[] | undefined) => (rows?.length ? Math.max(0, rows[rows.length - 1]!.time - 3600e3) : 0);
     const [f, l, fu, pf] = await Promise.all([
-      paged<RawFill>({ type: "userFillsByTime", user, aggregateByTime: true }, from(prev?.fills)),
+      paged<RawFill>({ type: "userFillsByTime", user }, from(prev?.fills)),
       paged<RawLedger>({ type: "userNonFundingLedgerUpdates", user }, from(prev?.ledger)),
       paged<RawFunding>({ type: "userFunding", user }, from(prev?.funding), 40),
       info<Portfolio>({ type: "portfolio", user }).catch(() => null),
     ]);
-    const fills = f.rows.map((x): HlFill => ({ key: `f|${x.time}|${x.oid ?? ""}|${x.tid ?? ""}|${x.px}|${x.sz}|${x.side}`, time: x.time, coin: x.coin, px: Number(x.px), sz: Number(x.sz), side: x.side, dir: x.dir, fee: Number(x.fee), closedPnl: Number(x.closedPnl), startPosition: Number(x.startPosition) }));
+    const fills = f.rows.map((x): HlFill => ({ key: x.tid != null ? `f|${x.tid}` : `f|${x.time}|${x.oid ?? ""}|${x.px}|${x.sz}|${x.side}`, time: x.time, coin: x.coin, px: Number(x.px), sz: Number(x.sz), side: x.side, dir: x.dir, fee: Number(x.fee), closedPnl: Number(x.closedPnl), startPosition: Number(x.startPosition) }));
     const ledger = l.rows.map((r) => ledgerRow(r, user)).filter((x): x is HlLedger => Boolean(x));
     const funding = fu.rows.map((x): HlFunding => ({ key: `u|${x.time}|${x.delta.coin}`, time: x.time, coin: x.delta.coin, usd: Number(x.delta.usdc) }));
     // valor oficial da conta: junta os períodos (dia, semana, mês, tudo) — os curtos têm mais pontos
@@ -203,7 +212,7 @@ export async function refreshHistory(address: string, _opts: { includeArb?: bool
       address: user, error: null, syncing: false,
       history: {
         at: Date.now(), fills: mergeBy(prev?.fills ?? [], fills), ledger: mergeBy(prev?.ledger ?? [], ledger), funding: mergeBy(prev?.funding ?? [], funding),
-        accountValue: av, pnl, truncated: Boolean(prev?.truncated) || f.truncated || l.truncated, syncs: (prev?.syncs ?? 0) + 1,
+        accountValue: av, pnl, truncated: Boolean(prev?.truncated) || f.truncated || l.truncated, syncs: (prev?.syncs ?? 0) + 1, v: 2,
       },
     });
   } catch (e) {
@@ -214,18 +223,25 @@ export async function refreshHistory(address: string, _opts: { includeArb?: bool
 // ───────── retrato em um instante passado ─────────
 
 const cache = new Map<number, number>();
-/** Preço do BTC (fechamento da vela de 1 h da Hyperliquid que contém o instante). */
+/** Preço do BTC no instante: vela de 1 minuto da Hyperliquid que contém o instante (abertura; erro de até 1 min). */
 export async function btcMarkAt(t: number): Promise<number | null> {
-  const h = Math.floor(t / 3600e3) * 3600e3;
-  if (cache.has(h)) return cache.get(h)!;
+  const m = Math.floor(t / 60e3) * 60e3;
+  if (cache.has(m)) return cache.get(m)!;
   try {
-    const rows = await info<{ t: number; c: string; o: string }[]>({ type: "candleSnapshot", req: { coin: "BTC", interval: "1h", startTime: h - 3600e3, endTime: h + 3600e3 } });
-    const row = rows.find((x) => x.t === h) ?? rows.filter((x) => x.t <= t).pop();
+    const rows = await info<{ t: number; c: string; o: string }[]>({ type: "candleSnapshot", req: { coin: "BTC", interval: "1m", startTime: m - 3 * 60e3, endTime: m + 2 * 60e3 } });
+    const row = rows.find((x) => x.t === m) ?? rows.filter((x) => x.t <= t).pop();
     if (!row) return null;
-    const v = t - h < 60e3 ? Number(row.o) : Number(row.c);
-    cache.set(h, v);
+    const v = row.t === m ? Number(row.o) : Number(row.c);
+    cache.set(m, v);
     return v;
   } catch { return null; }
+}
+
+/** Ponto mais próximo de uma série [ms, valor], dentro de `maxGap`. */
+export function nearestPoint(series: [number, number][], t: number, maxGap = 6 * 3600e3): [number, number] | null {
+  let best: [number, number] | null = null;
+  for (const p of series) if (Math.abs(p[0] - t) <= maxGap && (!best || Math.abs(p[0] - t) < Math.abs(best[0] - t))) best = p;
+  return best;
 }
 
 /**

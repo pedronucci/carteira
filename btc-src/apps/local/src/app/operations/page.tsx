@@ -50,6 +50,9 @@ export default function TransactionsPage() {
         const fl = e.src === "manual" ? flw(e.ref) : undefined;
         out.push({ key: e.key, ms: e.t, kind: "cash", icon: <CoinIcon kind="cash" size={26} />, title: e.usd >= 0 ? "Depósito" : "Saque", sub: `${hhmm(e.t)} · ${e.label}`,
           amount: `${e.usd >= 0 ? "+" : "−"} ${usdcAmt(Math.abs(e.usd))} USDC`, tone: e.usd >= 0 ? "gain" : "loss", usd: null, onClick: fl ? () => setSheet({ k: "flow", fl }) : undefined });
+      } else if (e.k === "income") {
+        out.push({ key: e.key, ms: e.t, kind: "cash", icon: <CoinIcon kind="other" size={26} />, title: "Recompensa", sub: `${hhmm(e.t)} · ${e.label} (entra no resultado)`,
+          amount: `+ ${usdcAmt(e.usd)} USDC`, tone: "gain", usd: null });
       }
     }
     // funding: um resumo por dia, para não poluir a lista
