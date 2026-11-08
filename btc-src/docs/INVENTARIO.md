@@ -39,4 +39,4 @@ comportamento está fixado automaticamente; "manual" significa conferência visu
 | Risco, cenários, alertas, desempenho | `packages/domain/test/intel.test.ts`, `apps/local/test/fase5.test.ts` |
 | Responsividade e compatibilidade mobile | verificação automática de estouro de layout em 13 rotas × 390/768/1280 px (sem estouro, sem erro de JS) e conferência visual |
 
-Total em 07/11/2026: 151 testes (58 núcleo + 70 app + 23 gateway).
+Total em 07/11/2026: 153 testes (58 núcleo + 70 app + 25 gateway).

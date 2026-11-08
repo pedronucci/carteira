@@ -1,7 +1,7 @@
 /** Gateway: segurança (Access, cifra, assinatura), API da OKX somente leitura e normalização sem contagem dupla. */
 import { createHmac, generateKeyPairSync, createSign } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
-import { okxSign, open, resetJwksCache, seal, verifyAccess } from "../src/security";
+import { masterKeyBytes, okxSign, open, resetJwksCache, seal, verifyAccess } from "../src/security";
 import { normalize } from "../src/okx";
 import { handleApi, scheduledSnapshot, type Env } from "../src/index";
 
@@ -71,6 +71,23 @@ describe("cifra das credenciais", () => {
     const flipped = `${iv}.${ct!.slice(0, -4)}AAAA`;
     await expect(open(flipped, MASTER, "okx-creds-v1")).rejects.toThrow();
     await expect(open(s, Buffer.alloc(32, 9).toString("base64"), "okx-creds-v1")).rejects.toThrow();
+  });
+});
+
+describe("MASTER_KEY", () => {
+  it("aceita base64 com espaços/aspas/base64url e senha longa; recusa curta, vazia e inválida", async () => {
+    const raw = Buffer.alloc(32, 7);
+    for (const m of [MASTER, ` ${MASTER}\n`, `"${MASTER}"`, raw.toString("base64url")]) expect(Buffer.from(await masterKeyBytes(m))).toEqual(raw);
+    expect((await masterKeyBytes("uma-senha-aleatória-bem-longa-com-32+caracteres!")).length).toBe(32);
+    for (const m of ["", undefined, "curta!", "não é base64 ç"]) await expect(masterKeyBytes(m)).rejects.toThrow(/MASTER_KEY/);
+    const s = await seal({ a: 1 }, ` ${MASTER} `, "x");
+    expect(await open(s, MASTER, "x")).toEqual({ a: 1 });
+  });
+  it("conectar com MASTER_KEY inválida: mensagem clara, sem chamar a OKX nem guardar nada", async () => {
+    const r = await handleApi(req("POST", "/api/okx/credentials", creds), { ...env(), MASTER_KEY: "curta" }, fakeFetch);
+    expect(r.status).toBe(500);
+    expect(((await r.json()) as { error: string }).error).toMatch(/MASTER_KEY inválida/);
+    expect(kv.m.has("okx:creds")).toBe(false);
   });
 });
 

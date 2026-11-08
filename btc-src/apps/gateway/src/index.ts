@@ -8,7 +8,7 @@
  *   (AES-GCM com MASTER_KEY) e guardadas no KV. Nunca voltam para o navegador e nunca vão para logs.
  * - Sem CORS: chamadas de outras origens são recusadas.
  */
-import { AuthError, open, seal, verifyAccess } from "./security";
+import { AuthError, KeyConfigError, masterKeyBytes, open, seal, verifyAccess } from "./security";
 import { fetchSnapshot, keyInfo, OkxError, type OkxCreds, type OkxSnapshot } from "./okx";
 import { solanaTokens } from "./solana";
 
@@ -66,6 +66,7 @@ export async function handleApi(req: Request, env: Env, f: typeof fetch = fetch)
         const c = { apiKey: String(b?.apiKey ?? "").trim(), secret: String(b?.secret ?? "").trim(), passphrase: String(b?.passphrase ?? "") };
         if (!c.apiKey || !c.secret || !c.passphrase) return fail(400, "Informe API Key, Secret Key e Passphrase da API.");
         if (c.passphrase.trim().split(/\s+/).length >= 12) return fail(400, "Isto parece uma frase de recuperação. Use a Passphrase da API (a senha criada junto com a API Key), nunca a frase da carteira.");
+        await masterKeyBytes(env.MASTER_KEY); // confere a MASTER_KEY antes de falar com a OKX
         const info = await keyInfo(c, f);
         if (!info.readOnly) return fail(400, `Esta chave tem permissões além de leitura (${info.perms.join(", ") || "desconhecidas"}). Crie uma API Key só com "Read".`);
         await env.BST.put(K.creds, await seal(c, env.MASTER_KEY, "okx-creds-v1"));
@@ -101,6 +102,7 @@ export async function handleApi(req: Request, env: Env, f: typeof fetch = fetch)
     }
   } catch (e) {
     if (e instanceof OkxError) return fail(502, e.message);
+    if (e instanceof KeyConfigError) return fail(500, e.message);
     return fail(500, (e as Error).message.slice(0, 200));
   }
 }

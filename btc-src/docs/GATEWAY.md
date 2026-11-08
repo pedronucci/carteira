@@ -33,8 +33,11 @@ limites diários), Cron Triggers e Access (até 50 usuários). Uso pessoal fica 
    - Deploy command: `npx wrangler deploy --config apps/gateway/wrangler.toml`
 3. **Segredo** — no Worker `carteira` → Settings → Variables and Secrets → *Add* → tipo **Secret**:
    - `MASTER_KEY` = 32 bytes aleatórios em base64. Gere no Terminal: `openssl rand -base64 32`.
-     Guarde uma cópia num gerenciador de senhas: sem ela, as credenciais guardadas não podem ser lidas
-     (basta conectar a OKX de novo).
+     Sem computador (só iPhone): use uma senha aleatória com **pelo menos 32 caracteres** (ex.: a "senha forte"
+     sugerida pelo app Senhas, repetida/estendida até 32+). O gateway a transforma em 32 bytes (SHA-256).
+     Cole sem espaços nem aspas. Guarde uma cópia num gerenciador de senhas: sem ela, as credenciais guardadas
+     não podem ser lidas (basta conectar a OKX de novo). Se ela estiver errada, "Testar e conectar" avisa
+     "MASTER_KEY inválida" antes de falar com a OKX.
    - (opcional) `SOLANA_RPC_URL` = URL de um RPC Solana indexado (ex.: Helius, plano gratuito), para tokens SPL.
 4. **Cloudflare Access** (o "porteiro" que exige login antes de abrir o gateway):
    1. *Ativar o Zero Trust (uma vez)*: no painel, menu **Zero Trust**. Na primeira vez ele pede um **team name**
@@ -86,7 +89,7 @@ Contabilidade: a conta de trading entra pelo **patrimônio de cada moeda** (`eq`
 aberto); as posições aparecem à parte e **nunca são somadas**; funding e Earn são contas separadas.
 
 ## Verificado neste ambiente
-- Testes automatizados (23): Access (token válido, 7 formas de token inválido, domínio da equipe com https/barra/espaços e mensagens que dizem qual variável conferir), cifra (ida e volta, adulteração,
+- Testes automatizados (25): MASTER_KEY (formatos aceitos e recusados), Access (token válido, 7 formas de token inválido, domínio da equipe com https/barra/espaços e mensagens que dizem qual variável conferir), cifra (ida e volta, adulteração,
   contexto e chave errados), assinatura igual ao HMAC da documentação, recusa de chave com Trade, recusa de frase
   de recuperação, segredo nunca devolvido, limite de frequência, revogação, cron e normalização.
 - `wrangler dev` (runtime da Cloudflare): app servido, `/api` sem login → 401, outra origem → 403.

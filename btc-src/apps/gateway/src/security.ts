@@ -58,10 +58,24 @@ export class AuthError extends Error {}
 
 // ───────── credenciais cifradas (AES-GCM 256) ─────────
 
-async function aesKey(masterB64: string) {
-  const raw = unb64(masterB64);
-  if (raw.length !== 32) throw new Error("MASTER_KEY precisa ter 32 bytes (base64).");
-  return crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
+/**
+ * Bytes da MASTER_KEY. Formato recomendado: 32 bytes em base64 (`openssl rand -base64 32`), aceito também com
+ * espaços, aspas ou em base64url. Sem como gerar isso (ex.: só com o iPhone), aceita uma senha aleatória longa
+ * (≥ 32 caracteres), transformada em 32 bytes por SHA-256. Mais curta que isso é recusada.
+ */
+export async function masterKeyBytes(master: string | undefined): Promise<Uint8Array> {
+  const t = (master ?? "").trim().replace(/^["']|["']$/g, "").trim();
+  if (!t) throw new KeyConfigError("MASTER_KEY não configurada no Worker (Settings → Variables and Secrets, tipo Secret).");
+  const b = t.replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/");
+  if (/^[A-Za-z0-9+/]+={0,2}$/.test(b)) {
+    try { const raw = unb64(b + "===".slice((b.length + 3) % 4)); if (raw.length === 32) return raw; } catch { /* não é base64 */ }
+  }
+  if (t.length >= 32) return new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(t)));
+  throw new KeyConfigError("MASTER_KEY inválida: use 32 bytes em base64 (openssl rand -base64 32) ou uma senha aleatória com pelo menos 32 caracteres.");
+}
+export class KeyConfigError extends Error {}
+async function aesKey(master: string) {
+  return crypto.subtle.importKey("raw", await masterKeyBytes(master), "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 /** Cifra um objeto. O resultado (iv + texto cifrado) não revela nada sem a MASTER_KEY. */
 export async function seal(obj: unknown, masterB64: string, aad: string): Promise<string> {
