@@ -14,7 +14,7 @@ import {
 import { getStore, type Add, type Cycle, type Store } from "./store";
 import { closeUsdAt, prices, usdBrlAt } from "./prices";
 import { hlState, type HlLive } from "./hl";
-import { DAY as DAYS, drawdowns, maxDrawdown, periodRet, replay, twr, windowEvents, type SEv, type SPoint, type StrategyCycle, type Trip } from "./strategy";
+import { DAY as DAYS, drawdowns, maxDrawdown, otherAssets, periodRet, replay, twr, windowEvents, type OtherBreakdown, type SEv, type SPoint, type StrategyCycle, type Trip } from "./strategy";
 
 const DAY = DAYS;
 export const tsOf = (iso: string) => Math.floor(new Date(iso.length === 10 ? `${iso}T12:00` : iso).getTime() / 1000);
@@ -88,6 +88,8 @@ export interface Account {
   firstT: number | null;
   live: HlLive | null; liveFresh: boolean; includeArb: boolean;
   otherCoins: string[]; truncated: boolean; address: string | null;
+  /** Resultado dos demais ativos da conta (fora da estratégia BTC): usado só para explicar a reconciliação. */
+  others: { t: number; coin: string; realized: number; fee: number; funding: number }[];
 }
 
 /** Lançamentos manuais → eventos: entrada = compra, aumento = compra, saída = venda; funding na saída. */
@@ -116,11 +118,15 @@ export function account(s: Store = getStore()): Account {
     const h = hl.history;
     const ev: SEv[] = [];
     const other = new Set<string>();
+    const others: Account["others"] = [];
     for (const f of h.fills) {
-      if (f.coin !== "BTC") { other.add(f.coin); continue; }
+      if (f.coin !== "BTC") { other.add(f.coin); others.push({ t: f.time, coin: f.coin, realized: f.closedPnl, fee: f.fee, funding: 0 }); continue; }
       ev.push({ t: f.time, k: "trade", side: f.side, px: f.px, sz: f.sz, fee: f.fee, key: f.key, src: "hl", label: /Open/.test(f.dir) ? "abre long" : /Close/.test(f.dir) ? "fecha long" : f.dir });
     }
-    for (const u of h.funding) if (u.coin === "BTC") ev.push({ t: u.time, k: "funding", usd: u.usd, key: u.key, src: "hl" });
+    for (const u of h.funding) {
+      if (u.coin === "BTC") ev.push({ t: u.time, k: "funding", usd: u.usd, key: u.key, src: "hl" });
+      else { other.add(u.coin); others.push({ t: u.time, coin: u.coin, realized: 0, fee: 0, funding: u.usd }); }
+    }
     for (const l of h.ledger) {
       if (l.kind === "INTERNAL") continue;
       if (l.kind === "INCOME") { ev.push({ t: l.time, k: "income", usd: l.amount, key: l.key, src: "hl", label: l.label }); continue; }
@@ -130,11 +136,11 @@ export function account(s: Store = getStore()): Account {
     for (const e of manualEvents({ ...s, cycles: [] })) ev.push(e); // aportes externos lançados à mão
     ev.sort((x, y) => x.t - y.t);
     const live = hl.live;
-    return { kind: "hl", events: ev, firstT: ev[0]?.t ?? null, live, liveFresh: Boolean(live && Date.now() - live.at < 10 * 60e3), includeArb, otherCoins: [...other], truncated: h.truncated, address: addr };
+    return { kind: "hl", events: ev, firstT: ev[0]?.t ?? null, live, liveFresh: Boolean(live && Date.now() - live.at < 10 * 60e3), includeArb, otherCoins: [...other], truncated: h.truncated, address: addr, others };
   }
   const ev = manualEvents(s);
   const first = s.initial ? tsOf(s.initial.date) * 1000 : ev[0]?.t ?? null;
-  return { kind: "manual", events: ev, firstT: first, live: null, liveFresh: false, includeArb: false, otherCoins: [], truncated: false, address: null };
+  return { kind: "manual", events: ev, firstT: first, live: null, liveFresh: false, includeArb: false, otherCoins: [], truncated: false, address: null, others: [] };
 }
 
 /** Patrimônio oficial agora (Hyperliquid ao vivo), quando disponível. */
@@ -203,15 +209,30 @@ export function compute(view?: string) {
   const official = !closed ? officialNow(acc) : scope.kind === "strategy" && scope.strategy.endEquityUsd ? Number(scope.strategy.endEquityUsd) : null;
   const equityN = official ?? r.equity;
   const reconciliation = official != null ? official - r.equity : null;
+
+  // Estratégia BTC isolada: o resultado vem do modelo (execuções, taxas e funding do BTC), nunca do saldo
+  // oficial, que também carrega o resultado de outros ativos operados na mesma conta.
+  let breakdown: OtherBreakdown | null = null;
+  if (scope.kind === "strategy" && acc.kind === "hl") {
+    const liveNow = !closed && acc.liveFresh ? acc.live : null;
+    const snapPos = scope.strategy.snapshot?.positions ?? [];
+    breakdown = otherAssets(acc.others, startT, endT, liveNow ? liveNow.positions.map((p) => ({ coin: p.coin, upnl: p.upnl })) : null, snapPos.map((p) => ({ coin: p.coin, upnl: Number(p.upnl ?? 0) })), reconciliation);
+  }
+  const isolated = breakdown != null;
+  const perfEquity = isolated ? r.equity : equityN;
   const lp = r.points[r.points.length - 1];
-  if (lp && official != null) lp.equity = official;
+  if (lp && official != null && !isolated) lp.equity = official;
   const points: CPointN[] = r.points.map((p: SPoint) => ({ ...p, btc: p.price > 0 ? p.equity / p.price : 0 }));
-  const result = equityN - r.contrib;
+  const result = perfEquity - r.contrib;
+  const accountResult = equityN - r.contrib;
 
   if (acc.kind === "hl" && acc.live && !acc.liveFresh && !closed) warnings.push("Saldo da Hyperliquid desatualizado: sem conexão nos últimos minutos.");
   if (acc.kind === "hl" && hlState().storageError) warnings.push(hlState().storageError!);
-  if (acc.otherCoins.length) warnings.push(`A conta também opera ${acc.otherCoins.slice(0, 4).join(", ")}. Esses resultados entram no patrimônio oficial, mas não no modelo dos ciclos (veja a reconciliação).`);
-  if (reconciliation != null && Math.abs(reconciliation) > Math.max(5, equityN * 0.01)) warnings.push(`O modelo difere do saldo oficial em ${reconciliation.toFixed(2)} USD. O app usa o saldo oficial; confira o patrimônio inicial do ciclo.`);
+  if (breakdown) {
+    const sg = (n: number) => `${n >= 0 ? "+" : "−"}${Math.abs(n).toFixed(2)}`;
+    warnings.push(`Resultado da estratégia considera só o BTC. ${breakdown.coins.slice(0, 4).join(", ")} somou ${sg(breakdown.net)} USD no período e fica fora do resultado; o patrimônio mostrado é o saldo oficial da conta.`);
+    if (breakdown.unexplained != null && Math.abs(breakdown.unexplained) > Math.max(5, equityN * 0.01)) warnings.push(`Sobram ${sg(breakdown.unexplained)} USD sem explicação entre o modelo e o saldo oficial. Confira o patrimônio inicial do ciclo.`);
+  } else if (reconciliation != null && Math.abs(reconciliation) > Math.max(5, equityN * 0.01)) warnings.push(`O modelo difere do saldo oficial em ${reconciliation.toFixed(2)} USD. O app usa o saldo oficial; confira o patrimônio inicial do ciclo.`);
 
   // posição aberta
   const openTrip = r.trips.find((t) => t.closeT == null) ?? null;
@@ -261,11 +282,11 @@ export function compute(view?: string) {
   return {
     s, now, acc, scope, label, snapSource, startT, endT, closed, events,
     equity: d(equityN), equity0, contrib: r.contrib, flowsIn: r.flowsIn, flowsOut: r.flowsOut, result, fees: r.fees, funding: r.funding,
-    realized: r.realized, unrealized: r.unrealized, modelEquity: r.equity, official, reconciliation,
+    realized: r.realized, unrealized: r.unrealized, modelEquity: r.equity, official, reconciliation, isolated, breakdown, accountResult,
     twr: twr(r.points), maxDD: maxDrawdown(r.points),
     /** Retorno sobre o capital: resultado ÷ (patrimônio inicial + aportes). */
-    roc: equity0 + r.flowsIn > 0 ? result / (equity0 + r.flowsIn) : null, hodl: r.hodl, vsHodl: r.hodl != null ? equityN - r.hodl : null,
-    vsHodlPct: r.hodl ? equityN / r.hodl - 1 : null, hodlRet: r.hodl && r.contrib > 0 ? r.hodl / r.contrib - 1 : null,
+    roc: equity0 + r.flowsIn > 0 ? result / (equity0 + r.flowsIn) : null, hodl: r.hodl, vsHodl: r.hodl != null ? perfEquity - r.hodl : null,
+    vsHodlPct: r.hodl ? perfEquity / r.hodl - 1 : null, hodlRet: r.hodl && r.contrib > 0 ? r.hodl / r.contrib - 1 : null,
     state: current ? ("BTC" as const) : ("USDC" as const), current, trips, stats, sinceExit,
     inUsdcSince: !current ? (lastExit?.closeT ?? startT) : null,
     dayChange: day?.money ?? null, dayChangePct: day?.pct ?? null, dayPartial: day?.partial ?? false,

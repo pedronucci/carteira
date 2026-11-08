@@ -103,6 +103,8 @@ export default function PerformancePage() {
               <Row label="Buy & Hold no período" tone={toneOf(hodlRet)}>{hodlRet != null ? f.pct(hodlRet) : "—"}</Row>
               <Row label="Estratégia vs. só BTC" tone={toneOf(s.vsHodlPct)}>{s.vsHodlPct != null ? f.pct(s.vsHodlPct) : "—"}</Row>
               {s.reconciliation != null && <Row label="Reconciliação Hyperliquid">{Math.abs(s.reconciliation) < 0.01 ? "ok" : f.money(s.reconciliation, { signed: true })}</Row>}
+              {s.breakdown && <Row label={`↳ Outros ativos (${s.breakdown.coins.slice(0, 3).join(", ")})`} tone={toneOf(s.breakdown.net)}>{f.money(s.breakdown.net, { signed: true })}</Row>}
+              {s.breakdown?.unexplained != null && <Row label="↳ Sem explicação">{Math.abs(s.breakdown.unexplained) < 0.01 ? "ok" : f.money(s.breakdown.unexplained, { signed: true })}</Row>}
             </div>
             <p className="border-t border-line px-4 py-3 text-[11px] leading-relaxed text-muted">Aportes e retiradas mudam o capital, nunca o resultado. <b className="font-semibold text-ink-2">Retorno sobre o capital</b> = resultado ÷ capital. <b className="font-semibold text-ink-2">TWR</b> mede a estratégia sem o peso do tamanho de cada aporte: a carteira é avaliada no instante de cada aporte e os períodos são encadeados.</p>
           </Panel>

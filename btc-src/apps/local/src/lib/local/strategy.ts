@@ -323,3 +323,33 @@ export function utcToZoned(ms: number, tz: string): { date: string; time: string
   return { date: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}` };
 }
 export const fmtZoned = (ms: number, tz: string) => new Intl.DateTimeFormat("pt-BR", { timeZone: tz, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(ms));
+
+// ───────── outros ativos da conta ─────────
+
+export interface OtherBreakdown { coins: string[]; realized: number; fees: number; funding: number; unrealized: number | null; net: number; unexplained: number | null }
+
+/**
+ * Resultado dos demais ativos da conta no período (fora da estratégia BTC).
+ * Variação do patrimônio oficial = realizado − taxas + funding + variação do não realizado.
+ * `unexplained` é o que sobra entre o modelo e o saldo oficial depois de descontar esses ativos.
+ */
+export function otherAssets(
+  others: { t: number; coin: string; realized: number; fee: number; funding: number }[],
+  startT: number, endT: number,
+  liveUpnl: { coin: string; upnl: number }[] | null,
+  startUpnl: { coin: string; upnl: number }[],
+  reconciliation: number | null,
+): OtherBreakdown | null {
+  const win = others.filter((o) => o.t > startT && o.t <= endT);
+  const realized = win.reduce((a, o) => a + o.realized, 0), fees = win.reduce((a, o) => a + o.fee, 0), funding = win.reduce((a, o) => a + o.funding, 0);
+  const coins = [...new Set(win.map((o) => o.coin))];
+  let unrealized: number | null = null;
+  if (liveUpnl) {
+    const sum = (l: { coin: string; upnl: number }[]) => l.filter((p) => p.coin !== "BTC").reduce((a, p) => a + p.upnl, 0);
+    unrealized = sum(liveUpnl) - sum(startUpnl);
+    for (const p of liveUpnl) if (p.coin !== "BTC" && !coins.includes(p.coin)) coins.push(p.coin);
+  }
+  if (!coins.length) return null;
+  const net = realized - fees + funding + (unrealized ?? 0);
+  return { coins, realized, fees, funding, unrealized, net, unexplained: reconciliation != null ? reconciliation - net : null };
+}

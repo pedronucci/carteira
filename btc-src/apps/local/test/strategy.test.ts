@@ -112,3 +112,22 @@ describe("performance e fuso", () => {
     expect(zonedToUtc("2026-11-05", "00:00", "UTC")).toBe(Date.UTC(2026, 10, 5));
   });
 });
+
+import { otherAssets } from "../src/lib/local/strategy";
+describe("outros ativos da conta", () => {
+  const others = [
+    { t: 100, coin: "HYPE", realized: -50, fee: 2, funding: 0 },
+    { t: 120, coin: "HYPE", realized: 0, fee: 0, funding: -1 },
+    { t: 10, coin: "HYPE", realized: 999, fee: 9, funding: 0 }, // antes do início
+  ];
+  it("soma só o período e separa o que sobra", () => {
+    const b = otherAssets(others, 50, 200, [{ coin: "HYPE", upnl: 30 }, { coin: "BTC", upnl: -5 }], [{ coin: "HYPE", upnl: 10 }], -40)!;
+    expect(b.realized).toBe(-50); expect(b.fees).toBe(2); expect(b.funding).toBe(-1);
+    expect(b.unrealized).toBe(20); // BTC não entra
+    expect(b.net).toBe(-33);
+    expect(b.unexplained).toBe(-7);
+  });
+  it("sem outros ativos não há detalhamento", () => {
+    expect(otherAssets([], 0, 10, null, [], 0)).toBeNull();
+  });
+});
