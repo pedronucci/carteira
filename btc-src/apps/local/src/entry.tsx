@@ -1,3 +1,4 @@
+import "@/lib/demo-seed";
 import { createRoot } from "react-dom/client";
 import { Providers } from "@/app/providers";
 import { AppShell } from "@/components/nav";

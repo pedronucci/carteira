@@ -6,7 +6,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const out = resolve(here, "dist"), tmp = resolve(here, ".tmp");
+const out = resolve(here, process.env.BST_OUT ?? "dist"), tmp = resolve(here, ".tmp");
 mkdirSync(out, { recursive: true }); mkdirSync(tmp, { recursive: true });
 
 const globals = readFileSync(resolve(here, "src/app/globals.css"), "utf8").replace(/^@import .*$/gm, "");
@@ -18,7 +18,7 @@ await build({
   bundle: true, minify: !process.env.NOMIN, format: "esm", platform: "browser", target: "es2022", outdir: tmp,
   jsx: "automatic", tsconfig: resolve(here, "tsconfig.json"),
   alias: { "next/link": resolve(here, "src/lib/next-link.tsx"), "next/navigation": resolve(here, "src/lib/next-navigation.ts") },
-  define: { "process.env.NODE_ENV": '"production"' },
+  define: { "process.env.NODE_ENV": '"production"', "process.env.BST_DEMO": JSON.stringify(process.env.BST_DEMO ?? "") },
   loader: { ".woff2": "dataurl", ".woff": "dataurl" },
   logLevel: "warning", legalComments: "none",
 });

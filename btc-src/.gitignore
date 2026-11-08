@@ -2,3 +2,4 @@ node_modules/
 dist/
 .tmp/
 .wrangler/
+apps/local/dist-demo/

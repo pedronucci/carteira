@@ -8,6 +8,7 @@ import { fmtDuration, fmtZoned } from "@/lib/local/strategy";
 import { BarRow, Button, CoinIcon, Kpi, Notice, Panel, PanelHead, Pill, RiskMeter, Skeleton, cn, toneCls, toneOf } from "@/components/ui";
 import { DEFAULT_SCENARIO_RULES } from "@bst/domain";
 import { Hero } from "@/components/shell";
+import { Notices, PriceRail } from "@/components/terminal";
 import { C } from "@/components/charts";
 import { AddSheet, EntrySheet, ExitSheet } from "@/components/forms";
 import { HlConnect } from "@/components/hl-connect";
@@ -71,24 +72,25 @@ export default function AllocationPage() {
   return (
     <div>
       <Hero />
-      {s.warnings.length > 0 && <div className="mb-4 space-y-2">{s.warnings.map((w) => <Notice key={w}>{w}</Notice>)}</div>}
+      <Notices items={s.warnings} />
 
       <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
         <div className="min-w-0 space-y-4 lg:col-span-7">
           {c ? (
-            <Panel className="overflow-hidden">
+            <Panel glow className="overflow-hidden">
               <PanelHead title={s.closed ? "Posição no encerramento" : "Posição"} right={<Pill tone={c.dir === "LONG" ? "btc" : "loss"}>BTC {c.dir === "LONG" ? "long" : "short"} {levTxt}×</Pill>} />
               <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 px-4 pt-4 pb-3">
                 <div className="flex items-center gap-3">
                   <CoinIcon kind="btc" size={32} />
                   <div>
                     <p className="lbl">{c.inherited ? "Resultado desde o início do ciclo" : "Resultado da posição"}</p>
-                    <p className={cn("num mt-1 text-[24px] font-semibold leading-none", toneCls(toneOf(c.pnl)))}>{f.money(c.pnl, { signed: true })}</p>
+                    <p className={cn("num mt-1 text-[30px] font-semibold leading-none tracking-[-0.03em]", toneCls(toneOf(c.pnl)))}>{f.money(c.pnl, { signed: true })}</p>
                   </div>
                 </div>
-                {c.pnlPct != null && <p className={cn("num text-[15px] font-semibold", toneCls(toneOf(c.pnl)))}>{f.pct(c.pnlPct)}</p>}
+                {c.pnlPct != null && <p className={cn("num rounded-full px-2.5 py-1 text-[14px] font-semibold", c.pnl.gt(0) ? "bg-gain-soft" : c.pnl.lt(0) ? "bg-loss-soft" : "bg-surface-3", toneCls(toneOf(c.pnl)))}>{f.pct(c.pnlPct)}</p>}
               </div>
               <p className="num px-4 pb-3 text-[12px] text-muted">{f.btc(c.sizeBtc.toFixed(6))} BTC · exposição {f.money(c.notional, { compact: true })} · aberta {fmtDay(c.trip.openT)}{c.inherited ? " (herdada)" : ""}</p>
+              {!s.closed && <PriceRail liq={c.liq ? c.liq.toNumber() : null} entry={c.officialEntry} now={s.now.btcUsd.toNumber()} px={(v) => f.px(v)} />}
               <div className="grid grid-cols-2 border-t border-line sm:grid-cols-3">
                 <Kpi className="border-b border-r border-line" label={c.inherited ? "Entrada oficial" : c.cycle?.adds?.length ? "Preço médio" : "Entrada"} value={f.px(c.officialEntry)} />
                 <Kpi className="border-b border-line sm:border-r" label={s.closed ? "Preço no fim" : "Preço agora"} value={f.px(s.closed ? s.points.at(-1)?.price ?? null : s.now.btcUsd.toFixed())}

@@ -15,8 +15,8 @@ export const toneOf = (v: { toString(): string } | string | null | undefined): "
 export const toneCls = (t: "gain" | "loss" | null | undefined) => (t === "gain" ? "text-gain" : t === "loss" ? "text-loss" : "");
 
 /** Bloco de conteúdo: superfície com borda fina, cantos discretos. */
-export function Panel({ className, children, ...rest }: { className?: string; children: ReactNode } & React.HTMLAttributes<HTMLElement>) {
-  return <section className={cn("rounded-lg border border-line bg-surface", className)} {...rest}>{children}</section>;
+export function Panel({ className, children, glow, ...rest }: { className?: string; children: ReactNode; glow?: boolean } & React.HTMLAttributes<HTMLElement>) {
+  return <section className={cn("rounded-lg border border-line", glow ? "panel-glow" : "panel-raised", className)} {...rest}>{children}</section>;
 }
 
 /** Cabeçalho de painel: título curto à esquerda, ação ou valor à direita. */
@@ -131,7 +131,7 @@ export function Notice({ tone = "warn", children }: { tone?: "warn" | "loss" | "
 }
 
 export function Pill({ tone = "neutral", children, className }: { tone?: "neutral" | "btc" | "gain" | "loss" | "accent" | "gold"; children: ReactNode; className?: string }) {
-  return <span className={cn("inline-flex items-center gap-1.5 rounded-[4px] px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.06em] whitespace-nowrap",
+  return <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11.5px] font-semibold whitespace-nowrap",
     tone === "neutral" && "bg-surface-3 text-ink-2", tone === "btc" && "bg-btc-soft text-btc", tone === "gain" && "bg-gain-soft text-gain", tone === "loss" && "bg-loss-soft text-loss", tone === "accent" && "bg-accent-soft text-accent", tone === "gold" && "bg-gold-soft text-gold", className)}>{children}</span>;
 }
 

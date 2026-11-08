@@ -21,6 +21,7 @@ import { portfolio } from "@/lib/portfolio/db";
 import { gatewayInfo } from "@/lib/connectors/okx";
 import { alerts } from "@/lib/alerts";
 import { cn, Segmented, toneCls, toneOf } from "./ui";
+import { useFlash } from "./motion";
 
 type Icon = ComponentType<{ className?: string; strokeWidth?: number }>;
 export interface Module { href: string; label: string; short?: string; icon: Icon; match?: string[]; strategy?: boolean }
@@ -102,9 +103,10 @@ function BtcTicker() {
   const px = prices().spot?.btcUsd ?? null;
   const prev = cd.length >= 2 ? cd[cd.length - 2]!.c : null;
   const chg = px && prev ? px / prev - 1 : null;
+  const flash = useFlash(px);
   return (
     <span className="num flex shrink-0 items-center gap-1.5 text-[12px]">
-      <span className="font-semibold text-btc">BTC</span><span className="text-ink">{px ? f.px(px) : "—"}</span>
+      <span className="font-semibold text-btc">BTC</span><span className={cn("px-0.5 text-ink", flash && `flash-${flash}`)}>{px ? f.px(px) : "—"}</span>
       {chg != null && <span className={toneCls(toneOf(chg))}>{f.pct(chg)}</span>}
     </span>
   );
