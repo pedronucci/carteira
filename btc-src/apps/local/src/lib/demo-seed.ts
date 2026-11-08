@@ -35,6 +35,13 @@ if (process.env.BST_DEMO === "1") {
     cycles: [{ id: "c1", openedAt: "2026-11-05T21:13", entryPx: "75930", leverage: "4.6", capital: "12800", sizeBtc: "0.77547", liqPx: "59840", feesOpen: "38.59", funding: "-33.10" }],
   });
   set("bst.prefs.v1", { ccy: "USD" });
+  if (!location.hash || location.hash === "#") location.hash = "#/estrategia";
+  addEventListener("DOMContentLoaded", () => {
+    const b = document.createElement("div");
+    b.textContent = "PRÉVIA · dados de exemplo";
+    b.setAttribute("style", "position:fixed;top:calc(env(safe-area-inset-top) + 2px);right:6px;z-index:99;font:600 9px/1 system-ui;letter-spacing:.08em;color:#e8b04b;background:#090e16cc;border:1px solid #e8b04b55;border-radius:99px;padding:3px 7px;pointer-events:none");
+    document.body.appendChild(b);
+  });
   try { localStorage.removeItem("bst.hl.v2"); } catch { /* */ }
   // responde as cotações com os mesmos números, para a prévia não mostrar "sem conexão"
   const json = (b: unknown) => Promise.resolve(new Response(JSON.stringify(b), { status: 200, headers: { "content-type": "application/json" } }));
