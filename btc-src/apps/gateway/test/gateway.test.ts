@@ -88,6 +88,15 @@ describe("Cloudflare Access", () => {
     ["chave desconhecida", jwt({ aud: [AUD], iss: `https://${TEAM}`, exp: now() + 600, email: OWNER }, "k9")],
     ["assinatura adulterada", good().slice(0, -6) + "AAAAAA"],
   ])("recusa: %s", async (_n, t) => { await expect(verifyAccess(t as string | null, cfg, fakeFetch)).rejects.toThrow(); });
+  it("aceita o domínio da equipe colado com https://, barra, espaços ou maiúsculas", async () => {
+    for (const d of [`https://${TEAM}`, `${TEAM}/`, ` ${TEAM} `, `https://${TEAM.toUpperCase()}/`])
+      await expect(verifyAccess(good(), { ...cfg, teamDomain: d }, fakeFetch)).resolves.toEqual({ email: OWNER });
+  });
+  it("erro diz qual variável conferir", async () => {
+    await expect(verifyAccess(good(), { ...cfg, teamDomain: "" }, fakeFetch)).rejects.toThrow(/ACCESS_TEAM_DOMAIN não configurado/);
+    const t = jwt({ aud: [AUD], iss: "https://outro.cloudflareaccess.com", exp: now() + 600, email: OWNER });
+    await expect(verifyAccess(t, cfg, fakeFetch)).rejects.toThrow(/outro\.cloudflareaccess\.com/);
+  });
 });
 
 describe("API do gateway", () => {

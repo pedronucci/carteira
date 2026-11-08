@@ -11,6 +11,8 @@ const unb64url = (s: string) => unb64(s.replace(/-/g, "+").replace(/_/g, "/") + 
 // ───────── Cloudflare Access (JWT RS256) ─────────
 
 export interface AccessConfig { teamDomain: string; aud: string; ownerEmail: string }
+/** Aceita o domínio da equipe colado com https://, barra no fim, espaços ou maiúsculas. */
+export const normTeamDomain = (d: string) => (d ?? "").trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "").toLowerCase();
 type Jwk = JsonWebKey & { kid: string };
 let jwks: { at: number; keys: Jwk[] } | null = null;
 
@@ -30,22 +32,26 @@ export const resetJwksCache = () => { jwks = null; };
  */
 export async function verifyAccess(token: string | null, cfg: AccessConfig, f: typeof fetch = fetch): Promise<{ email: string }> {
   if (!token) throw new AuthError("Sem token do Cloudflare Access.");
+  const team = normTeamDomain(cfg.teamDomain);
+  if (!team) throw new AuthError("ACCESS_TEAM_DOMAIN não configurado no Worker.");
+  if (!(cfg.aud ?? "").trim()) throw new AuthError("ACCESS_AUD não configurado no Worker.");
+  if (!(cfg.ownerEmail ?? "").trim()) throw new AuthError("OWNER_EMAIL não configurado no Worker.");
   const parts = token.split(".");
   if (parts.length !== 3) throw new AuthError("Token malformado.");
   const [h, p, s] = parts as [string, string, string];
   const header = JSON.parse(dec.decode(unb64url(h))) as { alg: string; kid: string };
   if (header.alg !== "RS256") throw new AuthError("Algoritmo de assinatura não aceito.");
-  const jwk = (await keys(cfg.teamDomain, f)).find((k) => k.kid === header.kid);
+  const jwk = (await keys(team, f)).find((k) => k.kid === header.kid);
   if (!jwk) throw new AuthError("Chave de assinatura desconhecida.");
   const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
   const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, unb64url(s), enc.encode(`${h}.${p}`));
   if (!ok) throw new AuthError("Assinatura inválida.");
   const c = JSON.parse(dec.decode(unb64url(p))) as { aud: string | string[]; iss: string; exp: number; nbf?: number; email?: string };
   const now = Math.floor(Date.now() / 1000);
-  if (c.iss !== `https://${cfg.teamDomain}`) throw new AuthError("Emissor inválido.");
-  if (!(Array.isArray(c.aud) ? c.aud : [c.aud]).includes(cfg.aud)) throw new AuthError("Audiência inválida.");
+  if (normTeamDomain(c.iss) !== team) throw new AuthError(`Emissor inválido: o token é de "${normTeamDomain(c.iss)}", mas ACCESS_TEAM_DOMAIN é "${team}".`);
+  if (!(Array.isArray(c.aud) ? c.aud : [c.aud]).includes(cfg.aud.trim())) throw new AuthError("Audiência inválida (confira ACCESS_AUD).");
   if (c.exp <= now || (c.nbf && c.nbf > now + 60)) throw new AuthError("Token expirado.");
-  if (!c.email || c.email.toLowerCase() !== cfg.ownerEmail.toLowerCase()) throw new AuthError("Usuário não autorizado.");
+  if (!c.email || c.email.toLowerCase() !== cfg.ownerEmail.trim().toLowerCase()) throw new AuthError("Usuário não autorizado (confira OWNER_EMAIL).");
   return { email: c.email };
 }
 export class AuthError extends Error {}

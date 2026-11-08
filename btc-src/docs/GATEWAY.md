@@ -86,7 +86,7 @@ Contabilidade: a conta de trading entra pelo **patrimônio de cada moeda** (`eq`
 aberto); as posições aparecem à parte e **nunca são somadas**; funding e Earn são contas separadas.
 
 ## Verificado neste ambiente
-- Testes automatizados (21): Access (token válido e 7 formas de token inválido), cifra (ida e volta, adulteração,
+- Testes automatizados (23): Access (token válido, 7 formas de token inválido, domínio da equipe com https/barra/espaços e mensagens que dizem qual variável conferir), cifra (ida e volta, adulteração,
   contexto e chave errados), assinatura igual ao HMAC da documentação, recusa de chave com Trade, recusa de frase
   de recuperação, segredo nunca devolvido, limite de frequência, revogação, cron e normalização.
 - `wrangler dev` (runtime da Cloudflare): app servido, `/api` sem login → 401, outra origem → 403.
