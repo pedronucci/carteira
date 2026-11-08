@@ -1,7 +1,7 @@
 # Gateway seguro do Bitcoin Strategy Terminal 5.0 (Cloudflare Workers).
 # Serve o app (mesmo arquivo do GitHub Pages) e a API privada /api/* no MESMO endereço, protegidos pelo
 # Cloudflare Access. Nenhum segredo fica no navegador. Passo a passo: docs/GATEWAY.md
-name = "bst-gateway"
+name = "carteira"
 main = "src/index.ts"
 compatibility_date = "2026-11-01"
 # mantém as variáveis configuradas no painel a cada deploy (sem isso, o Wrangler as apagaria)

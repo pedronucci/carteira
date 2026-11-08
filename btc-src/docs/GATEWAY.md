@@ -31,7 +31,7 @@ limites diários), Cron Triggers e Access (até 50 usuários). Uso pessoal fica 
    - Root directory: `btc-src`
    - Build command: `npx pnpm@10.28.0 install --frozen-lockfile && npx pnpm@10.28.0 --filter @bst/local build`
    - Deploy command: `npx wrangler deploy --config apps/gateway/wrangler.toml`
-3. **Segredo** — no Worker `bst-gateway` → Settings → Variables and Secrets → *Add* → tipo **Secret**:
+3. **Segredo** — no Worker `carteira` → Settings → Variables and Secrets → *Add* → tipo **Secret**:
    - `MASTER_KEY` = 32 bytes aleatórios em base64. Gere no Terminal: `openssl rand -base64 32`.
      Guarde uma cópia num gerenciador de senhas: sem ela, as credenciais guardadas não podem ser lidas
      (basta conectar a OKX de novo).
@@ -42,9 +42,9 @@ limites diários), Cron Triggers e Access (até 50 usuários). Uso pessoal fica 
       O seu *team domain* passa a ser `pedronucci.cloudflareaccess.com`.
    2. *Ligar o login por código no e-mail*: Zero Trust → **Settings** → **Authentication** → **Login methods** →
       **Add new** → **One-time PIN** → **Save** (nas contas novas ele não vem ligado).
-   3. *Proteger o Worker*: **Workers & Pages** → `bst-gateway` → **Settings** → **Domains & Routes** → na linha
+   3. *Proteger o Worker*: **Workers & Pages** → `carteira` → **Settings** → **Domains & Routes** → na linha
       `workers.dev`, ative **Cloudflare Access** (em alguns layouts fica no menu ⋯ da linha). Isso cria um aplicativo
-      do Access para o endereço `bst-gateway.<sua-conta>.workers.dev`.
+      do Access para o endereço `carteira.<sua-conta>.workers.dev`.
    4. *Só o seu e-mail entra*: Zero Trust → **Access** → **Applications** → abra o aplicativo criado → **Policies** →
       edite a política (ou **Add a policy**): **Action: Allow**; em **Include**, seletor **Emails** → o seu e-mail.
       Apague qualquer regra que inclua "Everyone" ou um domínio inteiro. Em **Login methods** do aplicativo, deixe
@@ -56,7 +56,7 @@ limites diários), Cron Triggers e Access (até 50 usuários). Uso pessoal fica 
    ficam só no painel; o `wrangler.toml` tem `keep_vars = true` para o deploy não apagá-las):
    `ACCESS_TEAM_DOMAIN` = `pedronucci.cloudflareaccess.com` (sem `https://`), `ACCESS_AUD` = a tag copiada,
    `OWNER_EMAIL` = o mesmo e-mail da política. Clique em **Deploy**.
-6. **Deploy** — faça um commit/push (o Workers Builds publica). Abra `https://bst-gateway.<sua-conta>.workers.dev`:
+6. **Deploy** — faça um commit/push (o Workers Builds publica). Abra `https://carteira.<sua-conta>.workers.dev`:
    o Access pede o código do e-mail e depois mostra o terminal.
 7. **Seus dados** — o app no gateway tem um armazenamento próprio (outro endereço). No app do GitHub Pages:
    Ajustes → Backup → Copiar. No gateway: Ajustes → Backup → colar e restaurar. No iPhone, adicione o endereço
