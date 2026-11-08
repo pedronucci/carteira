@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@theme {
+@theme static {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
   --color-bg: #090e16;
@@ -27,25 +27,91 @@
   --color-loss-soft: #ef68781f;
   --color-warn: #e8b04b;
   --color-warn-soft: #e8b04b1c;
+  /* camadas e textos que mudam com o tema */
+  --color-on-accent: #03201d;
+  --color-accent-hover: #6be3dc;
+  --color-on-gold: #2a1f05;
+  --color-sidebar: #0b111b;
+  --color-coin: #0c1420;
+  --color-sheet: #111a27;
+  --color-warn-ink: #f2d398;
+  --color-loss-ink: #ffc2ca;
+  --color-placeholder: #6b7d94;
+  --color-line-hover: #3a4e68;
+}
+
+:root {
+  --chart-grid: #1b2738; --chart-line: #24334a; --candle-up: #2a9d76; --candle-down: #c2525f;
+  --shadow-pop: rgba(0, 0, 0, 0.5);
+  --raised-top: #16212f; --raised-bottom: #111a27; --raised-edge: rgba(255, 255, 255, 0.05);
+  --glow-top: #17212e; --glow-edge: rgba(255, 190, 110, 0.12); --glow-ring: rgba(247, 147, 26, 0.28); --glow-shadow: rgba(247, 147, 26, 0.35);
+  --page-glow-1: rgba(66, 217, 208, 0.07); --page-glow-2: rgba(247, 147, 26, 0.05);
+  --statusbar: transparent;
+  --lbl: #7f92aa;
+}
+
+/* Tema claro: papel frio e tinta azul-marinho. Os acentos escurecem para manter contraste de texto (≥ 4,5:1). */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-bg: #f3f6fa;
+  --color-surface: #ffffff;
+  --color-surface-2: #eef2f8;
+  --color-surface-3: #e2e8f1;
+  --color-line: #dbe2ec;
+  --color-line-strong: #c3cddb;
+  --color-ink: #0d1624;
+  --color-ink-2: #2a384c;
+  --color-muted: #566678;
+  --color-accent: #08706b;
+  --color-accent-soft: #08706b22;
+  --color-gold: #84621a;
+  --color-gold-soft: #84621a22;
+  --color-btc: #9a4a00;
+  --color-btc-soft: #f7931a2b;
+  --color-usdc: #1d63b8;
+  --color-gain: #086a47;
+  --color-gain-soft: #086a4720;
+  --color-loss: #c0233a;
+  --color-loss-soft: #c0233a1c;
+  --color-warn: #8f5f00;
+  --color-warn-soft: #f0b90b26;
+  --color-on-accent: #ffffff;
+  --color-accent-hover: #066661;
+  --color-on-gold: #ffffff;
+  --color-sidebar: #e9eef5;
+  --color-coin: #dfe6f0;
+  --color-sheet: #ffffff;
+  --color-warn-ink: #6b4700;
+  --color-loss-ink: #8c1a2b;
+  --color-placeholder: #66768a;
+  --color-line-hover: #9fb0c6;
+  --chart-grid: #e6ebf3; --chart-line: #d3dbe7; --candle-up: #0b9468; --candle-down: #c0233a;
+  --shadow-pop: rgba(20, 35, 60, 0.18);
+  --raised-top: #ffffff; --raised-bottom: #fbfcfe; --raised-edge: rgba(255, 255, 255, 0.9);
+  --glow-top: #ffffff; --glow-edge: rgba(255, 255, 255, 0.9); --glow-ring: rgba(180, 90, 0, 0.38); --glow-shadow: rgba(180, 90, 0, 0.3);
+  --page-glow-1: rgba(10, 122, 117, 0.06); --page-glow-2: rgba(247, 147, 26, 0.07);
+  --statusbar: #0b1220;
+  --lbl: #56687d;
 }
 
 :root { color-scheme: dark; -webkit-text-size-adjust: 100%; }
+:root[data-theme="light"] { --shadow-soft: rgba(20, 35, 60, 0.08); }
 html, body { background: var(--color-bg); color: var(--color-ink); }
-body { background-image: radial-gradient(120% 60% at 50% -10%, rgba(66, 217, 208, 0.07), transparent 60%), radial-gradient(80% 40% at 100% 0%, rgba(247, 147, 26, 0.05), transparent 70%); background-attachment: fixed; }
+body { background-image: radial-gradient(120% 60% at 50% -10%, var(--page-glow-1), transparent 60%), radial-gradient(80% 40% at 100% 0%, var(--page-glow-2), transparent 70%); background-attachment: fixed; }
 body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; font-feature-settings: "cv11"; overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; }
 button, a, input, select, label { touch-action: manipulation; }
 /* dados: preços, saldos e percentuais em fonte monoespaçada, com colunas alinhadas */
 .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums slashed-zero; font-feature-settings: "tnum", "zero"; letter-spacing: -0.01em; }
 /* rótulo técnico de dado (KPI, coluna de tabela) */
-.lbl { font-size: 11px; line-height: 14px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; color: #7f92aa; }
+.lbl { font-size: 11px; line-height: 14px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; color: var(--lbl); }
 /* superfície elevada: segunda camada, mais clara, com filete de luz no topo */
-.panel-raised { background: linear-gradient(180deg, #16212f 0%, #111a27 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); }
-.panel-glow { border-color: rgba(247, 147, 26, 0.28); box-shadow: inset 0 1px 0 rgba(255, 190, 110, 0.12), 0 12px 36px -16px rgba(247, 147, 26, 0.35); background: linear-gradient(180deg, #17212e 0%, #111a27 55%); }
+.panel-raised { background: linear-gradient(180deg, var(--raised-top) 0%, var(--raised-bottom) 100%); box-shadow: inset 0 1px 0 var(--raised-edge), 0 1px 2px var(--shadow-soft, transparent); }
+.panel-glow { border-color: var(--glow-ring); box-shadow: inset 0 1px 0 var(--glow-edge), 0 12px 36px -16px var(--glow-shadow); background: linear-gradient(180deg, var(--glow-top) 0%, var(--raised-bottom) 55%); }
 @keyframes flash-up { from { background-color: rgba(54, 201, 149, 0.28) } to { background-color: transparent } }
 @keyframes flash-down { from { background-color: rgba(239, 104, 120, 0.28) } to { background-color: transparent } }
 .flash-up { animation: flash-up 700ms ease-out; border-radius: 4px; }
 .flash-down { animation: flash-down 700ms ease-out; border-radius: 4px; }
-::selection { background: #42d9d055; color: #fff; }
+::selection { background: color-mix(in srgb, var(--color-accent) 35%, transparent); color: var(--color-ink); }
 input, textarea, select { caret-color: var(--color-accent); }
 :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; border-radius: 4px; }
 * { scrollbar-width: thin; scrollbar-color: var(--color-line-strong) transparent; }
@@ -53,6 +119,7 @@ input, textarea, select { caret-color: var(--color-accent); }
 input[type="date"], input[type="datetime-local"] { -webkit-appearance: none; appearance: none; min-height: 44px; display: flex; align-items: center; }
 input::-webkit-date-and-time-value { text-align: left; }
 input[type="date"]::-webkit-calendar-picker-indicator, input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+:root[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator, :root[data-theme="light"] input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: none; }
 @keyframes shimmer { 0% { background-position: -400px 0 } 100% { background-position: 400px 0 } }
 .skeleton { background: linear-gradient(90deg, var(--color-surface) 0%, var(--color-surface-2) 50%, var(--color-surface) 100%); background-size: 800px 100%; animation: shimmer 1.4s linear infinite; border-radius: 4px; }
 .live-dot { box-shadow: 0 0 0 0 currentColor; animation: pulse 2s cubic-bezier(0.16, 1, 0.3, 1) infinite; }
@@ -63,5 +130,7 @@ input[type="date"]::-webkit-calendar-picker-indicator, input[type="datetime-loca
 .fade-in { animation: fade-in 200ms ease-out; }
 @media (prefers-reduced-motion: reduce) { .skeleton, .sheet-in, .fade-in, .live-dot, .flash-up, .flash-down { animation: none; } }
 .pt-safe { padding-top: env(safe-area-inset-top); }
+/* no iPhone o relógio e a bateria ficam sempre claros: no tema claro a faixa de cima continua escura */
+header.pt-safe { background-image: linear-gradient(var(--statusbar), var(--statusbar)); background-size: 100% env(safe-area-inset-top); background-repeat: no-repeat; }
 .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 .no-scrollbar { scrollbar-width: none; } .no-scrollbar::-webkit-scrollbar { display: none; }

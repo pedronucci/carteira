@@ -66,7 +66,7 @@ export function PortfolioIntegrations() {
         <label className="block">
           <span className="mb-1.5 block text-[12px] font-medium text-muted">{kind === "bitcoin" ? "Endereços ou chave pública estendida" : "Endereço público"}</span>
           <textarea value={raw} onChange={(e) => setRaw(e.target.value)} rows={kind === "bitcoin" ? 3 : 2} placeholder={HELP[kind].placeholder} autoCapitalize="off" autoCorrect="off" spellCheck={false}
-            className="num w-full rounded-md border border-line-strong bg-bg px-3 py-2 text-[16px] text-ink placeholder:text-[#6b7d94] focus:border-accent focus:outline-none md:text-[13px]" />
+            className="num w-full rounded-md border border-line-strong bg-bg px-3 py-2 text-[16px] text-ink placeholder:text-placeholder focus:border-accent focus:outline-none md:text-[13px]" />
           <span className="mt-1.5 block text-[12px] text-muted">{HELP[kind].hint}</span>
         </label>
         {kind === "bitcoin" && <Notice tone="info">Privacidade: uma xpub revela TODOS os endereços e o saldo dessa carteira para quem a tiver. Ela fica só neste aparelho, mas cada endereço derivado é consultado na mempool.space, que pode relacioná-los. Se preferir, informe só os endereços.</Notice>}

@@ -279,7 +279,7 @@ export function AddSheet({ cycle: cycleIn, onClose }: { cycle: Cycle; onClose: (
         </div>
         <Field label="Data e hora" type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} />
         <label className="flex items-start gap-3 text-[14px] leading-relaxed text-ink-2">
-          <input type="checkbox" checked={isDeposit} onChange={(e) => setDeposit(e.target.checked)} className="mt-1 size-5 accent-[#42d9d0]" />
+          <input type="checkbox" checked={isDeposit} onChange={(e) => setDeposit(e.target.checked)} className="mt-1 size-5 accent-accent" />
           <span>É dinheiro novo (registrar também um aporte). Desmarque se o USDC já estava livre na conta.</span>
         </label>
         <div className="grid grid-cols-2 gap-3">

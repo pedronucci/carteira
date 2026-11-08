@@ -11,7 +11,10 @@ import { useAppState } from "@/lib/state";
 export interface Candle { t: number; o: number; h: number; l: number; c: number; v: number }
 export interface TradeMarker { id: string; ts: number; kind: "ENTRY" | "EXIT"; price: number }
 
-export const C = { btc: "#f7931a", accent: "#42d9d0", gold: "#d7b36a", gain: "#36c995", loss: "#ef6878", muted: "#91a2b8", grid: "#1b2738", line: "#24334a", ink2: "#c5d0de", usdc: "#2775ca" };
+/** Cores dos gráficos: variáveis CSS, então trocam sozinhas com o tema (o canvas usa `cv`, que lê o valor atual). */
+export const C = { btc: "var(--color-btc)", accent: "var(--color-accent)", gold: "var(--color-gold)", gain: "var(--color-gain)", loss: "var(--color-loss)", muted: "var(--color-muted)", grid: "var(--chart-grid)", line: "var(--chart-line)", ink2: "var(--color-ink-2)", usdc: "var(--color-usdc)" };
+/** Valor atual de uma variável CSS (para o canvas, que não entende var()). */
+export const cv = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const MONO = "JetBrains Mono Variable, ui-monospace, monospace";
 const axis = { stroke: C.muted, fontSize: 11, fontFamily: MONO, tickLine: false, axisLine: false } as const;
 const dateFmt = (ts: number, long = false) => new Intl.DateTimeFormat("pt-BR", long ? { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" } : { day: "2-digit", month: "short" }).format(ts * 1000).replace(".", "");
@@ -19,7 +22,7 @@ const dateFmt = (ts: number, long = false) => new Intl.DateTimeFormat("pt-BR", l
 function Tip({ active, payload, label, fmt, names }: { active?: boolean; payload?: { dataKey: string; value: number; color: string }[]; label?: number; fmt: (v: number) => string; names: Record<string, string> }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-md border border-line-strong bg-surface-3 px-3 py-2 text-[12px] shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
+    <div className="rounded-md border border-line-strong bg-surface-3 px-3 py-2 text-[12px] shadow-[0_8px_24px_var(--shadow-pop)]">
       <div className="mb-1 text-muted">{label ? dateFmt(label, true) : ""}</div>
       {payload.filter((p) => p.value != null && names[p.dataKey]).map((p) => <div key={p.dataKey} className="num flex items-center gap-2"><span className="size-2 rounded-full" style={{ background: p.color }} />{names[p.dataKey]}: <b>{fmt(p.value)}</b></div>)}
     </div>
@@ -92,8 +95,8 @@ export function SemiDonut({ parts, center, sub }: { parts: { label: string; valu
   return (
     <div className="relative mx-auto w-full max-w-[340px]">
       <svg viewBox="0 0 340 172" className="w-full" role="img" aria-label={parts.map((p) => `${p.label} ${Math.round((p.value / total) * 100)}%`).join(", ")}>
-        {arcs.length ? arcs.map((a) => <path key={a.key} d={a.path} fill={a.color} />) : <path d={`M 20 165 A 150 150 0 0 1 320 165 L 268 165 A 98 98 0 0 0 72 165 Z`} fill="#1d2a3c" />}
-        <path d={`M ${cx - r + 8} ${cy} A ${r - 8} ${r - 8} 0 0 1 ${cx + r - 8} ${cy} Z`} fill="#172334" />
+        {arcs.length ? arcs.map((a) => <path key={a.key} d={a.path} fill={a.color} />) : <path d={`M 20 165 A 150 150 0 0 1 320 165 L 268 165 A 98 98 0 0 0 72 165 Z`} fill="var(--color-line)" />}
+        <path d={`M ${cx - r + 8} ${cy} A ${r - 8} ${r - 8} 0 0 1 ${cx + r - 8} ${cy} Z`} fill="var(--color-surface-2)" />
       </svg>
       <div className="absolute inset-x-0 bottom-1 text-center">
         <div className="num text-[30px] font-bold leading-none">{center}</div>
@@ -150,6 +153,7 @@ export function PriceChart({ candles, markers = [], avgCost, levels = [], height
   candles: Candle[]; markers?: TradeMarker[]; avgCost?: number | null; levels?: { price: number; kind: string }[]; height?: number;
   onMarkerClick?: (m: TradeMarker) => void; overlays?: { sma?: (number | null)[][]; volume?: boolean };
 }) {
+  const { theme } = useAppState();
   const el = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -160,37 +164,37 @@ export function PriceChart({ candles, markers = [], avgCost, levels = [], height
     if (!el.current) return;
     const chart = createChart(el.current, {
       height, autoSize: true,
-      layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: C.muted, fontFamily: MONO, fontSize: 11, attributionLogo: true },
+      layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: cv("--color-muted"), fontFamily: MONO, fontSize: 11, attributionLogo: true },
       handleScroll: { vertTouchDrag: false }, // no celular, arrastar na vertical rola a página
-      grid: { vertLines: { color: C.grid }, horzLines: { color: C.grid } },
-      rightPriceScale: { borderColor: C.line }, timeScale: { borderColor: C.line, rightOffset: 4 },
+      grid: { vertLines: { color: cv("--chart-grid") }, horzLines: { color: cv("--chart-grid") } },
+      rightPriceScale: { borderColor: cv("--chart-line") }, timeScale: { borderColor: cv("--chart-line"), rightOffset: 4 },
       crosshair: { mode: CrosshairMode.Normal },
       localization: { locale: "pt-BR", priceFormatter: (p: number) => (p >= 1000 ? Math.round(p).toLocaleString("pt-BR") : fmtMoney(p, "USD")) },
     });
-    const s = chart.addSeries(CandlestickSeries, { upColor: "#2a9d76", downColor: "#c2525f", borderVisible: false, wickUpColor: "#2a9d76", wickDownColor: "#c2525f" });
+    const s = chart.addSeries(CandlestickSeries, { upColor: cv("--candle-up"), downColor: cv("--candle-down"), borderVisible: false, wickUpColor: cv("--candle-up"), wickDownColor: cv("--candle-down") });
     chartRef.current = chart; seriesRef.current = s;
     return () => { chart.remove(); chartRef.current = null; seriesRef.current = null; };
-  }, [height]);
+  }, [height, theme]);
 
   useEffect(() => {
     const chart = chartRef.current, s = seriesRef.current;
     if (!chart || !s) return;
     s.setData(candles.map((c) => ({ time: c.t as UTCTimestamp, open: c.o, high: c.h, low: c.l, close: c.c })));
     const extra: ISeriesApi<"Line">[] = [];
-    const smaColors = ["rgba(247,147,26,0.75)", "#7d8fa6"];
+    const smaColors = [cv("--color-btc"), cv("--color-muted")];
     overlays?.sma?.forEach((arr, i) => {
       const l = chart.addSeries(LineSeries, { color: smaColors[i], lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
       l.setData(candles.flatMap((c, j) => (arr[j] != null && Number.isFinite(arr[j]) ? [{ time: c.t as UTCTimestamp, value: arr[j]! }] : [])));
       extra.push(l);
     });
     const lines = [
-      ...(avgCost ? [s.createPriceLine({ price: avgCost, color: C.btc, lineWidth: 1, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: "Entrada" })] : []),
-      ...levels.map((l) => s.createPriceLine({ price: l.price, color: l.kind === "SUPPORT" ? "#36c99566" : "#ef687866", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: "" })),
+      ...(avgCost ? [s.createPriceLine({ price: avgCost, color: cv("--color-btc"), lineWidth: 1, lineStyle: LineStyle.Solid, axisLabelVisible: true, title: "Entrada" })] : []),
+      ...levels.map((l) => s.createPriceLine({ price: l.price, color: l.kind === "SUPPORT" ? `${cv("--color-gain")}88` : `${cv("--color-loss")}88`, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: "" })),
     ];
     const first = candles[0]?.t ?? 0;
     const ms: SeriesMarker<Time>[] = markers.filter((m) => m.ts >= first).map((m) => ({
       time: (Math.floor(m.ts / 86400) * 86400) as UTCTimestamp, position: (m.kind === "ENTRY" ? "belowBar" : "aboveBar") as "belowBar" | "aboveBar",
-      color: m.kind === "ENTRY" ? C.btc : C.ink2, shape: (m.kind === "ENTRY" ? "arrowUp" : "arrowDown") as "arrowUp" | "arrowDown", text: m.kind === "ENTRY" ? "Entrada" : "Saída", id: m.id,
+      color: m.kind === "ENTRY" ? cv("--color-btc") : cv("--color-ink-2"), shape: (m.kind === "ENTRY" ? "arrowUp" : "arrowDown") as "arrowUp" | "arrowDown", text: m.kind === "ENTRY" ? "Entrada" : "Saída", id: m.id,
     })).sort((a, b) => (a.time as number) - (b.time as number));
     const mk = createSeriesMarkers(s, ms);
     const handler = (p: { hoveredObjectId?: unknown; time?: Time }) => {
@@ -209,7 +213,7 @@ export function PriceChart({ candles, markers = [], avgCost, levels = [], height
         extra.forEach((x) => chart.removeSeries(x));
       } catch { /* descartado */ }
     };
-  }, [candles, markers, avgCost, levels, overlays]);
+  }, [candles, markers, avgCost, levels, overlays, theme]);
 
   return <div ref={el} style={{ height }} className="w-full" />;
 }

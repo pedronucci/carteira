@@ -60,7 +60,7 @@ export function HlConnect() {
         {hl.error && <Notice tone="loss">{hl.error}</Notice>}
         {hl.history?.truncated && <Notice>A conta tem mais histórico do que a API devolve de uma vez. Os ciclos mais antigos podem faltar.</Notice>}
         <label className="flex items-start gap-3 text-[14px] leading-relaxed text-ink-2">
-          <input type="checkbox" checked={arb} onChange={(e) => toggleArb(e.target.checked)} className="mt-1 size-5 accent-[#42d9d0]" />
+          <input type="checkbox" checked={arb} onChange={(e) => toggleArb(e.target.checked)} className="mt-1 size-5 accent-accent" />
           <span>Somar o USDC/USDT parado na carteira na Arbitrum. Com a posição inicial definida, sacar da Hyperliquid para a carteira não conta como retirada.</span>
         </label>
         <div className="grid grid-cols-2 gap-2">
@@ -76,7 +76,7 @@ export function HlConnect() {
       {hasInjectedWallet() && <Button className="w-full" size="lg" onClick={fromWallet} loading={busy}><Wallet className="size-5" />Usar endereço da Rabby</Button>}
       <Field label="Endereço da carteira" placeholder="0x…" autoCapitalize="off" autoCorrect="off" spellCheck={false} value={addr} onChange={(e) => setAddr(e.target.value)} hint="Na Rabby: toque no nome da conta e copie o endereço." />
       <label className="flex items-start gap-3 text-[14px] leading-relaxed text-ink-2">
-        <input type="checkbox" checked={arb} onChange={(e) => setArb(e.target.checked)} className="mt-1 size-5 accent-[#42d9d0]" />
+        <input type="checkbox" checked={arb} onChange={(e) => setArb(e.target.checked)} className="mt-1 size-5 accent-accent" />
         <span>Somar também o USDC/USDT da carteira na Arbitrum</span>
       </label>
       <Button variant="primary" size="lg" className="w-full" onClick={() => connect()} loading={busy}><Link2 className="size-5" />Conectar</Button>

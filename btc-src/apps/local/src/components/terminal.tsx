@@ -25,11 +25,11 @@ export function Spark({ points }: { points: { equity: number; price: number }[] 
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-16 w-full overflow-visible" role="img" aria-label="Patrimônio e preço do BTC no período">
-        <defs><linearGradient id={`g${id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#42d9d0" stopOpacity="0.28" /><stop offset="1" stopColor="#42d9d0" stopOpacity="0" /></linearGradient></defs>
+        <defs><linearGradient id={`g${id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="var(--color-accent)" stopOpacity="0.28" /><stop offset="1" stopColor="var(--color-accent)" stopOpacity="0" /></linearGradient></defs>
         <path d={`${path(eq)} L${W - P} ${H} L${P} ${H} Z`} fill={`url(#g${id})`} />
-        <path d={path(px)} fill="none" stroke="#f7931a" strokeOpacity="0.7" strokeWidth="1.25" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-        <path d={path(eq)} fill="none" stroke="#42d9d0" strokeWidth="1.75" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-        <circle cx={last[0]} cy={last[1]} r="3" fill="#42d9d0" vectorEffect="non-scaling-stroke" />
+        <path d={path(px)} fill="none" stroke="var(--color-btc)" strokeOpacity="0.8" strokeWidth="1.25" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+        <path d={path(eq)} fill="none" stroke="var(--color-accent)" strokeWidth="1.75" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        <circle cx={last[0]} cy={last[1]} r="3" fill="var(--color-accent)" vectorEffect="non-scaling-stroke" />
       </svg>
       <div className="mt-1 flex items-center gap-3 text-[11px] text-muted">
         <span className="flex items-center gap-1.5"><span className="h-0.5 w-3 rounded bg-accent" aria-hidden />Patrimônio</span>
@@ -80,7 +80,7 @@ export function PriceRail({ liq, entry, now, px }: { liq: number | null; entry: 
         {liq != null && <div className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-l-full bg-loss/35" style={{ left: 0, width: pos(liq) }} />}
         <div className={cn("absolute top-1/2 h-1.5 -translate-y-1/2", up ? "bg-gain/70" : "bg-loss/70")} style={{ left: pos(s), width: `calc(${pos(e)} - ${pos(s)})` }} />
         {marks.map((m) => m.k === "Agora"
-          ? <span key={m.k} className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-bg" style={{ left: pos(m.v), background: m.c, boxShadow: "0 0 12px 2px rgba(247,147,26,.55)" }} />
+          ? <span key={m.k} className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-bg" style={{ left: pos(m.v), background: m.c, boxShadow: "0 2px 6px var(--shadow-pop)" }} />
           : <span key={m.k} className="absolute top-1/2 h-4 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: pos(m.v), background: m.c }} />)}
       </div>
       <ul className="mt-1 flex items-start justify-between gap-2">
@@ -102,7 +102,7 @@ export function Notices({ items }: { items: string[] }) {
   return (
     <div className="mb-4">
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
-        className="flex min-h-11 w-full items-center gap-2.5 rounded-lg border border-warn/25 bg-warn-soft px-3 text-left text-[13px] text-[#f2d398] transition-colors duration-150">
+        className="flex min-h-11 w-full items-center gap-2.5 rounded-lg border border-warn/25 bg-warn-soft px-3 text-left text-[13px] text-warn-ink transition-colors duration-150">
         <AlertTriangle className="size-4 shrink-0" aria-hidden />
         <span className="min-w-0 flex-1 truncate">{items.length === 1 ? items[0] : `${items.length} avisos`}</span>
         <ChevronDown className={cn("size-4 shrink-0 transition-transform duration-200", open && "rotate-180")} aria-hidden />

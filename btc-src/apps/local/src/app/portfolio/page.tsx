@@ -108,7 +108,7 @@ function AssetsTable({ v, onEdit }: { v: View; onEdit: (key: string, init: Manua
     <Panel className="overflow-hidden">
       <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2.5">
         <label className="relative flex-1 min-w-[180px]"><Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted" />
-          <input value={qText} onChange={(e) => setQ(e.target.value)} placeholder="Buscar ativo ou instituição" className="h-9 w-full rounded-md border border-line-strong bg-bg pr-3 pl-8 text-[16px] text-ink placeholder:text-[#6b7d94] focus:border-accent focus:outline-none md:text-[13px]" /></label>
+          <input value={qText} onChange={(e) => setQ(e.target.value)} placeholder="Buscar ativo ou instituição" className="h-9 w-full rounded-md border border-line-strong bg-bg pr-3 pl-8 text-[16px] text-ink placeholder:text-placeholder focus:border-accent focus:outline-none md:text-[13px]" /></label>
         <select value={inst} onChange={(e) => setInst(e.target.value)} aria-label="Filtrar por instituição" className="h-9 rounded-md border border-line-strong bg-bg px-2.5 text-[13px] text-ink focus:border-accent focus:outline-none">
           <option value="all">Todas as instituições</option>{insts.map((i) => <option key={i} value={i}>{i}</option>)}
         </select>
@@ -271,7 +271,7 @@ function Evolution({ v }: { v: View }) {
             <CartesianGrid stroke={C.grid} strokeDasharray="3 4" vertical={false} />
             <XAxis dataKey="ts" type="number" domain={["dataMin", "dataMax"]} scale="time" stroke={C.muted} fontSize={11} tickLine={false} axisLine={false} tickFormatter={(t) => new Date(t * 1000).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} minTickGap={48} />
             <YAxis stroke={C.muted} fontSize={11} tickLine={false} axisLine={false} width={52} tickFormatter={fmt} domain={["auto", "auto"]} />
-            <Tooltip contentStyle={{ background: "#1f2d42", border: "1px solid #2b3c54", borderRadius: 6, fontSize: 12 }} labelFormatter={(t) => new Date(Number(t) * 1000).toLocaleString("pt-BR")} formatter={(x, n) => [hidden ? "•••" : fmtMoney(Number(x ?? 0), f.ccy), n === "value" ? "Patrimônio" : "Resultado"]} />
+            <Tooltip contentStyle={{ background: "var(--color-surface-3)", border: "1px solid var(--color-line-strong)", borderRadius: 6, fontSize: 12 }} labelFormatter={(t) => new Date(Number(t) * 1000).toLocaleString("pt-BR")} formatter={(x, n) => [hidden ? "•••" : fmtMoney(Number(x ?? 0), f.ccy), n === "value" ? "Patrimônio" : "Resultado"]} />
             <Area type="linear" dataKey="value" stroke={C.accent} fill="url(#pv)" strokeWidth={2} isAnimationActive={false} />
           </AreaChart>
         </ResponsiveContainer>
@@ -350,7 +350,7 @@ function CsvSheet({ onClose }: { onClose: () => void }) {
         <Button size="sm" onClick={() => file.current?.click()}><Upload className="size-4" />Escolher arquivo</Button>
         <Button size="sm" variant="ghost" onClick={dl}><Download className="size-4" />Modelo</Button>
       </div>
-      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={6} placeholder={example} className="num mt-3 w-full rounded-md border border-line-strong bg-bg px-3 py-2 text-[13px] text-ink placeholder:text-[#6b7d94] focus:border-accent focus:outline-none" />
+      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={6} placeholder={example} className="num mt-3 w-full rounded-md border border-line-strong bg-bg px-3 py-2 text-[13px] text-ink placeholder:text-placeholder focus:border-accent focus:outline-none" />
       {parsed && <p className="mt-2 text-[12px] text-muted">{parsed.rows.length} linha(s) válida(s){parsed.errors.length ? ` · ${parsed.errors.length} com erro` : ""}.</p>}
       {parsed?.errors.slice(0, 5).map((e) => <p key={e} className="text-[12px] text-loss">{e}</p>)}
     </Sheet>

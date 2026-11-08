@@ -1,12 +1,13 @@
 "use client";
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { d, fmtMoney, fmtPct } from "@bst/domain";
 import { prices } from "@/lib/local/prices";
 import { getStore } from "@/lib/local/store";
 import type { Ccy } from "@/lib/local/engine";
 
-interface Prefs { hidden?: boolean; ccy?: Ccy }
-const Ctx = createContext<{ hidden: boolean; toggleHidden: () => void; ccy: Ccy; setCcy: (c: Ccy) => void } | null>(null);
+export type Theme = "dark" | "light";
+interface Prefs { hidden?: boolean; ccy?: Ccy; theme?: Theme }
+const Ctx = createContext<{ hidden: boolean; toggleHidden: () => void; ccy: Ccy; setCcy: (c: Ccy) => void; theme: Theme; toggleTheme: () => void } | null>(null);
 const KEY = "bst.prefs.v1";
 const load = (): Prefs => { try { return JSON.parse(localStorage.getItem(KEY) ?? "{}"); } catch { return {}; } };
 const save = (p: Prefs) => { try { localStorage.setItem(KEY, JSON.stringify({ ...load(), ...p })); } catch { /* sem armazenamento */ } };
@@ -14,11 +15,17 @@ const save = (p: Prefs) => { try { localStorage.setItem(KEY, JSON.stringify({ ..
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [hidden, setHidden] = useState(() => Boolean(load().hidden));
   const [ccy, setCcyS] = useState<Ccy>(() => load().ccy ?? "BRL");
+  const [theme, setThemeS] = useState<Theme>(() => (load().theme === "light" ? "light" : "dark"));
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", theme === "light" ? "#f3f6fa" : "#090e16");
+  }, [theme]);
   const value = useMemo(() => ({
-    hidden, ccy,
+    hidden, ccy, theme,
+    toggleTheme: () => setThemeS((t) => { const n: Theme = t === "light" ? "dark" : "light"; save({ theme: n }); return n; }),
     toggleHidden: () => setHidden((h) => { save({ hidden: !h }); return !h; }),
     setCcy: (c: Ccy) => { save({ ccy: c }); setCcyS(c); },
-  }), [hidden, ccy]);
+  }), [hidden, ccy, theme]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

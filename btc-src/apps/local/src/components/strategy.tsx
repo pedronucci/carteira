@@ -219,7 +219,7 @@ export function StrategyForm({ mode, edit, onDone }: { mode: "new" | "edit"; edi
             )}
           </div>
         )}
-        {!firstManual && <label className="mt-3 flex items-center gap-3 text-[14px] text-ink-2"><input type="checkbox" checked={manual} onChange={(e) => setManual(e.target.checked, true)} className="size-5 accent-[#42d9d0]" />Informar os valores à mão (referência manual)</label>}
+        {!firstManual && <label className="mt-3 flex items-center gap-3 text-[14px] text-ink-2"><input type="checkbox" checked={manual} onChange={(e) => setManual(e.target.checked, true)} className="size-5 accent-accent" />Informar os valores à mão (referência manual)</label>}
       </div>
       <Button variant="primary" size="lg" className="w-full" onClick={save} disabled={busy && !manual}>{mode === "new" ? "Iniciar ciclo" : "Salvar ciclo"}</Button>
     </div>

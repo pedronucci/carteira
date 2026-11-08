@@ -34,7 +34,9 @@ if (process.env.BST_DEMO === "1") {
     ],
     cycles: [{ id: "c1", openedAt: "2026-11-05T21:13", entryPx: "75930", leverage: "4.6", capital: "12800", sizeBtc: "0.77547", liqPx: "59840", feesOpen: "38.59", funding: "-33.10" }],
   });
-  set("bst.prefs.v1", { ccy: "USD" });
+  let prev: { theme?: string } = {};
+  try { prev = JSON.parse(localStorage.getItem("bst.prefs.v1") ?? "{}"); } catch { /* */ }
+  set("bst.prefs.v1", { ...prev, ccy: "USD" });
   if (!location.hash || location.hash === "#") location.hash = "#/estrategia";
   addEventListener("DOMContentLoaded", () => {
     const b = document.createElement("div");

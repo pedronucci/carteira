@@ -113,7 +113,7 @@ export default function DashboardPage() {
               const move = (d: -1 | 1) => { const o = [...layout.order]; const j = i + d; if (j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j]!, o[i]!]; save({ ...layout, order: o }); };
               return (
                 <li key={id} className="flex items-center gap-2 px-3 py-2">
-                  <label className="flex flex-1 items-center gap-3 text-[14px]"><input type="checkbox" checked={!off} onChange={() => save({ ...layout, hidden: off ? layout.hidden.filter((x) => x !== id) : [...layout.hidden, id] })} className="size-4 accent-[#42d9d0]" />{w.label}</label>
+                  <label className="flex flex-1 items-center gap-3 text-[14px]"><input type="checkbox" checked={!off} onChange={() => save({ ...layout, hidden: off ? layout.hidden.filter((x) => x !== id) : [...layout.hidden, id] })} className="size-4 accent-accent" />{w.label}</label>
                   <button onClick={() => move(-1)} disabled={i === 0} aria-label="Subir" className="grid size-8 place-items-center rounded-md text-muted disabled:opacity-30"><ArrowUp className="size-4" /></button>
                   <button onClick={() => move(1)} disabled={i === layout.order.length - 1} aria-label="Descer" className="grid size-8 place-items-center rounded-md text-muted disabled:opacity-30"><ArrowDown className="size-4" /></button>
                 </li>

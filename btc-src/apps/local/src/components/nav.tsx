@@ -9,7 +9,7 @@ import { useState, type ComponentType, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   ArrowLeftRight, Bell, Bitcoin, ChartCandlestick, ChartLine, Ellipsis, Eye, EyeOff, Gauge, LayoutDashboard,
-  NotebookPen, PanelLeftClose, PanelLeftOpen, Settings, Wallet, X,
+  Moon, NotebookPen, PanelLeftClose, PanelLeftOpen, Settings, Sun, Wallet, X,
 } from "lucide-react";
 import { fmtRelative } from "@bst/domain";
 import { useDataVersion } from "@/lib/api";
@@ -123,7 +123,7 @@ function AlertBell() {
 }
 
 function TopBar() {
-  const { hidden, toggleHidden, ccy, setCcy } = useAppState();
+  const { hidden, toggleHidden, ccy, setCcy, theme, toggleTheme } = useAppState();
   return (
     <header className="pt-safe sticky top-0 z-30 border-b border-line bg-bg/90 backdrop-blur-xl">
       <div className="flex h-12 items-center gap-3 px-4 lg:px-5">
@@ -135,6 +135,10 @@ function TopBar() {
           <button onClick={toggleHidden} aria-label={hidden ? "Mostrar valores" : "Ocultar valores (modo privacidade)"} aria-pressed={hidden}
             className={cn("grid size-9 place-items-center rounded-md [@media(hover:hover)]:hover:bg-surface-2", hidden ? "text-accent" : "text-muted")}>
             {hidden ? <EyeOff className="size-[18px]" /> : <Eye className="size-[18px]" />}
+          </button>
+          <button onClick={toggleTheme} aria-label={theme === "light" ? "Trocar para o tema escuro" : "Trocar para o tema claro"} title={theme === "light" ? "Tema escuro" : "Tema claro"}
+            className="grid size-9 place-items-center rounded-md text-muted transition-colors duration-150 [@media(hover:hover)]:hover:bg-surface-2 [@media(hover:hover)]:hover:text-ink">
+            {theme === "light" ? <Moon className="size-[18px]" /> : <Sun className="size-[18px]" />}
           </button>
           <AlertBell />
           <Link href="/ajustes" aria-label="Configurações" className="hidden size-9 place-items-center rounded-md text-muted lg:grid [@media(hover:hover)]:hover:bg-surface-2 [@media(hover:hover)]:hover:text-ink"><Settings className="size-[18px]" /></Link>
@@ -150,7 +154,7 @@ function Sidebar() {
   const [open, setOpen] = useState(() => { try { return localStorage.getItem("bst.nav.open") !== "0"; } catch { return true; } });
   const toggle = () => setOpen((o) => { try { localStorage.setItem("bst.nav.open", o ? "0" : "1"); } catch { /* */ } return !o; });
   return (
-    <aside className={cn("sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-line bg-[#0b111b] transition-[width] duration-200 lg:flex", open ? "w-[232px]" : "w-[60px]")}>
+    <aside className={cn("sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-line bg-sidebar transition-[width] duration-200 lg:flex", open ? "w-[232px]" : "w-[60px]")}>
       <div className="flex h-12 items-center gap-2.5 border-b border-line px-[14px]">
         <Mark className="size-7" />
         {open && <span className="min-w-0 leading-tight"><span className="block truncate text-[12px] font-semibold tracking-[0.06em]">BITCOIN STRATEGY</span><span className="block text-[11px] tracking-[0.06em] text-muted">TERMINAL <span className="text-accent">5.0</span></span></span>}

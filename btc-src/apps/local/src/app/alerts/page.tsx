@@ -48,7 +48,7 @@ export default function AlertsPage() {
           const d = ALERT_TYPES.find((t) => t.type === r.type)!;
           return (
             <li key={r.id} className="flex items-center gap-3 px-4 py-2.5 text-[13px]">
-              <input type="checkbox" checked={r.enabled} onChange={() => toggleRule(r.id)} aria-label="Ativo" className="size-4 accent-[#42d9d0]" />
+              <input type="checkbox" checked={r.enabled} onChange={() => toggleRule(r.id)} aria-label="Ativo" className="size-4 accent-accent" />
               <span className={cn("flex-1", !r.enabled && "text-muted")}>{d.label} <span className="num">{fmtTh(d.unit, r.threshold)}</span><span className="block text-[11px] text-muted">intervalo {Math.round(r.cooldownSec / 60)} min{a.state[r.id]?.lastFiredAt ? ` · último disparo ${new Date(a.state[r.id]!.lastFiredAt! * 1000).toLocaleString("pt-BR")}` : ""}</span></span>
               <Button size="sm" variant="ghost" onClick={() => removeRule(r.id)} aria-label="Apagar regra"><Trash2 className="size-4" /></Button>
             </li>

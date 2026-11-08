@@ -84,8 +84,8 @@ export function Button({ variant = "secondary", size = "md", className, loading,
     <button {...rest} disabled={rest.disabled || loading} className={cn(
       "inline-flex select-none items-center justify-center gap-2 rounded-md font-semibold transition-[background-color,border-color,transform] duration-150 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-40",
       size === "sm" ? "h-8 px-3 text-[13px]" : size === "lg" ? "h-12 px-5 text-[15px]" : "h-11 px-4 text-[14px]",
-      variant === "primary" && "bg-accent text-[#03201d] [@media(hover:hover)]:hover:bg-[#6be3dc]",
-      variant === "secondary" && "border border-line-strong bg-surface-2 text-ink [@media(hover:hover)]:hover:border-[#3a4e68] [@media(hover:hover)]:hover:bg-surface-3",
+      variant === "primary" && "bg-accent text-on-accent [@media(hover:hover)]:hover:bg-accent-hover",
+      variant === "secondary" && "border border-line-strong bg-surface-2 text-ink [@media(hover:hover)]:hover:border-line-hover [@media(hover:hover)]:hover:bg-surface-3",
       variant === "ghost" && "text-ink-2 [@media(hover:hover)]:hover:bg-surface-2",
       variant === "danger" && "border border-loss/30 bg-loss-soft text-loss", className)}>
       {loading && <Loader2 className="size-4 animate-spin" aria-hidden />}{children}
@@ -99,7 +99,7 @@ export function Field({ label, suffix, hint, className, ...rest }: InputHTMLAttr
     <label className={cn("block", className)}>
       <span className="mb-1.5 block text-[12px] font-medium text-muted">{label}</span>
       <span className="relative block">
-        <input {...rest} className={cn("num h-11 w-full rounded-md border border-line-strong bg-bg px-3 text-[16px] text-ink placeholder:text-[#6b7d94] focus:border-accent focus:outline-none", suffix && "pr-16")} />
+        <input {...rest} className={cn("num h-11 w-full rounded-md border border-line-strong bg-bg px-3 text-[16px] text-ink placeholder:text-placeholder focus:border-accent focus:outline-none", suffix && "pr-16")} />
         {suffix && <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[12px] text-muted">{suffix}</span>}
       </span>
       {hint && <span className="mt-1.5 block text-[12px] text-muted">{hint}</span>}
@@ -124,7 +124,7 @@ export function Skeleton({ className }: { className?: string }) { return <div cl
 export function Notice({ tone = "warn", children }: { tone?: "warn" | "loss" | "info"; children: ReactNode }) {
   return (
     <div role={tone === "loss" ? "alert" : "status"} className={cn("flex gap-2.5 rounded-md border px-3 py-2.5 text-[13px] leading-relaxed",
-      tone === "warn" && "border-warn/25 bg-warn-soft text-[#f2d398]", tone === "loss" && "border-loss/30 bg-loss-soft text-[#ffc2ca]", tone === "info" && "border-line bg-surface text-ink-2")}>
+      tone === "warn" && "border-warn/25 bg-warn-soft text-warn-ink", tone === "loss" && "border-loss/30 bg-loss-soft text-loss-ink", tone === "info" && "border-line bg-surface text-ink-2")}>
       <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden /><div>{children}</div>
     </div>
   );
@@ -201,7 +201,7 @@ export function CoinIcon({ kind, size = 28 }: { kind: "btc" | "usdc" | "cash" | 
       <g transform="translate(32 32) rotate(14) scale(0.2) translate(-101 -100)" fill="#fff"><path fillRule="evenodd" d="M60 40 H112 C128 40 136 52 136 68 C136 80 130 88 122 92 C134 96 142 106 142 120 C142 142 128 160 108 160 H60 Z M82 59 H107 C113 59 116 64 116 70.5 C116 77 112 82 106 82 H82 Z M82 101 H110 C117 101 121 107 121 120.5 C121 134 116 141 108 141 H82 Z" />
         {[66, 90].flatMap((x) => [24, 158].map((y) => <rect key={`${x}${y}`} x={x} y={y} width="12" height="18" rx="2" />))}</g></svg>);
   if (kind === "usdc") return <span style={s} className="grid shrink-0 place-items-center rounded-full bg-usdc text-[13px] font-bold text-white" aria-hidden>$</span>;
-  if (kind === "cash") return <span style={s} className="grid shrink-0 place-items-center rounded-full bg-[#0c1420] text-[17px] font-bold text-accent" aria-hidden>$</span>;
-  if (kind === "strategy") return <span style={s} className="grid shrink-0 place-items-center rounded-full bg-gold text-[14px] font-extrabold text-[#2a1f05]" aria-hidden>₿</span>;
+  if (kind === "cash") return <span style={s} className="grid shrink-0 place-items-center rounded-full bg-coin text-[17px] font-bold text-accent" aria-hidden>$</span>;
+  if (kind === "strategy") return <span style={s} className="grid shrink-0 place-items-center rounded-full bg-gold text-[14px] font-extrabold text-on-gold" aria-hidden>₿</span>;
   return <span style={s} className="grid shrink-0 place-items-center rounded-full bg-surface-3 text-[12px] font-bold text-ink-2" aria-hidden>•</span>;
 }

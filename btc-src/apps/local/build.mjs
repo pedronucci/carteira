@@ -33,6 +33,7 @@ const html = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#090e16">
+<script>try{var p=JSON.parse(localStorage.getItem("bst.prefs.v1")||"{}"),t=p.theme==="light"?"light":"dark";document.documentElement.dataset.theme=t;if(t==="light")document.querySelector('meta[name="theme-color"]').setAttribute("content","#f3f6fa")}catch(e){}</script>
 <meta name="color-scheme" content="dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
