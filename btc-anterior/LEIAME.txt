@@ -1,0 +1,50 @@
+COPIA DE SEGURANCA: visual anterior (commit f2043c7, tag btc-visual-v5-terminal).
+Endereco: https://pedronucci.github.io/carteira/btc-anterior/
+Os dados sao os mesmos do app principal (mesmo navegador). Para voltar ao visual antigo no Git: git revert do commit do novo visual ou git checkout btc-visual-v5-terminal -- btc.
+
+BITCOIN STRATEGY TERMINAL 5.0 — pasta btc/
+======================================
+
+Endereço: https://pedronucci.github.io/carteira/btc/
+
+Estratégia: 100% em USDC ou 100% em BTC (long em perpétuo, alavancagem baixa,
+margem em USDC). Cada entrada e saída forma um ciclo.
+
+- Automático: Configurações e Integrações > Hyperliquid. Cole o endereço público
+  da carteira (0x...). O app lê saldo, posição, liquidação, operações de BTC,
+  depósitos, saques e funding pela API pública da Hyperliquid. Não pede chave,
+  assinatura nem permissão para operar. Atualiza a cada 20 s com o app aberto.
+- Manual: Estratégia > Ciclos > Novo ciclo: data, hora, "100% em USDC" ou "100% em BTC"
+  e o valor em dólar.
+- Operações: "Entrar em BTC" (preço, alavancagem, capital) e "Sair para USDC"
+  (preço de saída, taxas, funding). "Aumentar posição" soma mais USDC a uma
+  posição aberta e recalcula o preço médio. Aportes e retiradas também ficam lá.
+- Módulos: Dashboard, Estratégia BTC/USDC (Monitor, Performance, Transações, Ciclos), Portfólio Consolidado,
+  Trading, Mercado, Risk Center, Performance Intelligence, Trading Journal e Configurações e Integrações.
+  No celular: barra inferior (Início, Estratégia, Portfólio, Mercado, Mais). BRL/USD e privacidade no topo.
+- PORTFÓLIO: saldos manuais/CSV e carteiras somente leitura (Bitcoin, EVM/Rabby, Solana) sem contagem dupla.
+  OKX: só pelo gateway seguro na Cloudflare (btc-src/docs/GATEWAY.md). Nunca informe frase de recuperação.
+- CICLOS DA ESTRATÉGIA: cada ciclo tem nome, início (data, hora e fuso) e um
+  retrato inicial (patrimônio, saldos, posições). Só o que acontece depois do
+  início entra no resultado, nos gráficos e no Buy & Hold. Posição já aberta no
+  início é herdada pelo preço daquele momento. O histórico completo da conta
+  continua guardado e pode ser visto no seletor do topo.
+- RESULTADO: dois percentuais, cada um com rótulo. "s/ capital" = resultado ÷ (patrimônio inicial
+  + aportes). "TWR" = retorno ponderado no tempo (a carteira é avaliada no instante de cada aporte).
+  Fórmulas em btc-src/docs/CALCULOS.md.
+- CÓPIAS AUTOMÁTICAS: antes de editar, apagar, restaurar ou migrar dados, e a cada 6 h de uso.
+  Ajustes > Backup > Cópias automáticas (restaura com um toque).
+- Arquivo único (index.html), gerado a partir de btc-src/ (ver btc-src/README.md).
+- Os dados ficam SOMENTE no aparelho. Nada vai para o GitHub.
+  Use Ajustes > Backup para levar os dados de um aparelho para outro.
+- Somente acompanhamento: não conecta à corretora nem executa ordens.
+
+iPhone
+- Safari > Compartilhar > Adicionar à Tela de Início.
+- O app da Tela de Início guarda dados separados do Safari. Se você lançou
+  algo no Safari, faça Backup > Copiar lá e Restaurar no app.
+- Para ver o ícone novo (moeda laranja com o símbolo do Bitcoin): apague o ícone antigo da Tela de Início e adicione
+  de novo (antes, faça um backup).
+
+Este app não mexe na Carteira no Bolso (raiz do repositório): cada um tem
+seus próprios dados, ícone e service worker.

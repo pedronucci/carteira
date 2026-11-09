@@ -43,9 +43,9 @@ export interface StripItem { label: string; value: ReactNode; sub?: ReactNode; t
 /** Faixa rolável de indicadores compactos, com mini-barra de contexto. */
 export function MetricStrip({ items }: { items: StripItem[] }) {
   return (
-    <div className="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:px-0" role="list">
+    <div className="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:grid lg:overflow-visible lg:px-0" style={{ gridTemplateColumns: `repeat(${Math.min(items.length, 6)}, minmax(0, 1fr))` }} role="list">
       {items.map((m) => (
-        <div key={m.label} role="listitem" className="panel-raised min-w-[148px] shrink-0 snap-start rounded-lg border border-line px-3.5 py-3 lg:min-w-0">
+        <div key={m.label} role="listitem" className="panel-raised min-w-[148px] shrink-0 snap-start rounded-xl border border-line px-3.5 py-3 lg:min-w-0">
           <div className="lbl truncate">{m.label}</div>
           <div className={cn("num mt-1.5 truncate text-[18px] font-semibold leading-none", TONE_TX[m.tone ?? "none"])}>{m.value}</div>
           {m.sub && <div className="num mt-1.5 truncate text-[12px] text-muted">{m.sub}</div>}

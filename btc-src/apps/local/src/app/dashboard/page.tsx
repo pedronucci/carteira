@@ -5,7 +5,8 @@
  */
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpRight, Bitcoin, SlidersHorizontal } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, Bitcoin, Percent, SlidersHorizontal, TrendingUp, Wallet } from "lucide-react";
+import type { ComponentType, ReactNode } from "react";
 import { DEFAULT_SCENARIO_RULES, SCENARIO_LABEL, returnSince } from "@bst/domain";
 import { NeedsSetup, useMarket, usePortfolio, useSnapshot } from "@/lib/api";
 import { useFmt } from "@/lib/state";
@@ -62,15 +63,24 @@ export default function DashboardPage() {
     <div className="pt-5">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[20px] font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-[12px] text-muted">Bitcoin Strategy Terminal 5.0 · somente leitura</p>
+          <h1 className="text-[26px] font-bold tracking-[-0.03em] lg:text-[32px]">Visão Geral</h1>
+          <p className="mt-1 text-[13px] text-ink-2">Panorama da sua estratégia, portfólio e desempenho consolidado. Somente leitura.</p>
         </div>
         <Button size="sm" variant="ghost" onClick={() => setEdit(true)}><SlidersHorizontal className="size-4" />Personalizar</Button>
       </div>
 
+      {pv && (
+        <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <HeroKpi glow wide icon={Wallet} className="col-span-2 lg:col-span-1" label="Patrimônio consolidado" value={f.money(pv.c.totalUsd)} sub={`${pv.accounts.length} conta${pv.accounts.length === 1 ? "" : "s"}`} />
+          <HeroKpi icon={Bitcoin} label="Equivalente em BTC" value={pv.c.btcEquivalent != null ? `${f.btc(pv.c.btcEquivalent, 4)} BTC` : "—"} sub={s ? `BTC ${f.px(s.now.btcUsd.toFixed())}` : undefined} />
+          <HeroKpi icon={TrendingUp} label="Resultado no período" tone={toneOf(pr?.resultUsd)} value={pr ? f.money(pr.resultUsd, { signed: true }) : "—"} sub={pr ? "sem aportes e retiradas" : "histórico ainda curto"} />
+          <HeroKpi wide icon={Percent} className="col-span-2 lg:col-span-1" label="Rentabilidade (TWR)" tone={toneOf(pr?.pct)} value={pr ? f.pct(pr.pct) : "—"} sub={s?.vsHodlPct != null ? `vs. só BTC ${f.pct(s.vsHodlPct)}` : undefined} />
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
         {setup || !s ? (
-          <Panel className="border-gold/40 lg:col-span-7">
+          <Panel glow className="lg:col-span-7">
             <PanelHead title={<span className="flex items-center gap-2 text-gold"><Bitcoin className="size-4" />Estratégia BTC/USDC</span>} />
             <div className="px-4 py-6">
               <p className="text-[14px] text-ink-2">Nenhum ciclo configurado ainda.</p>
@@ -79,7 +89,7 @@ export default function DashboardPage() {
           </Panel>
         ) : <StrategyCard s={s} />}
 
-        <Panel className="min-w-0 overflow-hidden lg:col-span-5">
+        <Panel tech className="min-w-0 overflow-hidden lg:col-span-5">
           <PanelHead title="Patrimônio consolidado" right={<Link href="/portfolio" className="text-[12px] font-medium text-accent">Portfólio ›</Link>} />
           {pv ? (
             <>
@@ -129,6 +139,20 @@ export default function DashboardPage() {
 
 type Snap = NonNullable<ReturnType<typeof useSnapshot>["data"]>;
 
+/** Indicador de topo da Visão Geral: ícone, rótulo, valor que se ajusta à largura do cartão e linha de apoio. */
+function HeroKpi({ icon: Icon, label, value, sub, tone, glow, wide, className }: { icon: ComponentType<{ className?: string; strokeWidth?: number }>; label: string; value: ReactNode; sub?: ReactNode; tone?: "gain" | "loss" | null; glow?: boolean; wide?: boolean; className?: string }) {
+  return (
+    <Panel glow={glow} tech={!glow} className={cn("flex gap-3.5 p-4", wide ? "items-center" : "flex-col items-start lg:flex-row lg:items-center", className)}>
+      <span className={cn("grid size-11 shrink-0 place-items-center rounded-2xl border", glow ? "border-gold/40 bg-gold-soft text-gold" : "border-accent/30 bg-accent-soft text-accent")}><Icon className="size-[22px]" strokeWidth={1.75} /></span>
+      <div className="w-full min-w-0 flex-1 [container-type:inline-size]">
+        <p className="truncate text-[12.5px] text-ink-2">{label}</p>
+        <p className={cn("num my-0.5 whitespace-nowrap text-[clamp(16px,11cqi,26px)] leading-tight font-semibold tracking-[-0.03em]", toneCls(tone))}>{value}</p>
+        {sub && <p className="num truncate text-[12px] text-muted">{sub}</p>}
+      </div>
+    </Panel>
+  );
+}
+
 /** Cartão prioritário da estratégia (dourado). */
 function StrategyCard({ s }: { s: Snap }) {
   const f = useFmt();
@@ -142,7 +166,7 @@ function StrategyCard({ s }: { s: Snap }) {
   const integ = useIntegrations().find((i) => i.key === "hl")!;
   const pos = c ? c.dir : "FLAT";
   return (
-    <Panel className="overflow-hidden border-gold/40 lg:col-span-7">
+    <Panel glow className="overflow-hidden lg:col-span-7">
       <PanelHead title={<span className="flex items-center gap-2 text-gold"><Bitcoin className="size-4" />Estratégia BTC/USDC</span>}
         right={<span className="flex items-center gap-2"><Pill tone={!c ? "accent" : c.dir === "LONG" ? "btc" : "loss"}>{pos}{c?.effLeverage ? ` ${c.effLeverage.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}×` : ""}</Pill>
           <span className="num hidden text-[11px] sm:inline">{s.acc.kind === "hl" ? `Hyperliquid · ${integ.state === "ok" ? "ao vivo" : integ.state === "none" ? "—" : integ.state}` : "lançamento manual"}</span></span>} />

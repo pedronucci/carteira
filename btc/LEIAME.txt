@@ -15,7 +15,7 @@ margem em USDC). Cada entrada e saída forma um ciclo.
 - Operações: "Entrar em BTC" (preço, alavancagem, capital) e "Sair para USDC"
   (preço de saída, taxas, funding). "Aumentar posição" soma mais USDC a uma
   posição aberta e recalcula o preço médio. Aportes e retiradas também ficam lá.
-- Módulos: Dashboard, Estratégia BTC/USDC (Monitor, Performance, Transações, Ciclos), Portfólio Consolidado,
+- Módulos: Visão Geral, Estratégia BTC/USDC (Monitor, Performance, Transações, Ciclos), Portfólio Consolidado,
   Trading, Mercado, Risk Center, Performance Intelligence, Trading Journal e Configurações e Integrações.
   No celular: barra inferior (Início, Estratégia, Portfólio, Mercado, Mais). BRL/USD e privacidade no topo.
 - PORTFÓLIO: saldos manuais/CSV e carteiras somente leitura (Bitcoin, EVM/Rabby, Solana) sem contagem dupla.
@@ -44,3 +44,8 @@ iPhone
 
 Este app não mexe na Carteira no Bolso (raiz do repositório): cada um tem
 seus próprios dados, ícone e service worker.
+
+
+VISUAL: tema escuro e claro (botão sol/lua no topo). Cópia do visual anterior, para voltar se quiser:
+  https://pedronucci.github.io/carteira/btc-anterior/  (mesmos dados, mesmo navegador)
+  Git: ramos backup/btc-visual-v5-terminal e backup/btc-calculo-v5-sem-visual.

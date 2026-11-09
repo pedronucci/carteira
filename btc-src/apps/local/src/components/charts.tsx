@@ -50,7 +50,7 @@ export function EquityChart({ points, height = 260, ccy = "USD" }: { points: Ser
         <CartesianGrid stroke={C.grid} strokeDasharray="3 4" vertical={false} />
         {bands.map((b) => <ReferenceArea key={b.x1} x1={b.x1} x2={b.x2} fill={C.btc} fillOpacity={0.08} ifOverflow="visible" />)}
         <XAxis dataKey="ts" type="number" domain={["dataMin", "dataMax"]} scale="time" {...axis} tickFormatter={(t) => dateFmt(t)} minTickGap={48} />
-        <YAxis {...axis} width={52} tickFormatter={(v) => fmt(v)} domain={["auto", "auto"]} />
+        <YAxis {...axis} width={72} tickFormatter={(v) => fmt(v)} domain={["auto", "auto"]} />
         <Tooltip content={<Tip fmt={(v) => (hidden ? "•••" : fmtMoney(v, ccy))} names={{ equity: "Estratégia", hodl: "Só segurar BTC", contrib: "Capital" }} />} />
         <Line type="stepAfter" dataKey="contrib" stroke={C.muted} strokeDasharray="6 5" dot={false} strokeWidth={1.5} isAnimationActive={false} />
         <Line type="linear" dataKey="hodl" stroke={C.btc} dot={false} strokeWidth={1.75} isAnimationActive={false} connectNulls />
@@ -70,7 +70,7 @@ export function BtcChart({ points, height = 200 }: { points: { ts: number; btc: 
         <defs><linearGradient id="btcq" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={C.accent} stopOpacity={0.18} /><stop offset="100%" stopColor={C.accent} stopOpacity={0} /></linearGradient></defs>
         <CartesianGrid stroke={C.grid} strokeDasharray="3 4" vertical={false} />
         <XAxis dataKey="ts" type="number" domain={["dataMin", "dataMax"]} scale="time" {...axis} tickFormatter={(t) => dateFmt(t)} minTickGap={48} />
-        <YAxis {...axis} width={56} tickFormatter={f} domain={["auto", "auto"]} />
+        <YAxis {...axis} width={72} tickFormatter={f} domain={["auto", "auto"]} />
         <Tooltip content={<Tip fmt={(v) => `${f(v)} BTC`} names={{ btc: "Patrimônio" }} />} />
         <Area type="linear" dataKey="btc" stroke={C.accent} fill="url(#btcq)" strokeWidth={2} isAnimationActive={false} />
       </AreaChart>

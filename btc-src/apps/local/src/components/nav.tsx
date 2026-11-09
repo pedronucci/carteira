@@ -27,7 +27,7 @@ type Icon = ComponentType<{ className?: string; strokeWidth?: number }>;
 export interface Module { href: string; label: string; short?: string; icon: Icon; match?: string[]; strategy?: boolean }
 
 export const MODULES: Module[] = [
-  { href: "/", label: "Dashboard", short: "Início", icon: LayoutDashboard },
+  { href: "/", label: "Visão Geral", short: "Início", icon: LayoutDashboard },
   { href: "/estrategia", label: "Estratégia BTC/USDC", short: "Estratégia", icon: Bitcoin, strategy: true, match: ["/estrategia", "/estrategia/performance", "/estrategia/transacoes"] },
   { href: "/portfolio", label: "Portfólio Consolidado", short: "Portfólio", icon: Wallet },
   { href: "/trading", label: "Trading", icon: ArrowLeftRight },
@@ -116,8 +116,8 @@ function AlertBell() {
   useDataVersion();
   const n = alerts().log.filter((l) => !l.seen).length;
   return (
-    <Link href="/alertas" aria-label={n ? `Alertas: ${n} não vistos` : "Alertas"} className="relative grid size-9 place-items-center rounded-md text-muted [@media(hover:hover)]:hover:bg-surface-2 [@media(hover:hover)]:hover:text-ink">
-      <Bell className="size-[18px]" />{n > 0 && <span className="num absolute top-1 right-1 grid min-w-4 place-items-center rounded-full bg-loss px-1 text-[9px] font-bold text-white">{n > 9 ? "9+" : n}</span>}
+    <Link href="/alertas" aria-label={n ? `Alertas: ${n} não vistos` : "Alertas"} className="relative grid size-9 place-items-center rounded-xl border border-line bg-surface/60 text-muted [@media(hover:hover)]:hover:border-line-hover [@media(hover:hover)]:hover:text-ink">
+      <Bell className="size-[18px]" />{n > 0 && <span className="num absolute top-1 right-1 grid min-w-4 place-items-center rounded-full bg-gold px-1 text-[9px] font-bold text-on-gold">{n > 9 ? "9+" : n}</span>}
     </Link>
   );
 }
@@ -125,7 +125,7 @@ function AlertBell() {
 function TopBar() {
   const { hidden, toggleHidden, ccy, setCcy, theme, toggleTheme } = useAppState();
   return (
-    <header className="pt-safe sticky top-0 z-30 border-b border-line bg-bg/90 backdrop-blur-xl">
+    <header className="pt-safe sticky top-0 z-30 border-b border-line bg-bg/80 backdrop-blur-xl">
       <div className="flex h-12 items-center gap-3 px-4 lg:px-5">
         <Link href="/" className="flex shrink-0 items-center gap-2 lg:hidden" aria-label="Dashboard"><Mark className="size-6" />
           <span className="text-[12px] font-semibold tracking-[0.08em] whitespace-nowrap">BST <span className="text-accent">5.0</span></span></Link>
@@ -133,11 +133,11 @@ function TopBar() {
         <div className="ml-auto flex items-center gap-1.5">
           <Segmented size="sm" label="Moeda" value={ccy} onChange={setCcy} options={[{ value: "BRL", label: "BRL" }, { value: "USD", label: "USD" }]} />
           <button onClick={toggleHidden} aria-label={hidden ? "Mostrar valores" : "Ocultar valores (modo privacidade)"} aria-pressed={hidden}
-            className={cn("grid size-9 place-items-center rounded-md [@media(hover:hover)]:hover:bg-surface-2", hidden ? "text-accent" : "text-muted")}>
+            className={cn("grid size-9 place-items-center rounded-xl border border-line bg-surface/60 [@media(hover:hover)]:hover:border-line-hover", hidden ? "text-accent" : "text-muted")}>
             {hidden ? <EyeOff className="size-[18px]" /> : <Eye className="size-[18px]" />}
           </button>
           <button onClick={toggleTheme} aria-label={theme === "light" ? "Trocar para o tema escuro" : "Trocar para o tema claro"} title={theme === "light" ? "Tema escuro" : "Tema claro"}
-            className="grid size-9 place-items-center rounded-md text-muted transition-colors duration-150 [@media(hover:hover)]:hover:bg-surface-2 [@media(hover:hover)]:hover:text-ink">
+            className="grid size-9 place-items-center rounded-xl border border-line bg-surface/60 text-muted transition-colors duration-150 [@media(hover:hover)]:hover:border-line-hover [@media(hover:hover)]:hover:text-ink">
             {theme === "light" ? <Moon className="size-[18px]" /> : <Sun className="size-[18px]" />}
           </button>
           <AlertBell />
@@ -154,7 +154,7 @@ function Sidebar() {
   const [open, setOpen] = useState(() => { try { return localStorage.getItem("bst.nav.open") !== "0"; } catch { return true; } });
   const toggle = () => setOpen((o) => { try { localStorage.setItem("bst.nav.open", o ? "0" : "1"); } catch { /* */ } return !o; });
   return (
-    <aside className={cn("sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-line bg-sidebar transition-[width] duration-200 lg:flex", open ? "w-[232px]" : "w-[60px]")}>
+    <aside className={cn("sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-line bg-sidebar/85 backdrop-blur-xl transition-[width] duration-200 lg:flex", open ? "w-[232px]" : "w-[60px]")}>
       <div className="flex h-12 items-center gap-2.5 border-b border-line px-[14px]">
         <Mark className="size-7" />
         {open && <span className="min-w-0 leading-tight"><span className="block truncate text-[12px] font-semibold tracking-[0.06em]">BITCOIN STRATEGY</span><span className="block text-[11px] tracking-[0.06em] text-muted">TERMINAL <span className="text-accent">5.0</span></span></span>}
@@ -164,11 +164,10 @@ function Sidebar() {
           const on = active(m);
           return (
             <Link key={m.href} href={m.href} title={open ? undefined : m.label} aria-current={on ? "page" : undefined}
-              className={cn("group relative flex h-9 items-center gap-3 rounded-md px-2.5 text-[13px] transition-colors duration-150",
-                on ? "bg-surface-2 text-ink" : "text-muted [@media(hover:hover)]:hover:bg-surface [@media(hover:hover)]:hover:text-ink-2")}>
-              {on && <span className={cn("absolute inset-y-1.5 left-0 w-[2px] rounded-full", m.strategy ? "bg-gold" : "bg-accent")} aria-hidden />}
-              <m.icon className={cn("size-[18px] shrink-0", m.strategy ? "text-gold" : on ? "text-accent" : "")} strokeWidth={1.75} />
-              {open && <span className={cn("truncate", m.strategy && "font-medium text-gold")}>{m.label}</span>}
+              className={cn("group relative flex h-10 items-center gap-3 rounded-xl border px-2.5 text-[13px] font-medium transition-colors duration-150",
+                on ? "border-gold/55 bg-gradient-to-b from-gold/[0.16] to-gold/[0.05] text-gold shadow-[0_14px_28px_-18px_var(--glow-shadow)]" : "border-transparent text-ink-2 [@media(hover:hover)]:hover:bg-surface-2/70 [@media(hover:hover)]:hover:text-ink")}>
+              <m.icon className={cn("size-[18px] shrink-0", !on && m.strategy && "text-gold/80")} strokeWidth={1.75} />
+              {open && <span className="truncate">{m.label}</span>}
             </Link>
           );
         })}
@@ -211,13 +210,13 @@ function BottomNav() {
   const [more, setMore] = useState(false);
   const items = MODULES.filter((m) => BOTTOM.includes(m.href));
   const moreOn = MODULES.some((m) => !BOTTOM.includes(m.href) && active(m));
-  const cls = (on: boolean, gold?: boolean) => cn("flex flex-1 flex-col items-center justify-center gap-1 pt-2 pb-1.5 text-[10.5px] font-medium", on ? (gold ? "text-gold" : "text-accent") : "text-muted");
+  const cls = (on: boolean) => cn("flex min-h-[52px] flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl text-[10.5px] font-semibold transition-colors", on ? "bg-gold-soft text-gold ring-1 ring-gold/45" : "text-ink-2");
   return (
     <>
-      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden" aria-label="Principal">
+      <nav className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+8px)] z-40 flex gap-0.5 rounded-3xl border border-line-strong bg-bg/85 p-1.5 shadow-[0_20px_40px_-14px_var(--shadow-pop)] backdrop-blur-2xl lg:hidden" aria-label="Principal">
         {items.map((m) => (
-          <Link key={m.href} href={m.href} aria-current={active(m) ? "page" : undefined} className={cls(active(m), m.strategy)}>
-            <m.icon className={cn("size-[22px]", m.strategy && !active(m) && "text-gold/80")} strokeWidth={active(m) ? 2.1 : 1.75} />{m.short ?? m.label}
+          <Link key={m.href} href={m.href} aria-current={active(m) ? "page" : undefined} className={cls(active(m))}>
+            <m.icon className="size-[22px]" strokeWidth={active(m) ? 2.1 : 1.75} />{m.short ?? m.label}
           </Link>
         ))}
         <button onClick={() => setMore(true)} className={cls(moreOn)} aria-label="Mais módulos"><Ellipsis className="size-[22px]" strokeWidth={1.75} />Mais</button>
@@ -233,7 +232,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Sidebar />
       <div className="min-w-0 flex-1">
         <TopBar />
-        <main className="mx-auto max-w-[1280px] px-4 pb-[calc(env(safe-area-inset-bottom)+88px)] lg:px-6 lg:pb-12">{children}</main>
+        <main className="mx-auto max-w-[1280px] px-4 pb-[calc(env(safe-area-inset-bottom)+104px)] lg:px-6 lg:pb-12">{children}</main>
       </div>
       <BottomNav />
     </div>
