@@ -10,6 +10,7 @@ import { portfolioView, subscribePortfolioPrices } from "./portfolio/engine";
 import { subscribeIntel } from "./market/intel";
 import { subscribeAlerts } from "./alerts";
 import { performanceView, riskView } from "./intel/views";
+import { perpsView } from "./perps/view";
 
 let version = 0;
 const vs = new Set<() => void>();
@@ -42,4 +43,5 @@ export const useSnapshot = () => useSync(() => compute());
 export const useMarket = () => useSync(market);
 export const usePortfolio = () => useSync(portfolioView);
 export const useRisk = () => useSync(riskView);
+export const usePerps = () => useSync(perpsView);
 export const usePerformance = () => useSync(performanceView);

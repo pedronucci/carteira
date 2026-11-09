@@ -279,3 +279,10 @@ export async function askWalletAddress(): Promise<string> {
   return a.toLowerCase();
 }
 export const hasInjectedWallet = () => typeof window !== "undefined" && Boolean((window as unknown as { ethereum?: unknown }).ethereum);
+
+/** Velas de qualquer instrumento (para o gráfico de cada posição). */
+export async function coinCandles(coin: string, interval: "15m" | "1h" | "4h" = "1h", days = 7): Promise<{ t: number; c: number }[]> {
+  const end = Date.now();
+  const rows = await info<{ t: number; c: string }[]>({ type: "candleSnapshot", req: { coin, interval, startTime: end - days * 86400e3, endTime: end } });
+  return (Array.isArray(rows) ? rows : []).map((r) => ({ t: r.t, c: Number(r.c) }));
+}

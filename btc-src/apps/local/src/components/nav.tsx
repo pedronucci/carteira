@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 import { useState, type ComponentType, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
-  ArrowLeftRight, Bell, Bitcoin, ChartCandlestick, ChartLine, Ellipsis, Eye, EyeOff, Gauge, LayoutDashboard,
+  Activity, ArrowLeftRight, Bell, Bitcoin, ChartCandlestick, ChartLine, Ellipsis, Eye, EyeOff, Gauge, LayoutDashboard,
   Moon, NotebookPen, PanelLeftClose, PanelLeftOpen, Settings, Sun, Wallet, X,
 } from "lucide-react";
 import { fmtRelative } from "@bst/domain";
@@ -30,6 +30,7 @@ export const MODULES: Module[] = [
   { href: "/", label: "Visão Geral", short: "Início", icon: LayoutDashboard },
   { href: "/estrategia", label: "Estratégia BTC/USDC", short: "Estratégia", icon: Bitcoin, strategy: true, match: ["/estrategia", "/estrategia/performance", "/estrategia/transacoes"] },
   { href: "/portfolio", label: "Portfólio Consolidado", short: "Portfólio", icon: Wallet },
+  { href: "/perpetuos", label: "Posições Perpétuas", short: "Perpétuos", icon: Activity },
   { href: "/trading", label: "Trading", icon: ArrowLeftRight },
   { href: "/mercado", label: "Mercado", icon: ChartCandlestick, match: ["/mercado", "/mercado"] },
   { href: "/risco", label: "Risk Center", short: "Risco", icon: Gauge },
@@ -37,7 +38,7 @@ export const MODULES: Module[] = [
   { href: "/diario", label: "Trading Journal", short: "Diário", icon: NotebookPen },
   { href: "/ajustes", label: "Configurações e Integrações", short: "Ajustes", icon: Settings, match: ["/ajustes", "/ajustes"] },
 ];
-const BOTTOM = ["/", "/estrategia", "/portfolio", "/mercado"];
+const BOTTOM = ["/", "/estrategia", "/perpetuos", "/portfolio"];
 
 export function useActive() {
   const path = usePathname();

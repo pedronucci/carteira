@@ -15,13 +15,14 @@ import Journal from "@/app/journal/page";
 import Alerts from "@/app/alerts/page";
 import Cycles from "@/app/cycles/page";
 import Portfolio from "@/app/portfolio/page";
+import Perps from "@/app/perps/page";
 import { splitUrl, useUrl } from "@/lib/router";
 
 const PAGES: Record<string, () => React.ReactNode> = {
   "/": Dashboard,
   "/estrategia": StrategyMonitor, "/estrategia/performance": Performance, "/estrategia/transacoes": Operations, "/estrategia/ciclos": Cycles,
   "/mercado": Market, "/ajustes": Settings,
-  "/portfolio": Portfolio, "/trading": Trading, "/risco": Risk, "/inteligencia": Intel, "/diario": Journal, "/alertas": Alerts,
+  "/portfolio": Portfolio, "/perpetuos": Perps, "/trading": Trading, "/risco": Risk, "/inteligencia": Intel, "/diario": Journal, "/alertas": Alerts,
 };
 /** Endereços da versão 4 (favoritos e atalhos antigos continuam funcionando). */
 const ALIAS: Record<string, string> = { "/performance": "/estrategia/performance", "/operations": "/estrategia/transacoes", "/market": "/mercado", "/settings": "/ajustes" };
