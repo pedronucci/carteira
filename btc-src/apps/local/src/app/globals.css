@@ -3,9 +3,9 @@
 @theme static {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
-  --color-bg: #060b13;
-  --color-surface: #0d1725;
-  --color-surface-2: #142033;
+  --color-bg: #090e16;
+  --color-surface: #111a27;
+  --color-surface-2: #172334;
   --color-surface-3: #1c2b42;
   --color-line: #1a2b3d;
   --color-line-strong: #2a4157;
@@ -13,11 +13,11 @@
   --color-ink-2: #c5d0de;
   --color-muted: #8ea0b6;
   /* ciano: interação e estado (seleção, foco, botão principal, conexão) */
-  --color-accent: #2ee6c5;
-  --color-accent-soft: #2ee6c51f;
+  --color-accent: #42d9d0;
+  --color-accent-soft: #42d9d01f;
   /* dourado: a Estratégia BTC/USDC (destaque permanente) */
-  --color-gold: #f2b84b;
-  --color-gold-soft: #f2b84b1f;
+  --color-gold: #d7b36a;
+  --color-gold-soft: #d7b36a1f;
   --color-btc: #f7931a;
   --color-btc-soft: #f7931a22;
   --color-usdc: #2775ca;
@@ -31,9 +31,9 @@
   --color-on-accent: #03201d;
   --color-accent-hover: #5df0d6;
   --color-on-gold: #2a1f05;
-  --color-sidebar: #08101a;
+  --color-sidebar: #0a111b;
   --color-coin: #0c1420;
-  --color-sheet: #0d1725;
+  --color-sheet: #111a27;
   --color-warn-ink: #f2d398;
   --color-loss-ink: #ffc2ca;
   --color-placeholder: #6b7d94;

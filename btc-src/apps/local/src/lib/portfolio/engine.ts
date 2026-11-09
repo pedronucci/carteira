@@ -3,11 +3,12 @@
  * fases, OKX e carteiras) e entrega a consolidação do @bst/domain. Nunca escreve nos dados da Estratégia.
  */
 import { effectiveHoldings } from "../wallets";
-import { classifyFlows, consolidate, exchangeEcon, portfolioReturns, type PAccount, type PHolding, type PPosition, type PriceBook } from "@bst/domain";
+import { classifyFlows, consolidate, exchangeEcon, nextSnapshots, portfolioReturns, type PSnapshot, type PAccount, type PHolding, type PPosition, type PriceBook } from "@bst/domain";
 import { compute } from "../local/engine";
 import { getStore } from "../local/store";
 import { hlState } from "../local/hl";
 import { extraState } from "../local/hl-extra";
+import { perpsView } from "../perps/view";
 import { prices as btcPrices } from "../local/prices";
 import { portfolio, updatePortfolio, uidP } from "./db";
 
@@ -118,18 +119,35 @@ export function portfolioView() {
     ...classified.filter((e) => (e.cls === "external" || e.cls === "pending" || e.kind === "adjust") && e.usd != null).map((e) => ({ t: e.t, accountId: e.accountId, usd: (e.kind === "withdraw" || e.kind === "transfer_out" ? -1 : 1) * Math.abs(e.usd!) })),
   ];
   const series = portfolioReturns(p.snapshots, flows);
-  return { accounts, holdings, positions, prices, c, classified, series, pending: classified.filter((e) => e.cls === "pending") };
+  return { accounts, holdings, positions, prices, c, classified, series, flows, pending: classified.filter((e) => e.cls === "pending") };
 }
 
-/** Grava um retrato (no máximo um por hora) para a evolução patrimonial. */
+/** Retrato completo do portfólio agora (conta, ativo, BTC equivalente, perpétuos, câmbio). Nada é estimado: o que falta fica de fora. */
+export function buildSnapshot(v: ReturnType<typeof portfolioView>, now = Date.now()): PSnapshot {
+  const r2 = (x: number) => Math.round(x * 100) / 100;
+  const byAccount = Object.fromEntries(v.c.byAccount.map((a) => [a.accountId, r2(a.valueUsd)]));
+  const byAsset = Object.fromEntries(v.c.assets.filter((a) => a.valueUsd != null && Math.abs(a.valueUsd) >= 0.01).map((a) => [a.symbol, r2(a.valueUsd!)]));
+  let perps: PSnapshot["perps"]; let recon: string | undefined;
+  try {
+    const pv = perpsView();
+    if (pv.connected && !pv.stale) {
+      perps = { upnl: r2(pv.summary.upnl), notional: r2(pv.summary.gross), margin: r2(pv.summary.margin), count: pv.summary.count, positions: pv.positions.map((p) => ({ id: p.id, coin: p.coin, dir: p.dir, upnl: r2(p.upnl), notional: r2(p.notional) })) };
+      recon = pv.accounts.map((a) => a.recon?.status ?? "none").sort()[0];
+    }
+  } catch { /* sem perpétuos */ }
+  const spot = btcPrices().spot;
+  return { t: now, v: 2, byAccount, total: r2(v.c.totalUsd), byAsset, btcUsd: spot?.btcUsd ?? v.prices.BTC?.usd ?? null, usdBrl: spot?.usdBrl ?? null, btcEq: v.c.btcEquivalent ?? null, perps, recon, src: "app" };
+}
+
+/** Grava um retrato (no máximo um por hora, sem duplicar) para a evolução patrimonial. */
 export function recordSnapshot(force = false) {
   const p = portfolio();
   const v = portfolioView();
   if (!v.c.byAccount.length) return;
-  const last = p.snapshots[p.snapshots.length - 1];
-  if (!force && last && Date.now() - last.t < 3600e3) return;
-  const byAccount = Object.fromEntries(v.c.byAccount.map((a) => [a.accountId, Math.round(a.valueUsd * 100) / 100]));
-  void updatePortfolio((d) => { d.snapshots.push({ t: Date.now(), byAccount }); if (d.snapshots.length > 5000) d.snapshots = d.snapshots.slice(-5000); });
+  const snap = buildSnapshot(v);
+  const next = nextSnapshots(p.snapshots, snap, force);
+  if (next === p.snapshots) return;
+  void updatePortfolio((d) => { d.snapshots = nextSnapshots(d.snapshots, snap, force); });
 }
 
 // ───────── cadastro manual ─────────

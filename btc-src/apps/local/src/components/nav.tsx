@@ -28,9 +28,9 @@ export interface Module { href: string; label: string; short?: string; icon: Ico
 
 export const MODULES: Module[] = [
   { href: "/", label: "Visão Geral", short: "Início", icon: LayoutDashboard },
-  { href: "/estrategia", label: "Estratégia BTC/USDC", short: "Estratégia", icon: Bitcoin, strategy: true, match: ["/estrategia", "/estrategia/performance", "/estrategia/transacoes"] },
-  { href: "/portfolio", label: "Portfólio Consolidado", short: "Portfólio", icon: Wallet },
   { href: "/perpetuos", label: "Posições Perpétuas", short: "Perpétuos", icon: Activity },
+  { href: "/portfolio", label: "Portfólio Consolidado", short: "Portfólio", icon: Wallet },
+  { href: "/estrategia", label: "Estratégia BTC/USDC", short: "Estratégia BTC", icon: Bitcoin, strategy: true, match: ["/estrategia", "/estrategia/performance", "/estrategia/transacoes"] },
   { href: "/trading", label: "Trading", icon: ArrowLeftRight },
   { href: "/mercado", label: "Mercado", icon: ChartCandlestick, match: ["/mercado", "/mercado"] },
   { href: "/risco", label: "Risk Center", short: "Risco", icon: Gauge },
@@ -38,7 +38,7 @@ export const MODULES: Module[] = [
   { href: "/diario", label: "Trading Journal", short: "Diário", icon: NotebookPen },
   { href: "/ajustes", label: "Configurações e Integrações", short: "Ajustes", icon: Settings, match: ["/ajustes", "/ajustes"] },
 ];
-const BOTTOM = ["/", "/estrategia", "/perpetuos", "/portfolio"];
+const BOTTOM = ["/", "/perpetuos", "/portfolio", "/estrategia"];
 
 export function useActive() {
   const path = usePathname();
@@ -129,7 +129,7 @@ function TopBar() {
     <header className="pt-safe sticky top-0 z-30 border-b border-line bg-bg/80 backdrop-blur-xl">
       <div className="flex h-12 items-center gap-3 px-4 lg:px-5">
         <Link href="/" className="flex shrink-0 items-center gap-2 lg:hidden" aria-label="Dashboard"><Mark className="size-6" />
-          <span className="text-[12px] font-semibold tracking-[0.08em] whitespace-nowrap">BST <span className="text-accent">5.0</span></span></Link>
+          <span className="text-[12px] font-semibold tracking-[0.08em] whitespace-nowrap">BST <span className="text-accent">5.1</span></span></Link>
         <div className="hidden min-w-0 flex-1 items-center gap-4 lg:flex"><BtcTicker /><span className="h-4 w-px bg-line-strong" aria-hidden /><IntegrationChips /></div>
         <div className="ml-auto flex items-center gap-1.5">
           <Segmented size="sm" label="Moeda" value={ccy} onChange={setCcy} options={[{ value: "BRL", label: "BRL" }, { value: "USD", label: "USD" }]} />
@@ -158,7 +158,7 @@ function Sidebar() {
     <aside className={cn("sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-line bg-sidebar/85 backdrop-blur-xl transition-[width] duration-200 lg:flex", open ? "w-[232px]" : "w-[60px]")}>
       <div className="flex h-12 items-center gap-2.5 border-b border-line px-[14px]">
         <Mark className="size-7" />
-        {open && <span className="min-w-0 leading-tight"><span className="block truncate text-[12px] font-semibold tracking-[0.06em]">BITCOIN STRATEGY</span><span className="block text-[11px] tracking-[0.06em] text-muted">TERMINAL <span className="text-accent">5.0</span></span></span>}
+        {open && <span className="min-w-0 leading-tight"><span className="block truncate text-[12px] font-semibold tracking-[0.06em]">BITCOIN STRATEGY</span><span className="block text-[11px] tracking-[0.06em] text-muted">TERMINAL <span className="text-accent">5.1</span></span></span>}
       </div>
       <nav className="flex-1 space-y-0.5 overflow-y-auto p-2" aria-label="Módulos">
         {MODULES.map((m) => {

@@ -231,7 +231,13 @@ export function classifyFlows(events: PEvent[], accounts: PAccount[], opts: { ma
 // ───────── evolução e rentabilidade ─────────
 
 /** Retrato periódico do portfólio: valor por conta (USD). */
-export interface PSnapshot { t: number; byAccount: Record<string, number> }
+export interface PSnapshot {
+  t: number; byAccount: Record<string, number>;
+  /** campos da versão 2 (opcionais: retratos antigos só têm `byAccount`) */
+  v?: 2; total?: number; byAsset?: Record<string, number>; btcUsd?: number | null; usdBrl?: number | null; btcEq?: number | null;
+  perps?: PSnapPerps; recon?: string; src?: string;
+}
+export interface PSnapPerps { upnl: number; notional: number; margin: number; count: number; positions: { id: string; coin: string; dir: "LONG" | "SHORT"; upnl: number; notional: number }[] }
 
 /**
  * Rentabilidade ponderada no tempo do portfólio.

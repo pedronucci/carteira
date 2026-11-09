@@ -5,7 +5,7 @@
  * Coleções: contas, saldos (manuais e lidos das fontes), movimentações, retratos (evolução) e preferências.
  * Em memória fica uma cópia para leitura síncrona pelas telas; cada gravação vai para o IndexedDB.
  */
-import type { JournalEntry, PAccount, PEvent, PHolding, PPosition, PSnapshot } from "@bst/domain";
+import { migrateSnapshots, type JournalEntry, type PAccount, type PEvent, type PHolding, type PPosition, type PSnapshot } from "@bst/domain";
 
 export interface PortfolioData {
   v: 1;
@@ -66,7 +66,7 @@ async function writeRaw(d: PortfolioData): Promise<void> {
   });
 }
 
-const normalize = (d: Partial<PortfolioData>): PortfolioData => ({ ...EMPTY(), ...d, v: 1 });
+const normalize = (d: Partial<PortfolioData>): PortfolioData => { const n = { ...EMPTY(), ...d, v: 1 as const }; n.snapshots = migrateSnapshots(n.snapshots ?? []); return n; };
 
 /** Carrega do IndexedDB (uma vez). */
 export async function loadPortfolio(): Promise<void> {
