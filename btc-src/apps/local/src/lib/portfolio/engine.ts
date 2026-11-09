@@ -28,7 +28,7 @@ export const priceBookInfo = () => ({ at: bookAt, error: bookError });
 /** Cotações em USD (CoinGecko, com variação de 24 h). O BTC usa a mesma cotação da Estratégia. */
 export async function refreshPortfolioPrices(): Promise<void> {
   const p = portfolio();
-  const econs = new Set<string>(["BTC", "USDC", "USDT"]);
+  const econs = new Set<string>(["BTC", "USDC", "USDT", "ETH", "SOL", "HYPE"]);
   for (const h of [...p.manual, ...p.synced]) econs.add(h.econ);
   const ids = new Map<string, string>();
   for (const e of econs) { const id = p.priceIds[e] ?? CG_IDS[e]; if (id) ids.set(e, id); }
