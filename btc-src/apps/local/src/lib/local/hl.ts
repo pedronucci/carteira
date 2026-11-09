@@ -100,11 +100,12 @@ async function arbBalance(addr: string): Promise<number | null> {
 export async function refreshLive(address: string, opts: { includeArb?: boolean; btcUsd?: number | null } = {}) {
   const user = address.trim().toLowerCase();
   try {
-    const [ch, spot, mode, arb] = await Promise.all([
+    const [ch, spot, mode, arb, mids] = await Promise.all([
       info<Ch>({ type: "clearinghouseState", user }),
       info<Spot>({ type: "spotClearinghouseState", user }),
       info<string>({ type: "userAbstraction", user }).catch(() => "default"),
       opts.includeArb ? arbBalance(user) : Promise.resolve(null),
+      info<Record<string, string>>({ type: "allMids" }).catch(() => ({} as Record<string, string>)),
     ]);
     const positions: HlPosition[] = (ch.assetPositions ?? []).map(({ position: p }) => ({
       coin: p.coin, szi: Number(p.szi), entryPx: Number(p.entryPx ?? 0), leverage: p.leverage?.value ?? 1, levType: p.leverage?.type ?? "cross",
@@ -118,7 +119,9 @@ export async function refreshLive(address: string, opts: { includeArb?: boolean;
     for (const b of spot.balances ?? []) {
       const t = Number(b.total);
       if (!t) continue;
-      const usd = STABLE.has(b.coin) ? t : (b.coin === "UBTC" || b.coin === "BTC") && opts.btcUsd ? t * opts.btcUsd : null;
+      // outras moedas (HYPE, ETH…): preço médio da própria Hyperliquid; sem preço, fica de fora do total
+      const mid = Number(mids?.[b.coin] ?? mids?.[b.coin.replace(/^U(?=[A-Z]{2,})/, "")] ?? NaN);
+      const usd = STABLE.has(b.coin) ? t : (b.coin === "UBTC" || b.coin === "BTC") && opts.btcUsd ? t * opts.btcUsd : Number.isFinite(mid) && mid > 0 ? t * mid : null;
       balances.push({ coin: b.coin, total: t, usd, where: "spot" });
     }
     const spotUsd = balances.filter((b) => b.where === "spot").reduce((a, b) => a + (b.usd ?? 0), 0);
