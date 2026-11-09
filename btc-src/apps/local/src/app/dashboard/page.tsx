@@ -210,7 +210,7 @@ function Widget({ id, s }: { id: WidgetId; s: Snap }) {
       <Panel className={cn("overflow-hidden", span)}>
         <PanelHead title="Risco da estratégia" right={<Link href="/risco" className="text-[12px] font-medium text-accent">Risk Center ›</Link>} />
         <div className="space-y-4 px-4 py-4">
-          <RiskMeter label="Alavancagem efetiva" value={lev} display={`${lev.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}×`} max={Math.max(6, Math.ceil(lev * 1.25))} zones={[rules.leverageMax, rules.leverageMax * 2]} limit={rules.leverageMax} />
+          <RiskMeter label={`Alavancagem efetiva${c?.leverageSetting ? ` (config. ${c.leverageSetting}×)` : ""}`} value={lev} display={`${lev.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}×`} max={Math.max(6, Math.ceil(lev * 1.25))} zones={[rules.leverageMax, rules.leverageMax * 2]} limit={rules.leverageMax} />
           {c?.liqDist && <RiskMeter label="Distância da liquidação" value={c.liqDist.toNumber()} display={f.pct(c.liqDist, false)} max={0.6} zones={[minLiq, minLiq * 2]} limit={minLiq} invert />}
           <div className="flex items-baseline justify-between text-[12px]"><span className="lbl">Queda desde o pico</span><span className={cn("num", cur > 0 ? "text-loss" : "text-ink-2")}>{f.pct(-cur)}</span></div>
         </div>

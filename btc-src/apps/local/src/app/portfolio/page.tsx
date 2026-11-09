@@ -13,6 +13,7 @@ import { useFmt } from "@/lib/state";
 import { portfolioError, portfolioReady } from "@/lib/portfolio/db";
 import { addManualFlow, importHoldingsCsv, parseHoldingsCsv, priceBookInfo, removeManualHolding, resolvePending, saveManualHolding, type ManualInput } from "@/lib/portfolio/engine";
 import { C } from "@/components/charts";
+import { CoinLogo } from "@/components/coin-logo";
 import { Sheet } from "@/components/sheet";
 import { toast } from "@/components/toaster";
 import { Button, Field, Kpi, KpiGrid, Notice, Panel, PanelHead, Pill, Segmented, Skeleton, cn, toneCls, toneOf } from "@/components/ui";
@@ -117,7 +118,7 @@ function AssetsTable({ v, onEdit }: { v: View; onEdit: (key: string, init: Manua
         {rows.map((a) => (
           <li key={a.econ} className="flex items-center gap-3 px-4 py-2.5">
             <span className="min-w-0 flex-1">
-              <span className={cn("block text-[14px] font-medium", a.econ === "BTC" && "text-btc")}>{a.symbol}{a.econ.includes(":") ? " · não reconhecido" : ""}</span>
+              <span className={cn("flex items-center gap-2 text-[14px] font-medium", a.econ === "BTC" && "text-btc")}><CoinLogo symbol={a.symbol} size={20} />{a.symbol}{a.econ.includes(":") ? " · não reconhecido" : ""}</span>
               <span className="num block truncate text-[11px] text-muted">{f.btc(a.qty, 6)} · {[...new Set(a.sources.map((s) => s.institution))].join(", ")}</span>
             </span>
             <span className="text-right">
@@ -140,7 +141,7 @@ function AssetsTable({ v, onEdit }: { v: View; onEdit: (key: string, init: Manua
               return (
                 <Fragment key={a.econ}>
                   <tr className="cursor-pointer [@media(hover:hover)]:hover:bg-surface-2" onClick={toggle}>
-                    <td className="px-3 py-2.5"><span className="flex items-center gap-2">{isOpen ? <ChevronDown className="size-3.5 text-muted" /> : <ChevronRight className="size-3.5 text-muted" />}<span className={cn("font-medium", a.econ === "BTC" && "text-btc")}>{a.symbol}</span>{a.econ.includes(":") && <Pill>não reconhecido</Pill>}</span></td>
+                    <td className="px-3 py-2.5"><span className="flex items-center gap-2">{isOpen ? <ChevronDown className="size-3.5 text-muted" /> : <ChevronRight className="size-3.5 text-muted" />}<CoinLogo symbol={a.symbol} size={20} /><span className={cn("font-medium", a.econ === "BTC" && "text-btc")}>{a.symbol}</span>{a.econ.includes(":") && <Pill>não reconhecido</Pill>}</span></td>
                     <td className="num px-3 py-2.5 text-right">{f.btc(a.qty, 8)}</td>
                     <td className="num px-3 py-2.5 text-right text-ink-2">{a.priceUsd != null ? f.money(a.priceUsd) : "—"}</td>
                     <td className="num px-3 py-2.5 text-right font-medium">{a.valueUsd != null ? f.money(a.valueUsd) : <span className="text-warn">sem preço</span>}</td>
