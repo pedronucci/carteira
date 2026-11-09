@@ -5,7 +5,7 @@
  */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   Activity, ArrowLeftRight, Bell, Bitcoin, ChartCandlestick, ChartLine, Ellipsis, Eye, EyeOff, Gauge, LayoutDashboard,
@@ -18,6 +18,8 @@ import { getStore } from "@/lib/local/store";
 import { hlState } from "@/lib/local/hl";
 import { prices } from "@/lib/local/prices";
 import { portfolio } from "@/lib/portfolio/db";
+import { priceBook, refreshPortfolioPrices, subscribePortfolioPrices } from "@/lib/portfolio/engine";
+import { CoinLogo } from "./coin-logo";
 import { gatewayInfo } from "@/lib/connectors/okx";
 import { alerts } from "@/lib/alerts";
 import { cn, Segmented, toneCls, toneOf } from "./ui";
@@ -113,6 +115,36 @@ function BtcTicker() {
   );
 }
 
+const TICK_COINS = ["ETH", "HYPE", "SOL"] as const;
+/** Faixa de cotações (ETH, HYPE, SOL) que corre pela barra do topo; atualiza a cada minuto e pausa ao passar o mouse. */
+function CoinMarquee({ className }: { className?: string }) {
+  const f = useFmt();
+  const [, bump] = useState(0);
+  useEffect(() => {
+    const un = subscribePortfolioPrices(() => bump((n) => n + 1));
+    const id = setInterval(() => { if (document.visibilityState === "visible") void refreshPortfolioPrices(); }, 60e3);
+    return () => { un(); clearInterval(id); };
+  }, []);
+  const book = priceBook();
+  const items = TICK_COINS.map((c) => ({ c, px: book[c]?.usd ?? null, chg: book[c]?.change24h ?? null }));
+  const row = (dup: boolean) => (
+    <div className="flex shrink-0 items-center gap-6 pr-6" aria-hidden={dup || undefined}>
+      {items.map((i) => (
+        <span key={i.c} className="num flex shrink-0 items-center gap-1.5 text-[12px]">
+          <CoinLogo symbol={i.c} size={14} /><span className="font-semibold text-ink-2">{i.c}</span>
+          <span className="text-ink">{i.px != null ? f.px(i.px) : "—"}</span>
+          {i.chg != null && <span className={toneCls(toneOf(i.chg))}>{f.pct(i.chg)}</span>}
+        </span>
+      ))}
+    </div>
+  );
+  return (
+    <div className={cn("ticker-mask group min-w-0 flex-1 overflow-hidden", className)} role="marquee" aria-label="Cotações de ETH, HYPE e SOL">
+      <div className="ticker-track flex w-max">{row(false)}{row(true)}{row(true)}</div>
+    </div>
+  );
+}
+
 function AlertBell() {
   useDataVersion();
   const n = alerts().log.filter((l) => !l.seen).length;
@@ -130,7 +162,7 @@ function TopBar() {
       <div className="flex h-12 items-center gap-3 px-4 lg:px-5">
         <Link href="/" className="flex shrink-0 items-center gap-2 lg:hidden" aria-label="Dashboard"><Mark className="size-6" />
           <span className="text-[12px] font-semibold tracking-[0.08em] whitespace-nowrap">BST <span className="text-accent">5.1</span></span></Link>
-        <div className="hidden min-w-0 flex-1 items-center gap-4 lg:flex"><BtcTicker /><span className="h-4 w-px bg-line-strong" aria-hidden /><IntegrationChips /></div>
+        <div className="hidden min-w-0 flex-1 items-center gap-4 lg:flex"><BtcTicker /><span className="h-4 w-px bg-line-strong" aria-hidden /><CoinMarquee /><span className="hidden h-4 w-px bg-line-strong 2xl:block" aria-hidden /><div className="hidden 2xl:block"><IntegrationChips /></div></div>
         <div className="ml-auto flex items-center gap-1.5">
           <Segmented size="sm" label="Moeda" value={ccy} onChange={setCcy} options={[{ value: "BRL", label: "BRL" }, { value: "USD", label: "USD" }]} />
           <button onClick={toggleHidden} aria-label={hidden ? "Mostrar valores" : "Ocultar valores (modo privacidade)"} aria-pressed={hidden}
@@ -145,7 +177,7 @@ function TopBar() {
           <Link href="/ajustes" aria-label="Configurações" className="hidden size-9 place-items-center rounded-md text-muted lg:grid [@media(hover:hover)]:hover:bg-surface-2 [@media(hover:hover)]:hover:text-ink"><Settings className="size-[18px]" /></Link>
         </div>
       </div>
-      <div className="flex items-center gap-3 border-t border-line px-4 py-1.5 lg:hidden"><BtcTicker /><span className="h-3 w-px bg-line-strong" aria-hidden /><IntegrationChips /></div>
+      <div className="flex items-center gap-3 border-t border-line px-4 py-1.5 lg:hidden"><BtcTicker /><span className="h-3 w-px bg-line-strong" aria-hidden /><CoinMarquee /></div>
     </header>
   );
 }
