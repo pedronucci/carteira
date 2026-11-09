@@ -7,10 +7,10 @@ import { Fragment, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, Download, Plus, Search, Upload } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { fmtMoney, returnSince, type EconLine } from "@bst/domain";
+import { btcReturn, evolution, fmtMoney, returnSince, type EconLine, type EvoPeriod } from "@bst/domain";
 import { usePortfolio } from "@/lib/api";
 import { useFmt } from "@/lib/state";
-import { portfolioError, portfolioReady } from "@/lib/portfolio/db";
+import { portfolio, portfolioError, portfolioReady } from "@/lib/portfolio/db";
 import { addManualFlow, importHoldingsCsv, parseHoldingsCsv, priceBookInfo, removeManualHolding, resolvePending, saveManualHolding, type ManualInput } from "@/lib/portfolio/engine";
 import { C } from "@/components/charts";
 import { usePerps } from "@/lib/api";
@@ -282,7 +282,50 @@ function Evolution({ v }: { v: View }) {
           </AreaChart>
         </ResponsiveContainer>
       </div>
+      <PeriodTable v={v} />
     </Panel>
+  );
+}
+
+const PERIOD_ROWS: { p: EvoPeriod; label: string }[] = [{ p: "1", label: "24 h" }, { p: "7", label: "7 dias" }, { p: "30", label: "30 dias" }, { p: "90", label: "90 dias" }, { p: "365", label: "1 ano" }, { p: "all", label: "Tudo" }];
+/** Rentabilidade por período: variação bruta × fluxos × resultado, comparada ao BTC parado. Períodos sem histórico ficam marcados. */
+function PeriodTable({ v }: { v: View }) {
+  const f = useFmt();
+  const snaps = portfolio().snapshots;
+  const now = Date.now();
+  const rows = PERIOD_ROWS.map((r) => ({ ...r, e: evolution(snaps, v.flows, r.p, "USD", now) }));
+  return (
+    <div className="border-t border-line">
+      <div className="overflow-x-auto">
+        <table className="num w-full min-w-[560px] text-[12.5px]">
+          <thead><tr className="text-left text-[11px] text-muted">{["Período", "Variação bruta", "Aportes/retiradas", "Resultado", "Rentab. (TWR)", "Só BTC"].map((c, i) => <th key={c} className={cn("px-3 py-2 font-medium", i > 0 && "text-right")}>{c}</th>)}</tr></thead>
+          <tbody className="divide-y divide-line">
+            {rows.map(({ label, e }) => {
+              const hodl = btcReturn(snaps, e.fromT, e.toT);
+              return (
+                <tr key={label}>
+                  <td className="px-3 py-2">{label}{e.incomplete && <span className="ml-1.5 text-[10px] text-warn" title={e.availableFrom ? `histórico desde ${new Date(e.availableFrom).toLocaleDateString("pt-BR")}` : undefined}>incompleto</span>}</td>
+                  <td className={cn("px-3 py-2 text-right", toneCls(toneOf(e.rawChangeUsd)))}>{e.rawChangeUsd != null ? f.money(e.rawChangeUsd, { signed: true }) : "—"}</td>
+                  <td className="px-3 py-2 text-right">{e.rawChangeUsd != null ? f.money(e.flowsUsd, { signed: true }) : "—"}</td>
+                  <td className={cn("px-3 py-2 text-right", toneCls(toneOf(e.resultUsd)))}>{e.resultUsd != null ? f.money(e.resultUsd, { signed: true }) : "—"}</td>
+                  <td className={cn("px-3 py-2 text-right", toneCls(toneOf(e.twr)))}>{e.twr != null ? f.pct(e.twr) : "—"}</td>
+                  <td className="px-3 py-2 text-right text-muted">{hodl != null ? f.pct(hodl) : "—"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Resultado e TWR descontam aportes e retiradas (pendentes contam como aporte). “Só BTC” usa o preço gravado nos retratos. “Incompleto” = o histórico começa depois do início do período.</p>
+      <details className="border-t border-line px-4 py-2 text-[12px]">
+        <summary className="cursor-pointer text-ink-2">Histórico de retratos ({snaps.length})</summary>
+        <ul className="num mt-2 max-h-56 divide-y divide-line overflow-auto text-[11.5px]">
+          {[...snaps].reverse().slice(0, 60).map((s) => (
+            <li key={s.t} className="flex justify-between gap-3 py-1"><span className="text-muted">{new Date(s.t).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span><span>{f.money((s.total ?? 0))}</span><span className="text-muted">{s.btcEq != null ? `${s.btcEq.toFixed(4)} BTC` : ""}</span><span className={toneCls(toneOf(s.perps?.upnl))}>{s.perps ? f.money(s.perps.upnl, { signed: true }) : ""}</span></li>
+          ))}
+        </ul>
+      </details>
+    </div>
   );
 }
 

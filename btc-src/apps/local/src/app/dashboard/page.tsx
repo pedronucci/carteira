@@ -7,7 +7,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpRight, Bitcoin, Percent, SlidersHorizontal, TrendingUp, Wallet } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
-import { DEFAULT_SCENARIO_RULES, SCENARIO_LABEL, returnSince } from "@bst/domain";
+import { DEFAULT_SCENARIO_RULES, SCENARIO_LABEL, type EvoCcy, type EvoPeriod } from "@bst/domain";
+import { AllocationPanel, AssetPerfPanel, EvolutionPanel, FundingFeesPanel, HlSummaryPanel, HubKpis, IntegrationsPanel, LongShortPanel, MarginPanel, PerpsTable, useHub } from "./hub";
 import { NeedsSetup, useMarket, usePortfolio, useSnapshot } from "@/lib/api";
 import { useFmt } from "@/lib/state";
 import { drawdownPoints, inCcy, periodReturn } from "@/lib/local/engine";
@@ -42,8 +43,6 @@ const loadLayout = (): Layout => {
   return { order: WIDGETS.map((w) => w.id), hidden: [] };
 };
 
-const PERIODS = [{ value: "1", label: "24h" }, { value: "7", label: "7d" }, { value: "30", label: "30d" }, { value: "90", label: "90d" }, { value: "365", label: "1a" }, { value: "all", label: "Tudo" }] as const;
-type Period = (typeof PERIODS)[number]["value"];
 
 export default function DashboardPage() {
   const q = useSnapshot();
@@ -51,7 +50,9 @@ export default function DashboardPage() {
   const f = useFmt();
   const [layout, setLayout] = useState<Layout>(loadLayout);
   const [edit, setEdit] = useState(false);
-  const [period, setPeriod] = useState<Period>("all");
+  const [period, setPeriod] = useState<EvoPeriod>("30");
+  const [hccy, setHccy] = useState<EvoCcy>("USD");
+  const hub = useHub(period, hccy);
   const s = q.data;
   const pts = useMemo(() => (s ? inCcy(s.points, f.ccy, f.fx) : []), [s, f.ccy, f.fx]);
   const save = (l: Layout) => { setLayout(l); try { localStorage.setItem(DKEY, JSON.stringify(l)); } catch { /* */ } };
@@ -60,9 +61,7 @@ export default function DashboardPage() {
   const setup = q.error instanceof NeedsSetup;
   if (q.error && !setup) return <div className="pt-5"><Notice tone="loss">{q.error.message}</Notice></div>;
 
-  const pv = pq.data;
-  const pr = pv ? returnSince(pv.series, period === "all" ? null : Number(period) * 86400e3) : null;
-  const shown = WIDGETS.length ? layout.order.filter((id) => !layout.hidden.includes(id)) : [];
+    const shown = WIDGETS.length ? layout.order.filter((id) => !layout.hidden.includes(id)) : [];
 
   return (
     <div className="pt-5">
@@ -74,18 +73,19 @@ export default function DashboardPage() {
         <Button size="sm" variant="ghost" onClick={() => setEdit(true)}><SlidersHorizontal className="size-4" />Personalizar</Button>
       </div>
 
-      {pv && (
-        <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <HeroKpi glow wide icon={Wallet} className="col-span-2 lg:col-span-1" label="Patrimônio consolidado" value={f.money(pv.c.totalUsd)} sub={`${pv.accounts.length} conta${pv.accounts.length === 1 ? "" : "s"}`} />
-          <HeroKpi icon={Bitcoin} label="Equivalente em BTC" value={pv.c.btcEquivalent != null ? `${f.btc(pv.c.btcEquivalent, 4)} BTC` : "—"} sub={s ? `BTC ${f.px(s.now.btcUsd.toFixed())}` : undefined} />
-          <HeroKpi icon={TrendingUp} label="Resultado no período" tone={toneOf(pr?.resultUsd)} value={pr ? f.money(pr.resultUsd, { signed: true }) : "—"} sub={pr ? "sem aportes e retiradas" : "histórico ainda curto"} />
-          <HeroKpi wide icon={Percent} className="col-span-2 lg:col-span-1" label="Rentabilidade (TWR)" tone={toneOf(pr?.pct)} value={pr ? f.pct(pr.pct) : "—"} sub={s?.vsHodlPct != null ? `vs. só BTC ${f.pct(s.vsHodlPct)}` : undefined} />
-        </div>
-      )}
+      <div className="mb-4"><HubKpis h={hub} period={period} ccy={hccy} /></div>
 
-      <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
+      <div className="grid gap-4 lg:grid-cols-12 lg:items-stretch">
+        <EvolutionPanel h={hub} period={period} setPeriod={setPeriod} ccy={hccy} setCcy={setHccy} className="lg:order-2 lg:col-span-4" />
+        <PerpsTable className="lg:order-1 lg:col-span-8" />
+        <MarginPanel className="lg:order-3 lg:col-span-4" />
+        <AllocationPanel h={hub} className="lg:order-6 lg:col-span-4" />
+        <LongShortPanel className="lg:order-4 lg:col-span-4" />
+        <AssetPerfPanel h={hub} period={period} className="lg:order-7 lg:col-span-4" />
+        <FundingFeesPanel className="lg:order-5 lg:col-span-4" />
+        <HlSummaryPanel className="lg:order-8 lg:col-span-4" />
         {setup || !s ? (
-          <Panel glow className="lg:col-span-7">
+          <Panel glow className="lg:order-9 lg:col-span-7">
             <PanelHead title={<span className="flex items-center gap-2 text-gold"><Bitcoin className="size-4" />Estratégia BTC/USDC</span>} />
             <div className="px-4 py-6">
               <p className="text-[14px] text-ink-2">Nenhum ciclo configurado ainda.</p>
@@ -93,29 +93,7 @@ export default function DashboardPage() {
             </div>
           </Panel>
         ) : <StrategyCard s={s} />}
-
-        <Panel tech className="min-w-0 overflow-hidden lg:col-span-5">
-          <PanelHead title="Patrimônio consolidado" right={<Link href="/portfolio" className="text-[12px] font-medium text-accent">Portfólio ›</Link>} />
-          {pv ? (
-            <>
-              <div className="px-4 pt-4">
-                <p className="lbl">Total · {pv.accounts.length} conta{pv.accounts.length === 1 ? "" : "s"}</p>
-                <p className="num mt-1 text-[26px] font-semibold leading-none tracking-[-0.03em]">{f.money(pv.c.totalUsd)}</p>
-                <p className="num mt-1.5 text-[12px] text-muted">{f.ccy === "BRL" ? f.usd(pv.c.totalUsd) : (s && f.brl(pv.c.totalUsd, s.now.usdBrl)) ?? "—"} · ≈ {pv.c.btcEquivalent != null ? f.btc(pv.c.btcEquivalent, 6) : "—"} BTC</p>
-              </div>
-              <div className="flex items-center justify-between gap-2 px-4 pt-3"><Segmented size="sm" label="Período" value={period} onChange={setPeriod} options={[...PERIODS]} /></div>
-              <div className="mt-3 grid grid-cols-2 border-t border-line">
-                <Kpi className="border-r border-line" label="Resultado no período" tone={toneOf(pr?.resultUsd)} value={pr ? f.money(pr.resultUsd, { signed: true }) : "—"} sub={pr ? "sem aportes, retiradas e ajustes" : "histórico ainda curto"} />
-                <Kpi label="Rentabilidade (TWR)" tone={toneOf(pr?.pct)} value={pr ? f.pct(pr.pct) : "—"} sub={pr ? `desde ${new Date(pr.fromT).toLocaleDateString("pt-BR")}` : "a partir do 2º retrato"} />
-              </div>
-              <ul className="border-t border-line px-4 py-2.5 text-[11px] text-muted">
-                {pv.c.byAccount.slice(0, 4).map((x) => <li key={x.accountId} className="flex justify-between gap-2 py-0.5"><span className={cn("truncate", x.accountId === "strategy" && "text-gold")}>{x.name}</span><span className="num">{f.pct(x.share, false)}</span></li>)}
-              </ul>
-            </>
-          ) : <p className="px-4 py-6 text-[14px] text-muted">Sem dados ainda.</p>}
-        </Panel>
-
-        <PerpsPanel />
+        <IntegrationsPanel className="lg:order-10 lg:col-span-5" />
 
         {s && shown.map((id) => <Widget key={id} id={id} s={s} />)}
       </div>
@@ -146,20 +124,6 @@ export default function DashboardPage() {
 
 type Snap = NonNullable<ReturnType<typeof useSnapshot>["data"]>;
 
-/** Indicador de topo da Visão Geral: ícone, rótulo, valor que se ajusta à largura do cartão e linha de apoio. */
-function HeroKpi({ icon: Icon, label, value, sub, tone, glow, wide, className }: { icon: ComponentType<{ className?: string; strokeWidth?: number }>; label: string; value: ReactNode; sub?: ReactNode; tone?: "gain" | "loss" | null; glow?: boolean; wide?: boolean; className?: string }) {
-  return (
-    <Panel glow={glow} tech={!glow} className={cn("flex gap-3.5 p-4", wide ? "items-center" : "flex-col items-start lg:flex-row lg:items-center", className)}>
-      <span className={cn("grid size-11 shrink-0 place-items-center rounded-2xl border", glow ? "border-gold/40 bg-gold-soft text-gold" : "border-accent/30 bg-accent-soft text-accent")}><Icon className="size-[22px]" strokeWidth={1.75} /></span>
-      <div className="w-full min-w-0 flex-1 [container-type:inline-size]">
-        <p className="truncate text-[12.5px] text-ink-2">{label}</p>
-        <p className={cn("num my-0.5 whitespace-nowrap text-[clamp(16px,11cqi,26px)] leading-tight font-semibold tracking-[-0.03em]", toneCls(tone))}>{value}</p>
-        {sub && <p className="num truncate text-[12px] text-muted">{sub}</p>}
-      </div>
-    </Panel>
-  );
-}
-
 /** Cartão prioritário da estratégia (dourado). */
 function StrategyCard({ s }: { s: Snap }) {
   const f = useFmt();
@@ -173,7 +137,7 @@ function StrategyCard({ s }: { s: Snap }) {
   const integ = useIntegrations().find((i) => i.key === "hl")!;
   const pos = c ? c.dir : "FLAT";
   return (
-    <Panel glow className="overflow-hidden lg:col-span-7">
+    <Panel glow className="overflow-hidden lg:order-9 lg:col-span-7">
       <PanelHead title={<span className="flex items-center gap-2 text-gold"><Bitcoin className="size-4" />Estratégia BTC/USDC</span>}
         right={<span className="flex items-center gap-2"><Pill tone={!c ? "accent" : c.dir === "LONG" ? "btc" : "loss"}>{pos}{c?.effLeverage ? ` ${c.effLeverage.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}×` : ""}</Pill>
           <span className="num hidden text-[11px] sm:inline">{s.acc.kind === "hl" ? `Hyperliquid · ${integ.state === "ok" ? "ao vivo" : integ.state === "none" ? "—" : integ.state}` : "lançamento manual"}</span></span>} />
@@ -205,7 +169,7 @@ function Widget({ id, s }: { id: WidgetId; s: Snap }) {
   const f = useFmt();
   const m = useMarket();
   const integ = useIntegrations();
-  const span = "lg:col-span-4";
+  const span = "lg:order-11 lg:col-span-4";
   if (id === "risk") {
     const c = s.current;
     const rules = { ...DEFAULT_SCENARIO_RULES, ...(s.s.settings.scenarioRules ?? {}) };
@@ -304,34 +268,6 @@ function Widget({ id, s }: { id: WidgetId; s: Snap }) {
           <li key={n} className="flex items-center gap-3 px-4 py-2.5 text-[13px] text-muted"><span className="size-2 rounded-full bg-muted/40" aria-hidden /><span className="flex-1">{n}</span><span className="text-[11px]">não conectada</span></li>
         ))}
       </ul>
-    </Panel>
-  );
-}
-
-/** Resumo das posições perpétuas abertas (todos os ativos). A Estratégia BTC/USDC continua no topo. */
-function PerpsPanel() {
-  const f = useFmt();
-  const q = usePerps();
-  const v = q.data;
-  if (!v || !v.connected) return null;
-  const minLiq = 0.1;
-  return (
-    <Panel tech className="overflow-hidden lg:col-span-12">
-      <PanelHead title="Posições perpétuas ativas" right={<Link href="/perpetuos" className="text-[12px] font-medium text-accent">Abrir ›</Link>} sub={v.positions.length ? `${v.summary.count} aberta${v.summary.count === 1 ? "" : "s"} · P&L ${f.money(v.summary.upnl, { signed: true })} · bruta ${f.money(v.summary.gross, { compact: true })}` : undefined} />
-      {v.positions.length === 0 ? <p className="px-4 py-5 text-[13px] text-muted">Nenhuma posição aberta agora.</p> : (
-        <div className="grid gap-px bg-line sm:grid-cols-2 lg:grid-cols-3">
-          {v.positions.map((p) => {
-            const r = riskLevel(p.liqDistance, minLiq);
-            return (
-              <button key={p.id} onClick={() => navigate("/perpetuos")} className="bg-surface px-4 py-3 text-left [@media(hover:hover)]:hover:bg-surface-2" aria-label={`Abrir ${p.coin}`}>
-                <div className="flex items-center gap-2"><CoinLogo symbol={p.coin} size={22} /><span className="text-[14px] font-semibold">{p.coin}</span><DirBadge dir={p.dir} /><span className="num ml-auto text-[12px] text-muted">{p.leverage}×</span></div>
-                <div className="num mt-2 flex items-baseline justify-between text-[12px]"><span className="text-muted">{p.entry != null ? f.px(p.entry) : "—"} → {p.mark != null ? f.px(p.mark) : "—"}</span><span className={cn("font-semibold", toneCls(toneOf(p.upnl)))}>{f.money(p.upnl, { signed: true })}</span></div>
-                <div className="num mt-1 flex justify-between text-[11px] text-muted"><span>liq. {p.liqDistance != null ? f.pct(p.liqDistance, false) : "não disponível"}</span><span className={r === "high" ? "text-loss" : r === "warn" ? "text-warn" : ""}>{r === "high" ? "risco alto" : r === "warn" ? "atenção" : r === "ok" ? "ok" : ""}</span></div>
-              </button>
-            );
-          })}
-        </div>
-      )}
     </Panel>
   );
 }
