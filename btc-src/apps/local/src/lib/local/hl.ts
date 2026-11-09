@@ -97,39 +97,45 @@ async function arbBalance(addr: string): Promise<number | null> {
   return null;
 }
 
+/** Lê o estado ao vivo de UMA conta (sem tocar no estado global). Usada pela conta principal e pelas adicionais. */
+export async function fetchLive(address: string, opts: { includeArb?: boolean; btcUsd?: number | null } = {}): Promise<HlLive> {
+  const user = address.trim().toLowerCase();
+  const [ch, spot, mode, arb, mids] = await Promise.all([
+    info<Ch>({ type: "clearinghouseState", user }),
+    info<Spot>({ type: "spotClearinghouseState", user }),
+    info<string>({ type: "userAbstraction", user }).catch(() => "default"),
+    opts.includeArb ? arbBalance(user) : Promise.resolve(null),
+    info<Record<string, string>>({ type: "allMids" }).catch(() => ({} as Record<string, string>)),
+  ]);
+  const positions: HlPosition[] = (ch.assetPositions ?? []).map(({ position: p }) => ({
+    coin: p.coin, szi: Number(p.szi), entryPx: Number(p.entryPx ?? 0), leverage: p.leverage?.value ?? 1, levType: p.leverage?.type ?? "cross",
+    liqPx: p.liquidationPx ? Number(p.liquidationPx) : null, upnl: Number(p.unrealizedPnl), marginUsed: Number(p.marginUsed),
+    posValue: Number(p.positionValue), fundingSinceOpen: -Number(p.cumFunding?.sinceOpen ?? 0),
+  })).filter((p) => p.szi !== 0);
+  const unified = mode === "unifiedAccount" || mode === "portfolioMargin";
+  const perpValue = Number(ch.marginSummary?.accountValue ?? 0);
+  const balances: HlBalance[] = [];
+  if (!unified && perpValue) balances.push({ coin: "USDC", total: perpValue, usd: perpValue, where: "perp" });
+  for (const b of spot.balances ?? []) {
+    const t = Number(b.total);
+    if (!t) continue;
+    // outras moedas (HYPE, ETH…): preço médio da própria Hyperliquid; sem preço, fica de fora do total
+    const mid = Number(mids?.[b.coin] ?? mids?.[b.coin.replace(/^U(?=[A-Z]{2,})/, "")] ?? NaN);
+    const usd = STABLE.has(b.coin) ? t : (b.coin === "UBTC" || b.coin === "BTC") && opts.btcUsd ? t * opts.btcUsd : Number.isFinite(mid) && mid > 0 ? t * mid : null;
+    balances.push({ coin: b.coin, total: t, usd, where: "spot" });
+  }
+  const spotUsd = balances.filter((b) => b.where === "spot").reduce((a, b) => a + (b.usd ?? 0), 0);
+  const upnl = positions.reduce((a, p) => a + p.upnl, 0);
+  // Conta unificada: todo o colateral aparece no spot; o PnL aberto vem das posições.
+  const total = unified ? spotUsd + upnl : perpValue + spotUsd;
+  if (arb != null && arb > 0.005) balances.push({ coin: "USDC", total: arb, usd: arb, where: "arb" });
+  return { at: Date.now(), mode, perpValue, withdrawable: Number(ch.withdrawable ?? 0), balances, positions, total, arbTotal: arb };
+}
+
 export async function refreshLive(address: string, opts: { includeArb?: boolean; btcUsd?: number | null } = {}) {
   const user = address.trim().toLowerCase();
   try {
-    const [ch, spot, mode, arb, mids] = await Promise.all([
-      info<Ch>({ type: "clearinghouseState", user }),
-      info<Spot>({ type: "spotClearinghouseState", user }),
-      info<string>({ type: "userAbstraction", user }).catch(() => "default"),
-      opts.includeArb ? arbBalance(user) : Promise.resolve(null),
-      info<Record<string, string>>({ type: "allMids" }).catch(() => ({} as Record<string, string>)),
-    ]);
-    const positions: HlPosition[] = (ch.assetPositions ?? []).map(({ position: p }) => ({
-      coin: p.coin, szi: Number(p.szi), entryPx: Number(p.entryPx ?? 0), leverage: p.leverage?.value ?? 1, levType: p.leverage?.type ?? "cross",
-      liqPx: p.liquidationPx ? Number(p.liquidationPx) : null, upnl: Number(p.unrealizedPnl), marginUsed: Number(p.marginUsed),
-      posValue: Number(p.positionValue), fundingSinceOpen: -Number(p.cumFunding?.sinceOpen ?? 0),
-    })).filter((p) => p.szi !== 0);
-    const unified = mode === "unifiedAccount" || mode === "portfolioMargin";
-    const perpValue = Number(ch.marginSummary?.accountValue ?? 0);
-    const balances: HlBalance[] = [];
-    if (!unified && perpValue) balances.push({ coin: "USDC", total: perpValue, usd: perpValue, where: "perp" });
-    for (const b of spot.balances ?? []) {
-      const t = Number(b.total);
-      if (!t) continue;
-      // outras moedas (HYPE, ETH…): preço médio da própria Hyperliquid; sem preço, fica de fora do total
-      const mid = Number(mids?.[b.coin] ?? mids?.[b.coin.replace(/^U(?=[A-Z]{2,})/, "")] ?? NaN);
-      const usd = STABLE.has(b.coin) ? t : (b.coin === "UBTC" || b.coin === "BTC") && opts.btcUsd ? t * opts.btcUsd : Number.isFinite(mid) && mid > 0 ? t * mid : null;
-      balances.push({ coin: b.coin, total: t, usd, where: "spot" });
-    }
-    const spotUsd = balances.filter((b) => b.where === "spot").reduce((a, b) => a + (b.usd ?? 0), 0);
-    const upnl = positions.reduce((a, p) => a + p.upnl, 0);
-    // Conta unificada: todo o colateral aparece no spot; o PnL aberto vem das posições.
-    const total = unified ? spotUsd + upnl : perpValue + spotUsd;
-    if (arb != null && arb > 0.005) balances.push({ coin: "USDC", total: arb, usd: arb, where: "arb" });
-    set({ address: user, live: { at: Date.now(), mode, perpValue, withdrawable: Number(ch.withdrawable ?? 0), balances, positions, total, arbTotal: arb }, error: null });
+    set({ address: user, live: await fetchLive(user, opts), error: null });
   } catch (e) {
     set({ error: (e as Error).message });
   }
@@ -186,6 +192,37 @@ const mergeBy = <T extends { key: string; time: number }>(old: T[], add: T[]) =>
   return [...m.values()].sort((a, b) => a.time - b.time);
 };
 
+/** Baixa (de forma incremental) o histórico de UMA conta e devolve o resultado já mesclado com `prev`. */
+export async function fetchHistory(address: string, prev: HlHistory | null): Promise<HlHistory> {
+  const user = address.trim().toLowerCase();
+  const from = (rows: { time: number }[] | undefined) => (rows?.length ? Math.max(0, rows[rows.length - 1]!.time - 3600e3) : 0);
+  const [f, l, fu, pf] = await Promise.all([
+    paged<RawFill>({ type: "userFillsByTime", user }, from(prev?.fills), 15, 2000),
+    paged<RawLedger>({ type: "userNonFundingLedgerUpdates", user }, from(prev?.ledger)),
+    paged<RawFunding>({ type: "userFunding", user }, from(prev?.funding), 40),
+    info<Portfolio>({ type: "portfolio", user }).catch(() => null),
+  ]);
+  const fills = f.rows.map((x): HlFill => ({ key: x.tid != null ? `f|${x.tid}` : `f|${x.time}|${x.oid ?? ""}|${x.px}|${x.sz}|${x.side}`, time: x.time, coin: x.coin, px: Number(x.px), sz: Number(x.sz), side: x.side, dir: x.dir, fee: Number(x.fee), closedPnl: Number(x.closedPnl), startPosition: Number(x.startPosition) }));
+  const ledger = l.rows.map((r) => ledgerRow(r, user)).filter((x): x is HlLedger => Boolean(x));
+  const funding = fu.rows.map((x): HlFunding => ({ key: `u|${x.time}|${x.delta.coin}`, time: x.time, coin: x.delta.coin, usd: Number(x.delta.usdc) }));
+  // valor oficial da conta: junta os períodos (dia, semana, mês, tudo) — os curtos têm mais pontos
+  let av: [number, number][] = prev?.accountValue ?? [], pnl: [number, number][] = prev?.pnl ?? [];
+  if (pf) {
+    const avm = new Map(av), pm = new Map(pnl);
+    for (const [period, v] of pf) {
+      if (period.startsWith("perp")) continue;
+      for (const [t, x] of v.accountValueHistory ?? []) avm.set(t, Number(x));
+      for (const [t, x] of v.pnlHistory ?? []) pm.set(t, Number(x));
+    }
+    av = [...avm.entries()].sort((a, b) => a[0] - b[0]);
+    pnl = [...pm.entries()].sort((a, b) => a[0] - b[0]);
+  }
+  return {
+    at: Date.now(), fills: mergeBy(prev?.fills ?? [], fills), ledger: mergeBy(prev?.ledger ?? [], ledger), funding: mergeBy(prev?.funding ?? [], funding),
+    accountValue: av, pnl, truncated: Boolean(prev?.truncated) || f.truncated || l.truncated || (!prev && new Set(f.rows.map((x) => x.tid ?? `${x.time}${x.px}${x.sz}`)).size >= 10000), syncs: (prev?.syncs ?? 0) + 1, v: 2,
+  };
+}
+
 /** Sincronização incremental: busca a partir do último registro (com 1 h de folga) e junta sem duplicar. */
 export async function refreshHistory(address: string, _opts: { includeArb?: boolean } = {}) {
   const user = address.trim().toLowerCase();
@@ -193,35 +230,7 @@ export async function refreshHistory(address: string, _opts: { includeArb?: bool
   try {
     // histórico de versões anteriores (execuções agregadas) é buscado de novo do zero: a Hyperliquid guarda tudo
     const prev = state.address === user && state.history?.v === 2 ? state.history : null;
-    const from = (rows: { time: number }[] | undefined) => (rows?.length ? Math.max(0, rows[rows.length - 1]!.time - 3600e3) : 0);
-    const [f, l, fu, pf] = await Promise.all([
-      paged<RawFill>({ type: "userFillsByTime", user }, from(prev?.fills), 15, 2000),
-      paged<RawLedger>({ type: "userNonFundingLedgerUpdates", user }, from(prev?.ledger)),
-      paged<RawFunding>({ type: "userFunding", user }, from(prev?.funding), 40),
-      info<Portfolio>({ type: "portfolio", user }).catch(() => null),
-    ]);
-    const fills = f.rows.map((x): HlFill => ({ key: x.tid != null ? `f|${x.tid}` : `f|${x.time}|${x.oid ?? ""}|${x.px}|${x.sz}|${x.side}`, time: x.time, coin: x.coin, px: Number(x.px), sz: Number(x.sz), side: x.side, dir: x.dir, fee: Number(x.fee), closedPnl: Number(x.closedPnl), startPosition: Number(x.startPosition) }));
-    const ledger = l.rows.map((r) => ledgerRow(r, user)).filter((x): x is HlLedger => Boolean(x));
-    const funding = fu.rows.map((x): HlFunding => ({ key: `u|${x.time}|${x.delta.coin}`, time: x.time, coin: x.delta.coin, usd: Number(x.delta.usdc) }));
-    // valor oficial da conta: junta os períodos (dia, semana, mês, tudo) — os curtos têm mais pontos
-    let av: [number, number][] = prev?.accountValue ?? [], pnl: [number, number][] = prev?.pnl ?? [];
-    if (pf) {
-      const avm = new Map(av), pm = new Map(pnl);
-      for (const [period, v] of pf) {
-        if (period.startsWith("perp")) continue;
-        for (const [t, x] of v.accountValueHistory ?? []) avm.set(t, Number(x));
-        for (const [t, x] of v.pnlHistory ?? []) pm.set(t, Number(x));
-      }
-      av = [...avm.entries()].sort((a, b) => a[0] - b[0]);
-      pnl = [...pm.entries()].sort((a, b) => a[0] - b[0]);
-    }
-    set({
-      address: user, error: null, syncing: false,
-      history: {
-        at: Date.now(), fills: mergeBy(prev?.fills ?? [], fills), ledger: mergeBy(prev?.ledger ?? [], ledger), funding: mergeBy(prev?.funding ?? [], funding),
-        accountValue: av, pnl, truncated: Boolean(prev?.truncated) || f.truncated || l.truncated || (!prev && new Set(f.rows.map((x) => x.tid ?? `${x.time}${x.px}${x.sz}`)).size >= 10000), syncs: (prev?.syncs ?? 0) + 1, v: 2,
-      },
-    });
+    set({ address: user, error: null, syncing: false, history: await fetchHistory(user, prev) });
   } catch (e) {
     set({ error: (e as Error).message, syncing: false });
   }

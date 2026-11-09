@@ -393,7 +393,7 @@ function FlowSheet({ accounts, onClose }: { accounts: { id: string; name: string
 function PerpsStrip() {
   const f = useFmt();
   const v = usePerps().data;
-  if (!v || !v.connected || !v.live) return null;
+  if (!v || !v.connected || !v.accounts.some((a) => a.live)) return null;
   const s = v.summary;
   return (
     <KpiGrid className="mb-4 grid-cols-2 lg:grid-cols-4">

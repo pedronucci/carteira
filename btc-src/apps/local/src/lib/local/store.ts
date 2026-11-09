@@ -197,8 +197,13 @@ export function subscribeStore(f: () => void) { subs.add(f); return () => { subs
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
 /** Backup v4: dados da Estratégia (data) + Portfólio Consolidado (portfolio). Restaura também backups v1 a v3. */
+/** Contas Hyperliquid adicionais no backup: só id, apelido e endereço (o histórico é baixado de novo). Lido direto do armazenamento, sem importar o módulo. */
+function extraAccountsForBackup(): { id: string; name: string; address: string }[] {
+  try { return ((JSON.parse(localStorage.getItem("bst.hl.extra.v1") ?? "null") as { accounts?: { id: string; name: string; address: string }[] } | null)?.accounts ?? []).map(({ id, name, address }) => ({ id, name, address })); } catch { return []; }
+}
+
 export function exportBackup(): string {
-  return JSON.stringify({ app: "bitcoin-strategy-terminal", version: 4, exportedAt: new Date().toISOString(), data: getStore(), portfolio: exportPortfolio() }, null, 2);
+  return JSON.stringify({ app: "bitcoin-strategy-terminal", version: 4, exportedAt: new Date().toISOString(), data: getStore(), portfolio: exportPortfolio(), hlExtra: extraAccountsForBackup() }, null, 2);
 }
 
 export function importBackup(text: string) {
@@ -217,6 +222,14 @@ export function importBackup(text: string) {
   backupNow("antes de restaurar um backup");
   updateStore((cur) => Object.assign(cur, next));
   if (pf) void importPortfolio(pf);
+  const ex = (parsed as { hlExtra?: { id: string; name: string; address: string }[] }).hlExtra;
+  if (Array.isArray(ex)) {
+    try {
+      const keep = ex.filter((x) => x && /^0x[0-9a-fA-F]{40}$/.test(x.address)).map((x) => ({ id: x.id, name: String(x.name), address: x.address.toLowerCase(), live: null, history: null, error: null, syncing: false }));
+      localStorage.setItem("bst.hl.extra.v1", JSON.stringify({ v: 1, accounts: keep, storageError: null }));
+      window.dispatchEvent(new Event("bst:extra-reload"));
+    } catch { /* o backup principal já foi restaurado */ }
+  }
 }
 
 export function resetStore() { backupNow("antes de apagar tudo"); updateStore((s) => Object.assign(s, structuredClone(DEFAULT))); }

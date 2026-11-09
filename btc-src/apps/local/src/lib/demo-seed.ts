@@ -57,6 +57,10 @@ if (process.env.BST_DEMO === "1") {
         funding: [{ key: "u1", time: now - 30 * H, coin: "HYPE", usd: 2.1 }, { key: "u2", time: now - 20 * H, coin: "BTC", usd: -33.1 }],
         fills: [fl(now - 60 * H, "BTC", "B", 0.5, 76021.6, 0, 0, 19), fl(now - 50 * H, "BTC", "B", 0.27547, 76021.6, 0.5, 0, 12), fl(now - 40 * H, "HYPE", "B", 80, 40.1, 0, 0, 1.4), fl(now - 30 * H, "HYPE", "B", 40, 43.4, 80, 0, 0.8),
           fl(now - 90 * H, "ETH", "B", 2, 3100, 0, 0, 3), fl(now - 80 * H, "ETH", "A", 2, 3180, 2, 160, 3), fl(now - 20 * H, "SOL", "A", 15, 168, 0, 0, 1.1)] } }));
+    localStorage.setItem("bst.hl.extra.v1", JSON.stringify({ v: 1, storageError: null, accounts: [{ id: "hl-222222", name: "Conta de Trading", address: "0x2222222222222222222222222222222222222222", error: null, syncing: false,
+      live: { at: now, mode: "default", perpValue: 3200, withdrawable: 1400, total: 3200, arbTotal: null, balances: [{ coin: "USDC", total: 3200, usd: 3200, where: "perp" }],
+        positions: [{ coin: "ETH", szi: 0.8, entryPx: 3050, leverage: 5, levType: "cross", liqPx: 2480, upnl: 64, marginUsed: 520, posValue: 2544, fundingSinceOpen: -1.2 }] },
+      history: { at: now, v: 2, truncated: false, syncs: 1, ledger: [], accountValue: [], pnl: [], funding: [], fills: [fl(now - 12 * H, "ETH", "B", 0.8, 3050, 0, 0, 1.1)] } }] }));
   } catch { /* */ }
   // responde as cotações com os mesmos números, para a prévia não mostrar "sem conexão"
   const json = (b: unknown) => Promise.resolve(new Response(JSON.stringify(b), { status: 200, headers: { "content-type": "application/json" } }));

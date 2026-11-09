@@ -8,6 +8,7 @@ import { hlState, refreshHistory, refreshLive } from "@/lib/local/hl";
 import { tsOf } from "@/lib/local/engine";
 import { setPricesLoading } from "@/lib/api";
 import { loadPortfolio } from "@/lib/portfolio/db";
+import { extraState, refreshAllExtras } from "@/lib/local/hl-extra";
 import { migrateWallets } from "@/lib/wallets";
 import { recordSnapshot, refreshPortfolioPrices } from "@/lib/portfolio/engine";
 import { syncAllAccounts } from "@/lib/connectors";
@@ -60,10 +61,11 @@ function HlLoop() {
     let addr = getStore().settings.hl?.address ?? null;
     let lastFull = 0;
     const tick = () => {
-      if (!getStore().settings.hl?.address || document.visibilityState !== "visible") return;
+      if (document.visibilityState !== "visible" || (!getStore().settings.hl?.address && !extraState().accounts.length)) return;
       const full = Date.now() - lastFull > 5 * 60e3;
       if (full) lastFull = Date.now();
-      syncHlNow(full).catch(() => undefined);
+      if (getStore().settings.hl?.address) syncHlNow(full).catch(() => undefined);
+      refreshAllExtras(full).catch(() => undefined);
     };
     tick();
     const id = setInterval(tick, 20_000);

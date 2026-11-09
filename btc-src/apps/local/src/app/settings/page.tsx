@@ -15,6 +15,7 @@ import { fmtZoned, type StrategyCycle } from "@/lib/local/strategy";
 import { compute } from "@/lib/local/engine";
 import { fmtMoney } from "@bst/domain";
 import { HlConnect } from "@/components/hl-connect";
+import { HlExtraAccounts } from "@/components/hl-extra";
 import { toast } from "@/components/toaster";
 
 const RULE_LABEL: Partial<Record<keyof ScenarioRules, string>> = {
@@ -246,6 +247,10 @@ export default function SettingsPage() {
       <section aria-label="Hyperliquid">
         <SectionTitle sub="Conta da Estratégia BTC/USDC: posição, saldo e operações, somente leitura">Hyperliquid</SectionTitle>
         <Panel className="p-4"><HlConnect /></Panel>
+      </section>
+      <section aria-label="Contas Hyperliquid adicionais">
+        <SectionTitle sub="Segunda conta (e outras): posições perpétuas, risco e patrimônio, fora da Estratégia BTC/USDC">Contas Hyperliquid adicionais</SectionTitle>
+        <Panel className="p-4"><HlExtraAccounts /></Panel>
       </section>
       <section aria-label="Carteiras">
         <SectionTitle sub="Entram no Portfólio Consolidado, nunca no resultado da estratégia">Carteiras (Bitcoin, EVM/Rabby, Solana)</SectionTitle>

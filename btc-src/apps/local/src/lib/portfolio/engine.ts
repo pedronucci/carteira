@@ -7,6 +7,7 @@ import { classifyFlows, consolidate, exchangeEcon, portfolioReturns, type PAccou
 import { compute } from "../local/engine";
 import { getStore } from "../local/store";
 import { hlState } from "../local/hl";
+import { extraState } from "../local/hl-extra";
 import { prices as btcPrices } from "../local/prices";
 import { portfolio, updatePortfolio, uidP } from "./db";
 
@@ -56,34 +57,37 @@ export function priceBook(): PriceBook {
 
 const STRATEGY_ID = "strategy";
 
+/** Conta Hyperliquid ao vivo como fonte do portfólio (saldos spot + equity perp/P&L aberto), sem duplicar. */
+function liveSource(id: string, name: string, address: string, live: NonNullable<ReturnType<typeof hlState>["live"]>): { account: PAccount; holdings: PHolding[]; positions: PPosition[] } {
+  const account: PAccount = { id: id, kind: "hyperliquid", name, institution: "Hyperliquid", network: "hyperliquid", addresses: [address], createdAt: 0 };
+  const holdings: PHolding[] = live.balances.filter((b) => b.where !== "arb").map((b) => {
+    const ex = exchangeEcon(b.coin);
+    const isPerp = b.where === "perp";
+    return {
+      accountId: id, assetKey: `hl:${b.where}:${b.coin}`, econ: isPerp ? "USDC" : ex.econ, symbol: isPerp ? "USDC" : b.coin,
+      name: isPerp ? "Patrimônio da conta perp (margem + P&L aberto)" : undefined, network: "hyperliquid", qty: String(b.total),
+      valueUsd: isPerp ? b.usd : null, kind: isPerp ? "equity" : "spot", source: "sync", wrapped: !isPerp && ex.wrapped, at: live.at,
+    };
+  });
+  // conta unificada: o colateral está no saldo spot e o P&L aberto das posições fica à parte (a Hyperliquid soma os dois)
+  if (live.mode === "unifiedAccount" || live.mode === "portfolioMargin") {
+    const upnl = live.positions.reduce((x, p) => x + p.upnl, 0);
+    if (upnl) holdings.push({ accountId: id, assetKey: "hl:upnl", econ: "USDC", symbol: "USDC", name: "P&L aberto das posições (conta unificada)", network: "hyperliquid", qty: String(upnl), valueUsd: upnl, kind: "equity", source: "sync", at: live.at });
+  }
+  const positions: PPosition[] = live.positions.map((p) => ({
+    accountId: id, instrument: `${p.coin}-PERP`, dir: p.szi > 0 ? "LONG" : "SHORT", size: Math.abs(p.szi), entry: p.entryPx, mark: p.posValue && p.szi ? Math.abs(p.posValue / p.szi) : null,
+    notional: Math.abs(p.posValue), margin: p.marginUsed, upnl: p.upnl, liq: p.liqPx, leverage: p.leverage, funding: p.fundingSinceOpen, at: live.at,
+  }));
+  return { account, holdings, positions };
+}
+
 /** Conta da Estratégia BTC/USDC no portfólio: o patrimônio real dela agora (não o resultado do ciclo). */
 function strategySource(): { account: PAccount; holdings: PHolding[]; positions: PPosition[] } | null {
   const s = getStore();
   const hl = hlState();
   const addr = s.settings.hl?.address?.toLowerCase();
   const now = Date.now();
-  if (addr && hl.live && hl.address === addr) {
-    const account: PAccount = { id: STRATEGY_ID, kind: "hyperliquid", name: "Hyperliquid (Estratégia BTC/USDC)", institution: "Hyperliquid", network: "hyperliquid", addresses: [addr], createdAt: 0 };
-    const holdings: PHolding[] = hl.live.balances.filter((b) => b.where !== "arb").map((b) => {
-      const id = exchangeEcon(b.coin);
-      const isPerp = b.where === "perp";
-      return {
-        accountId: STRATEGY_ID, assetKey: `hl:${b.where}:${b.coin}`, econ: isPerp ? "USDC" : id.econ, symbol: isPerp ? "USDC" : b.coin,
-        name: isPerp ? "Patrimônio da conta perp (margem + P&L aberto)" : undefined, network: "hyperliquid", qty: String(b.total),
-        valueUsd: isPerp ? b.usd : null, kind: isPerp ? "equity" : "spot", source: "sync", wrapped: !isPerp && id.wrapped, at: hl.live!.at,
-      };
-    });
-    // conta unificada: o colateral está no saldo spot e o P&L aberto das posições fica à parte (a Hyperliquid soma os dois)
-    if (hl.live.mode === "unifiedAccount" || hl.live.mode === "portfolioMargin") {
-      const upnl = hl.live.positions.reduce((x, p) => x + p.upnl, 0);
-      if (upnl) holdings.push({ accountId: STRATEGY_ID, assetKey: "hl:upnl", econ: "USDC", symbol: "USDC", name: "P&L aberto das posições (conta unificada)", network: "hyperliquid", qty: String(upnl), valueUsd: upnl, kind: "equity", source: "sync", at: hl.live.at });
-    }
-    const positions: PPosition[] = hl.live.positions.map((p) => ({
-      accountId: STRATEGY_ID, instrument: `${p.coin}-PERP`, dir: p.szi > 0 ? "LONG" : "SHORT", size: Math.abs(p.szi), entry: p.entryPx, mark: p.posValue && p.szi ? Math.abs(p.posValue / p.szi) : null,
-      notional: Math.abs(p.posValue), margin: p.marginUsed, upnl: p.upnl, liq: p.liqPx, leverage: p.leverage, funding: p.fundingSinceOpen, at: hl.live!.at,
-    }));
-    return { account, holdings, positions };
-  }
+  if (addr && hl.live && hl.address === addr) return liveSource(STRATEGY_ID, "Hyperliquid (Estratégia BTC/USDC)", addr, hl.live);
   // lançamento manual: o modelo da conta (todos os lançamentos) dá o patrimônio atual
   try {
     const r = compute("account");
@@ -98,9 +102,10 @@ function strategySource(): { account: PAccount; holdings: PHolding[]; positions:
 export function portfolioView() {
   const p = portfolio();
   const strat = strategySource();
-  const accounts = [...(strat ? [strat.account] : []), ...p.accounts];
-  const holdings = effectiveHoldings(accounts, [...(strat?.holdings ?? []), ...p.manual, ...p.synced]);
-  const positions = [...(strat?.positions ?? []), ...p.positions];
+  const extras = extraState().accounts.filter((x) => x.live).map((x) => liveSource(x.id, `Hyperliquid · ${x.name}`, x.address, x.live!));
+  const accounts = [...(strat ? [strat.account] : []), ...extras.map((e) => e.account), ...p.accounts];
+  const holdings = effectiveHoldings(accounts, [...(strat?.holdings ?? []), ...extras.flatMap((e) => e.holdings), ...p.manual, ...p.synced]);
+  const positions = [...(strat?.positions ?? []), ...extras.flatMap((e) => e.positions), ...p.positions];
   const prices = priceBook();
   const c = consolidate(accounts, holdings, prices);
   // movimentações: as do portfólio + aportes/retiradas da Estratégia (para a rentabilidade da conta dela)

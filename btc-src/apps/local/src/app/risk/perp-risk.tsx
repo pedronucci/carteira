@@ -2,19 +2,25 @@
 /** Risk Center multiativo: exposição por ativo, LONG × SHORT e simulador de cenários em margem cruzada. */
 import { useMemo, useState } from "react";
 import { usePerps } from "@/lib/api";
+import type { PerpAccountView } from "@/lib/perps/view";
 import { useFmt } from "@/lib/state";
 import { breakEvenShock, simulate } from "@/lib/perps/scenario";
 import { CoinLogo } from "@/components/coin-logo";
 import { Kpi, KpiGrid, Notice, Panel, PanelHead, cn, toneCls, toneOf } from "@/components/ui";
 
 export function PerpRisk() {
-  const f = useFmt();
   const q = usePerps();
   const v = q.data;
+  if (!v || !v.connected) return null;
+  return <>{v.accounts.filter((a) => a.sim && a.positions.length > 0).map((a) => <AccountRisk key={a.id} a={a} multi={v.accounts.length > 1} />)}</>;
+}
+
+function AccountRisk({ a, multi }: { a: PerpAccountView; multi: boolean }) {
+  const f = useFmt();
+  const v = a;
   const [sh, setSh] = useState<Record<string, string>>({});
   const shocks = useMemo(() => Object.fromEntries(Object.entries(sh).filter(([, x]) => x.trim() !== "" && Number.isFinite(Number(x.replace(",", ".")))).map(([k, x]) => [k, Number(x.replace(",", ".")) / 100])), [sh]);
-  if (!v || !v.connected || !v.sim || v.positions.length === 0) return null;
-  const sim = v.sim;
+  const sim = v.sim!;
   const r = simulate(sim, shocks);
   const gross = v.summary.gross || 1;
   const long = v.positions.filter((p) => p.dir === "LONG").reduce((a, p) => a + p.notional, 0);
@@ -24,7 +30,7 @@ export function PerpRisk() {
   const all = (x: number) => preset(Object.fromEntries(v.positions.map((p) => [p.coin, x])));
   return (
     <Panel tech className="mt-4 overflow-hidden">
-      <PanelHead title="Perpétuos · risco multiativo" right={<span className="text-[11px]">margem cruzada · estimativa</span>} />
+      <PanelHead title={`Perpétuos · risco multiativo${multi ? ` · ${a.name}` : ""}`} right={<span className="text-[11px]">margem cruzada · estimativa</span>} />
       <KpiGrid className="m-4 grid-cols-2 lg:grid-cols-4">
         <Kpi label="Exposição bruta" value={f.money(v.summary.gross, { compact: true })} sub={`long ${f.money(long, { compact: true })} · short ${f.money(short, { compact: true })}`} />
         <Kpi label="Alavancagem efetiva" value={v.summary.effLeverage != null ? `${v.summary.effLeverage.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}×` : "—"} sub="bruta ÷ equity da conta" />

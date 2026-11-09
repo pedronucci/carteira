@@ -10,13 +10,15 @@ import { getStore } from "@/lib/local/store";
 import type { PerpPosition } from "@/lib/perps/positions";
 import { riskLevel } from "@/lib/perps/positions";
 import { filterTrades, tradeStats, type Trade } from "@/lib/perps/trades";
+import { refreshAllExtras, refreshExtra } from "@/lib/local/hl-extra";
 import { syncHlNow } from "@/app/providers";
+import { HlExtraAccounts } from "@/components/hl-extra";
 import { CoinLogo } from "@/components/coin-logo";
 import { C } from "@/components/charts";
 import { Sheet } from "@/components/sheet";
 import { Button, Kpi, KpiGrid, Metric, Notice, Panel, PanelHead, Pill, Row, Segmented, Skeleton, cn, toneCls, toneOf } from "@/components/ui";
 import { RECON_LABEL } from "@/lib/perps/reconcile";
-import type { PerpsView } from "@/lib/perps/view";
+import type { PerpAccountView } from "@/lib/perps/view";
 import { navigate } from "@/lib/router";
 
 const NA = "Não disponível";
@@ -33,25 +35,32 @@ export default function PerpsPage() {
   const f = useFmt();
   const [open, setOpen] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [acc, setAcc] = useState("all");
+  const [addOpen, setAddOpen] = useState(false);
   const v = q.data;
   if (!v && q.loading) return <div className="space-y-4 pt-5"><Skeleton className="h-28" /><Skeleton className="h-64" /></div>;
   if (!v) return <div className="pt-5"><Notice tone="loss">{q.error?.message ?? "Posições indisponíveis."}</Notice></div>;
-  const s = v.summary;
+  const scoped = acc === "all" ? null : v.accounts.find((a) => a.id === acc) ?? null;
+  const s = scoped ? scoped.summary : v.summary;
+  const positions = scoped ? scoped.positions : v.positions;
+  const trades = scoped ? scoped.trades : v.trades;
+  const nameOf = (id: string) => v.accounts.find((a) => a.id === id)?.name ?? id;
   const minLiq = Number(getStore().settings.minLiqDistance) || 0.1;
   const sel = v.positions.find((p) => p.id === open) ?? null;
-  const refresh = async () => { setBusy(true); try { await syncHlNow(false); } finally { setBusy(false); } };
+  const refresh = async () => { setBusy(true); try { if (hlState().address) await syncHlNow(false); await refreshAllExtras(false); } finally { setBusy(false); } };
 
   return (
     <div className="pt-5">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[20px] font-semibold tracking-tight">Posições Perpétuas</h1>
-          <p className="mt-1 text-[13px] text-muted">Hyperliquid · todos os ativos, descobertos automaticamente · somente leitura. Resultados separados da Estratégia BTC/USDC.</p>
+          <p className="mt-1 text-[13px] text-muted">Hyperliquid · {v.accounts.length > 1 ? `${v.accounts.length} contas` : "todos os ativos"}, descobertos automaticamente · somente leitura. Resultados separados da Estratégia BTC/USDC.</p>
         </div>
-        <Button size="sm" onClick={refresh} loading={busy}><RefreshCw className="size-3.5" />Atualizar</Button>
+        <div className="flex gap-2"><Button size="sm" variant="ghost" onClick={() => setAddOpen(true)}>Contas</Button><Button size="sm" onClick={refresh} loading={busy}><RefreshCw className="size-3.5" />Atualizar</Button></div>
       </div>
 
-      {!v.connected && <Notice tone="info">Conecte a Hyperliquid em Ajustes para ver suas posições.</Notice>}
+      {v.accounts.length > 1 && <div className="mb-3 overflow-x-auto"><Segmented label="Conta" value={acc} onChange={setAcc} options={[{ value: "all", label: "Todas" }, ...v.accounts.map((a) => ({ value: a.id, label: a.name }))]} /></div>}
+      {!v.connected && <Notice tone="info">Conecte a Hyperliquid em Ajustes (conta principal) ou toque em Contas para adicionar uma conta.</Notice>}
       {v.connected && v.stale && <Notice>Dados desatualizados{v.at ? ` (última sincronização às ${new Date(v.at).toLocaleTimeString("pt-BR")})` : ""}. {v.error ?? ""}</Notice>}
 
       <KpiGrid className="mb-4 grid-cols-2 lg:grid-cols-5">
@@ -67,18 +76,19 @@ export default function PerpsPage() {
 
       {s.count === 0 && v.connected && <Panel className="px-4 py-6 text-[14px] text-muted">Nenhuma posição perpétua aberta agora.</Panel>}
       <div className="grid gap-3 lg:grid-cols-2">
-        {v.positions.map((p) => <PositionCard key={p.id} p={p} minLiq={minLiq} onOpen={() => setOpen(p.id)} />)}
+        {positions.map((p) => <PositionCard key={p.id} p={p} minLiq={minLiq} account={v.accounts.length > 1 ? nameOf(p.accountId) : null} onOpen={() => setOpen(p.id)} />)}
       </div>
 
-      {v.recon && <ReconPanel v={v} onRun={refresh} busy={busy} />}
-      <PerfPanel trades={v.trades} historyComplete={v.historyComplete} />
+      {(scoped ? [scoped] : v.accounts).map((a) => a.recon && <ReconPanel key={a.id} a={a} multi={v.accounts.length > 1} busy={busy} />)}
+      <PerfPanel trades={trades} historyComplete={scoped ? scoped.historyComplete : v.historyComplete} />
       <p className="mt-4 text-[11px] leading-relaxed text-muted">Estimativas de liquidação e de cenários dependem das regras de margem da corretora e podem diferir. A conta é lida pelo endereço público; nada é negociado por este app.</p>
-      {sel && <PositionSheet p={sel} trades={v.trades.filter((t) => t.coin === sel.coin)} onClose={() => setOpen(null)} />}
+      {addOpen && <Sheet title="Contas Hyperliquid adicionais" onClose={() => setAddOpen(false)}><HlExtraAccounts /></Sheet>}
+      {sel && <PositionSheet p={sel} trades={(v.accounts.find((a) => a.id === sel.accountId)?.trades ?? []).filter((t) => t.coin === sel.coin)} onClose={() => setOpen(null)} />}
     </div>
   );
 }
 
-function PositionCard({ p, minLiq, onOpen }: { p: PerpPosition; minLiq: number; onOpen: () => void }) {
+function PositionCard({ p, minLiq, account, onOpen }: { p: PerpPosition; minLiq: number; account: string | null; onOpen: () => void }) {
   const f = useFmt();
   const risk = riskLevel(p.liqDistance, minLiq);
   return (
@@ -88,7 +98,7 @@ function PositionCard({ p, minLiq, onOpen }: { p: PerpPosition; minLiq: number; 
           <div className="flex items-center gap-2.5">
             <CoinLogo symbol={p.coin} size={28} />
             <div><p className="text-[15px] font-semibold">{p.coin} / USD <span className="text-[11px] font-normal text-muted">PERPÉTUO · Hyperliquid</span></p>
-              <p className="mt-0.5 flex flex-wrap items-center gap-1.5"><DirBadge dir={p.dir} /><Pill>{p.leverage}× {p.levType === "isolated" ? "isolada" : "cruzada"}</Pill>{p.linkedStrategy && <Pill tone="gold">Vinculada à Estratégia BTC/USDC</Pill>}</p></div>
+              <p className="mt-0.5 flex flex-wrap items-center gap-1.5"><DirBadge dir={p.dir} /><Pill>{p.leverage}× {p.levType === "isolated" ? "isolada" : "cruzada"}</Pill>{account && <Pill tone="accent">{account}</Pill>}{p.linkedStrategy && p.accountId === "hl-principal" && <Pill tone="gold">Vinculada à Estratégia BTC/USDC</Pill>}</p></div>
           </div>
           <Pill tone={RISK_TONE[risk]}>{RISK_TXT[risk]}</Pill>
         </div>
@@ -183,14 +193,14 @@ function PositionSheet({ p, trades, onClose }: { p: PerpPosition; trades: Trade[
   );
 }
 
-function ReconPanel({ v, onRun, busy }: { v: PerpsView; onRun: () => void; busy: boolean }) {
+function ReconPanel({ a, multi, busy }: { a: PerpAccountView; multi: boolean; busy: boolean }) {
   const f = useFmt();
-  const r = v.recon!;
+  const r = a.recon!;
   const tone = r.status === "reconciled" ? "gain" : r.status === "divergence" ? "loss" : "gold";
-  const full = async () => { await syncHlNow(true); };
+  const full = async () => { if (a.primary) await syncHlNow(true); else await refreshExtra(a.id, true); };
   return (
     <Panel className="mt-4">
-      <PanelHead title="Reconciliação dos perpétuos" right={<Pill tone={tone}>{RECON_LABEL[r.status]}</Pill>} />
+      <PanelHead title={`Reconciliação dos perpétuos${multi ? ` · ${a.name}` : ""}`} right={<Pill tone={tone}>{RECON_LABEL[r.status]}</Pill>} />
       <div className="px-4 py-3 text-[13px]">
         {r.equityDiff != null && <p className="num">Equity oficial {f.money(r.officialEquity)} · modelo {f.money(r.expectedEquity)} · diferença <b className={toneCls(toneOf(r.equityDiff))}>{f.money(r.equityDiff, { signed: true })}</b></p>}
         {r.reasons.map((x) => <p key={x} className="mt-1 text-[12px] text-warn">{x}</p>)}
