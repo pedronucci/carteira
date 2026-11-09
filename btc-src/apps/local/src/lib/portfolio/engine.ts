@@ -2,6 +2,7 @@
  * Portfólio Consolidado no app: junta as fontes (Estratégia/Hyperliquid, cadastros manuais, CSV e, nas próximas
  * fases, OKX e carteiras) e entrega a consolidação do @bst/domain. Nunca escreve nos dados da Estratégia.
  */
+import { effectiveHoldings } from "../wallets";
 import { classifyFlows, consolidate, exchangeEcon, portfolioReturns, type PAccount, type PHolding, type PPosition, type PriceBook } from "@bst/domain";
 import { compute } from "../local/engine";
 import { getStore } from "../local/store";
@@ -98,7 +99,7 @@ export function portfolioView() {
   const p = portfolio();
   const strat = strategySource();
   const accounts = [...(strat ? [strat.account] : []), ...p.accounts];
-  const holdings = [...(strat?.holdings ?? []), ...p.manual, ...p.synced];
+  const holdings = effectiveHoldings(accounts, [...(strat?.holdings ?? []), ...p.manual, ...p.synced]);
   const positions = [...(strat?.positions ?? []), ...p.positions];
   const prices = priceBook();
   const c = consolidate(accounts, holdings, prices);

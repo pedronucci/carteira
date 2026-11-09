@@ -15,6 +15,8 @@ import { CoinLogo } from "@/components/coin-logo";
 import { C } from "@/components/charts";
 import { Sheet } from "@/components/sheet";
 import { Button, Kpi, KpiGrid, Metric, Notice, Panel, PanelHead, Pill, Row, Segmented, Skeleton, cn, toneCls, toneOf } from "@/components/ui";
+import { RECON_LABEL } from "@/lib/perps/reconcile";
+import type { PerpsView } from "@/lib/perps/view";
 import { navigate } from "@/lib/router";
 
 const NA = "Não disponível";
@@ -68,6 +70,7 @@ export default function PerpsPage() {
         {v.positions.map((p) => <PositionCard key={p.id} p={p} minLiq={minLiq} onOpen={() => setOpen(p.id)} />)}
       </div>
 
+      {v.recon && <ReconPanel v={v} onRun={refresh} busy={busy} />}
       <PerfPanel trades={v.trades} historyComplete={v.historyComplete} />
       <p className="mt-4 text-[11px] leading-relaxed text-muted">Estimativas de liquidação e de cenários dependem das regras de margem da corretora e podem diferir. A conta é lida pelo endereço público; nada é negociado por este app.</p>
       {sel && <PositionSheet p={sel} trades={v.trades.filter((t) => t.coin === sel.coin)} onClose={() => setOpen(null)} />}
@@ -177,5 +180,43 @@ function PositionSheet({ p, trades, onClose }: { p: PerpPosition; trades: Trade[
       ))}
       <div className="mt-4"><Button size="sm" variant="ghost" onClick={() => { onClose(); navigate("/mercado"); }}>Ver mercado</Button></div>
     </Sheet>
+  );
+}
+
+function ReconPanel({ v, onRun, busy }: { v: PerpsView; onRun: () => void; busy: boolean }) {
+  const f = useFmt();
+  const r = v.recon!;
+  const tone = r.status === "reconciled" ? "gain" : r.status === "divergence" ? "loss" : "gold";
+  const full = async () => { await syncHlNow(true); };
+  return (
+    <Panel className="mt-4">
+      <PanelHead title="Reconciliação dos perpétuos" right={<Pill tone={tone}>{RECON_LABEL[r.status]}</Pill>} />
+      <div className="px-4 py-3 text-[13px]">
+        {r.equityDiff != null && <p className="num">Equity oficial {f.money(r.officialEquity)} · modelo {f.money(r.expectedEquity)} · diferença <b className={toneCls(toneOf(r.equityDiff))}>{f.money(r.equityDiff, { signed: true })}</b></p>}
+        {r.reasons.map((x) => <p key={x} className="mt-1 text-[12px] text-warn">{x}</p>)}
+        <p className="mt-2 text-[11px] text-muted">“Conciliado” exige histórico completo, tamanhos das posições batendo com as execuções e equity dentro da tolerância; saldo igual hoje não basta. O histórico original é preservado e execuções repetidas não são duplicadas.</p>
+        <div className="mt-3"><Button size="sm" onClick={() => { void full(); }} loading={busy}><RefreshCw className="size-3.5" />Reconciliar agora</Button></div>
+      </div>
+      {r.byCoin.length > 0 && (
+        <div className="border-t border-line">
+          {r.byCoin.map((c) => (
+            <div key={c.coin} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-4 py-2 text-[12px]"><CoinLogo symbol={c.coin} size={16} /><span className="w-12 font-medium">{c.coin}</span>
+              <span className="text-muted">posição: execuções {c.positionFromFills.toLocaleString("pt-BR", { maximumFractionDigits: 6 })} × ao vivo {c.positionLive.toLocaleString("pt-BR", { maximumFractionDigits: 6 })}</span>
+              <Pill tone={c.positionOk ? "gain" : "loss"}>{c.positionOk ? "confere" : "diverge"}</Pill></div>
+          ))}
+        </div>
+      )}
+      {r.divergences.length > 0 && (
+        <div className="overflow-x-auto border-t border-line">
+          <p className="px-4 pt-3 text-[12px] font-medium text-ink-2">Relatório de divergências</p>
+          <table className="w-full min-w-[560px] text-left text-[12px]"><thead className="text-muted"><tr>{["Data", "Ativo", "Tipo", "Esperado", "Encontrado", "Diferença", "Origem", "Status"].map((h) => <th key={h} className="px-3 py-1.5 font-normal">{h}</th>)}</tr></thead>
+            <tbody>{r.divergences.map((d, i) => (
+              <tr key={i} className="border-t border-line"><td className="px-3 py-1.5">{d.at ? new Date(d.at).toLocaleDateString("pt-BR") : "—"}</td><td className="px-3 py-1.5">{d.coin}</td><td className="px-3 py-1.5">{d.type}</td>
+                <td className="num px-3 py-1.5">{d.expected != null ? d.expected.toLocaleString("pt-BR", { maximumFractionDigits: 4 }) : "—"}</td><td className="num px-3 py-1.5">{d.found != null ? d.found.toLocaleString("pt-BR", { maximumFractionDigits: 4 }) : "—"}</td>
+                <td className="num px-3 py-1.5">{d.diff ? d.diff.toLocaleString("pt-BR", { maximumFractionDigits: 4 }) : "—"}</td><td className="px-3 py-1.5 text-muted">{d.source}</td><td className="px-3 py-1.5">{d.status}</td></tr>
+            ))}</tbody></table>
+        </div>
+      )}
+    </Panel>
   );
 }

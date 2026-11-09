@@ -4,6 +4,7 @@
  */
 import type { PAccount, PEvent } from "@bst/domain";
 import { portfolio, updatePortfolio, uidP } from "../portfolio/db";
+import { findDuplicate } from "../wallets";
 import { refreshPortfolioPrices } from "../portfolio/engine";
 import { closeUsdAt, prices } from "../local/prices";
 import { parseXKey, syncBitcoin, isBtcAddress, type XKey } from "./bitcoin";
@@ -28,7 +29,9 @@ export function addConnectedAccount(kind: ConnKind, name: string, raw: string): 
     const bad = lines.find((l) => !isEvmAddress(l));
     if (bad) throw new Error(`Endereço EVM inválido: ${bad.slice(0, 12)}…`);
     if (lines.some((l) => /^(0x)?[0-9a-f]{64}$/i.test(l))) throw new Error("Isto parece uma chave privada. Use só o endereço público (0x… com 40 caracteres).");
-    config = { address: lines[0]!.toLowerCase() };
+    const dup = findDuplicate(portfolio().accounts, "evm", lines[0]!);
+    if (dup) throw new Error(`Este endereço já está cadastrado como "${dup.name}". Edite o apelido em Minhas Carteiras; os ativos não são contados duas vezes.`);
+    config = { address: lines[0]!.toLowerCase(), category: "Principal", enabled: true, own: true };
   } else {
     const bad = lines.find((l) => !isSolAddress(l));
     if (bad) throw new Error(`Endereço Solana inválido: ${bad.slice(0, 12)}…`);
@@ -97,5 +100,5 @@ export async function syncAccount(id: string): Promise<void> {
 
 /** Sincroniza todas as contas conectadas, uma de cada vez (respeita limites das APIs públicas). */
 export async function syncAllAccounts(): Promise<void> {
-  for (const a of portfolio().accounts.filter((x: PAccount) => ["bitcoin", "evm", "solana"].includes(x.kind))) await syncAccount(a.id);
+  for (const a of portfolio().accounts.filter((x: PAccount) => ["bitcoin", "evm", "solana"].includes(x.kind) && (x.config as { enabled?: boolean } | undefined)?.enabled !== false)) await syncAccount(a.id);
 }

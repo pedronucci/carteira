@@ -4,6 +4,7 @@ import { DEFAULT_SCENARIO_RULES } from "@bst/domain";
 import { useRisk } from "@/lib/api";
 import { useFmt } from "@/lib/state";
 import { getStore } from "@/lib/local/store";
+import { PerpRisk } from "./perp-risk";
 import { Kpi, KpiGrid, Notice, Panel, PanelHead, Pill, RiskMeter, Skeleton, cn, toneCls, toneOf } from "@/components/ui";
 
 export default function RiskPage() {
@@ -99,6 +100,7 @@ export default function RiskPage() {
           </Panel>
         </div>
       </div>
+      <PerpRisk />
     </div>
   );
 }

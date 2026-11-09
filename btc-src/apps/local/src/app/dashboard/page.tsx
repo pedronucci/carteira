@@ -16,6 +16,11 @@ import { EquityChart, C } from "@/components/charts";
 import { Sheet } from "@/components/sheet";
 import { useIntegrations } from "@/components/nav";
 import { portfolio } from "@/lib/portfolio/db";
+import { usePerps } from "@/lib/api";
+import { riskLevel } from "@/lib/perps/positions";
+import { DirBadge } from "@/app/perps/page";
+import { CoinLogo } from "@/components/coin-logo";
+import { navigate } from "@/lib/router";
 import { Button, Kpi, KpiGrid, Notice, Panel, PanelHead, Pill, RiskMeter, Segmented, Skeleton, cn, toneCls, toneOf } from "@/components/ui";
 
 type WidgetId = "risk" | "hodl" | "market" | "moves" | "alerts" | "sources";
@@ -109,6 +114,8 @@ export default function DashboardPage() {
             </>
           ) : <p className="px-4 py-6 text-[14px] text-muted">Sem dados ainda.</p>}
         </Panel>
+
+        <PerpsPanel />
 
         {s && shown.map((id) => <Widget key={id} id={id} s={s} />)}
       </div>
@@ -297,6 +304,34 @@ function Widget({ id, s }: { id: WidgetId; s: Snap }) {
           <li key={n} className="flex items-center gap-3 px-4 py-2.5 text-[13px] text-muted"><span className="size-2 rounded-full bg-muted/40" aria-hidden /><span className="flex-1">{n}</span><span className="text-[11px]">não conectada</span></li>
         ))}
       </ul>
+    </Panel>
+  );
+}
+
+/** Resumo das posições perpétuas abertas (todos os ativos). A Estratégia BTC/USDC continua no topo. */
+function PerpsPanel() {
+  const f = useFmt();
+  const q = usePerps();
+  const v = q.data;
+  if (!v || !v.connected) return null;
+  const minLiq = 0.1;
+  return (
+    <Panel tech className="overflow-hidden lg:col-span-12">
+      <PanelHead title="Posições perpétuas ativas" right={<Link href="/perpetuos" className="text-[12px] font-medium text-accent">Abrir ›</Link>} sub={v.positions.length ? `${v.summary.count} aberta${v.summary.count === 1 ? "" : "s"} · P&L ${f.money(v.summary.upnl, { signed: true })} · bruta ${f.money(v.summary.gross, { compact: true })}` : undefined} />
+      {v.positions.length === 0 ? <p className="px-4 py-5 text-[13px] text-muted">Nenhuma posição aberta agora.</p> : (
+        <div className="grid gap-px bg-line sm:grid-cols-2 lg:grid-cols-3">
+          {v.positions.map((p) => {
+            const r = riskLevel(p.liqDistance, minLiq);
+            return (
+              <button key={p.id} onClick={() => navigate("/perpetuos")} className="bg-surface px-4 py-3 text-left [@media(hover:hover)]:hover:bg-surface-2" aria-label={`Abrir ${p.coin}`}>
+                <div className="flex items-center gap-2"><CoinLogo symbol={p.coin} size={22} /><span className="text-[14px] font-semibold">{p.coin}</span><DirBadge dir={p.dir} /><span className="num ml-auto text-[12px] text-muted">{p.leverage}×</span></div>
+                <div className="num mt-2 flex items-baseline justify-between text-[12px]"><span className="text-muted">{p.entry != null ? f.px(p.entry) : "—"} → {p.mark != null ? f.px(p.mark) : "—"}</span><span className={cn("font-semibold", toneCls(toneOf(p.upnl)))}>{f.money(p.upnl, { signed: true })}</span></div>
+                <div className="num mt-1 flex justify-between text-[11px] text-muted"><span>liq. {p.liqDistance != null ? f.pct(p.liqDistance, false) : "não disponível"}</span><span className={r === "high" ? "text-loss" : r === "warn" ? "text-warn" : ""}>{r === "high" ? "risco alto" : r === "warn" ? "atenção" : r === "ok" ? "ok" : ""}</span></div>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </Panel>
   );
 }

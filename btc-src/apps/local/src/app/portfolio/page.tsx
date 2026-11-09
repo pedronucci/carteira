@@ -13,12 +13,14 @@ import { useFmt } from "@/lib/state";
 import { portfolioError, portfolioReady } from "@/lib/portfolio/db";
 import { addManualFlow, importHoldingsCsv, parseHoldingsCsv, priceBookInfo, removeManualHolding, resolvePending, saveManualHolding, type ManualInput } from "@/lib/portfolio/engine";
 import { C } from "@/components/charts";
+import { usePerps } from "@/lib/api";
+import { WalletsTab } from "./wallets";
 import { CoinLogo } from "@/components/coin-logo";
 import { Sheet } from "@/components/sheet";
 import { toast } from "@/components/toaster";
 import { Button, Field, Kpi, KpiGrid, Notice, Panel, PanelHead, Pill, Segmented, Skeleton, cn, toneCls, toneOf } from "@/components/ui";
 
-type Tab = "assets" | "accounts" | "dist" | "evo" | "moves";
+type Tab = "assets" | "wallets" | "accounts" | "dist" | "evo" | "moves";
 type SortKey = "value" | "econ" | "qty" | "change" | "pnl" | "share";
 const KIND_LABEL: Record<string, string> = { strategy: "estratégia", manual: "manual", csv: "CSV", hyperliquid: "Hyperliquid", okx: "OKX", evm: "EVM", bitcoin: "Bitcoin", solana: "Solana" };
 
@@ -58,9 +60,12 @@ export default function PortfolioPage() {
         <Kpi className="col-span-2 lg:col-span-1" label="Acumulado" tone={toneOf(rAll?.pct)} value={rAll ? f.pct(rAll.pct) : "—"} sub={rAll ? `desde ${new Date(rAll.fromT).toLocaleDateString("pt-BR")}` : "a partir do 2º retrato"} />
       </KpiGrid>
 
-      <div className="mb-3 overflow-x-auto"><Segmented label="Seção" value={tab} onChange={setTab} options={[{ value: "assets", label: "Ativos" }, { value: "accounts", label: "Contas" }, { value: "dist", label: "Distribuição" }, { value: "evo", label: "Evolução" }, { value: "moves", label: `Movimentações${v.pending.length ? ` · ${v.pending.length}` : ""}` }]} /></div>
+      <PerpsStrip />
+
+      <div className="mb-3 overflow-x-auto"><Segmented label="Seção" value={tab} onChange={setTab} options={[{ value: "assets", label: "Ativos" }, { value: "wallets", label: "Carteiras" }, { value: "accounts", label: "Contas" }, { value: "dist", label: "Distribuição" }, { value: "evo", label: "Evolução" }, { value: "moves", label: `Movimentações${v.pending.length ? ` · ${v.pending.length}` : ""}` }]} /></div>
 
       {tab === "assets" && <AssetsTable v={v} onEdit={(key, init) => setSheet({ k: "add", edit: { key, init } })} />}
+      {tab === "wallets" && <WalletsTab v={v} />}
       {tab === "accounts" && <Accounts v={v} />}
       {tab === "dist" && <Distribution v={v} />}
       {tab === "evo" && <Evolution v={v} />}
@@ -381,5 +386,21 @@ function FlowSheet({ accounts, onClose }: { accounts: { id: string; name: string
         <p className="text-[11px] text-muted">Aportes e retiradas da Estratégia BTC/USDC já são contados automaticamente. Use isto para dinheiro que entrou ou saiu das outras contas.</p>
       </div>
     </Sheet>
+  );
+}
+
+/** Patrimônio, equity de derivativos, exposição e margem são conceitos diferentes: a exposição nunca entra no patrimônio. */
+function PerpsStrip() {
+  const f = useFmt();
+  const v = usePerps().data;
+  if (!v || !v.connected || !v.live) return null;
+  const s = v.summary;
+  return (
+    <KpiGrid className="mb-4 grid-cols-2 lg:grid-cols-4">
+      <Kpi label="Equity em derivativos" value={s.equity != null ? f.money(s.equity) : "—"} sub="já dentro do patrimônio total" />
+      <Kpi label="Exposição nocional" value={f.money(s.gross, { compact: true })} sub="não soma ao patrimônio" />
+      <Kpi label="Margem utilizada" value={f.money(s.margin)} sub="incluída na equity" />
+      <Kpi label="P&L de perpétuos" tone={toneOf(s.upnl)} value={f.money(s.upnl, { signed: true })} sub={`${s.count} posição(ões) aberta(s)`} />
+    </KpiGrid>
   );
 }

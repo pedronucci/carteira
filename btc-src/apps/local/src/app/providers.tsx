@@ -8,6 +8,7 @@ import { hlState, refreshHistory, refreshLive } from "@/lib/local/hl";
 import { tsOf } from "@/lib/local/engine";
 import { setPricesLoading } from "@/lib/api";
 import { loadPortfolio } from "@/lib/portfolio/db";
+import { migrateWallets } from "@/lib/wallets";
 import { recordSnapshot, refreshPortfolioPrices } from "@/lib/portfolio/engine";
 import { syncAllAccounts } from "@/lib/connectors";
 import { detectGateway, syncOkx } from "@/lib/connectors/okx";
@@ -81,7 +82,7 @@ function PortfolioLoop() {
     const tick = async () => { await refreshPortfolioPrices(); if (alive) recordSnapshot(); };
     let lastSync = 0;
     const syncTick = async () => { if (document.visibilityState !== "visible" || Date.now() - lastSync < 10 * 60e3) return; lastSync = Date.now(); await syncAllAccounts(); await syncOkx(); if (alive) recordSnapshot(); };
-    loadPortfolio().then(async () => { await detectGateway(); await tick(); await syncTick(); });
+    loadPortfolio().then(async () => { try { migrateWallets(); } catch { /* só acrescenta campos */ } await detectGateway(); await tick(); await syncTick(); });
     const id = setInterval(() => { void tick(); void syncTick(); }, 5 * 60e3);
     return () => { alive = false; clearInterval(id); };
   }, []);
