@@ -14,10 +14,13 @@ export function limited(ip: string, now: number, max = 60, windowMs = 60e3): boo
   if (!h || now - h.t > windowMs) { hits.set(ip, { n: 1, t: now }); if (hits.size > 5000) hits.clear(); return false; }
   h.n++; return h.n > max;
 }
+/** Origens padrão: não depender de variável de ambiente (sem ela o navegador bloquearia tudo com "Failed to fetch"). */
+export const DEFAULT_ORIGINS = ["https://pedronucci.github.io"];
 export const corsFor = (origin: string | null, allowed: string | undefined): Record<string, string> => {
-  const list = (allowed ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const extra = (allowed ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const list = [...new Set([...DEFAULT_ORIGINS, ...extra])];
   const ok = origin && (list.includes(origin) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin));
-  return { "Access-Control-Allow-Origin": ok ? origin! : list[0] ?? "null", Vary: "Origin", "Access-Control-Allow-Methods": "GET", "X-Content-Type-Options": "nosniff" };
+  return { "Access-Control-Allow-Origin": ok ? origin! : list[0]!, Vary: "Origin", "Access-Control-Allow-Methods": "GET", "X-Content-Type-Options": "nosniff" };
 };
 const json = (body: unknown, status: number, cors: Record<string, string>, maxAge = 0) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": maxAge ? `public, max-age=${maxAge}` : "no-store", ...cors } });

@@ -86,6 +86,10 @@ describe("calendário do Fed e proteção", () => {
   it("FOMC 9 dez 2026 às 14:00 de Nova York = 19:00 UTC", () => expect(fedEvents().find((e) => e.id === "fed:fomc:2026-12-9")!.start).toBe(Date.UTC(2026, 11, 9, 19)));
   it("FOMC de julho (horário de verão) = 18:00 UTC", () => expect(fedEvents().find((e) => e.id === "fed:fomc:2026-7-29")!.start).toBe(Date.UTC(2026, 6, 29, 18)));
   it("limite de uso por IP", () => { let blocked = 0; for (let i = 0; i < 70; i++) if (limited("1.1.1.1", 1000, 60)) blocked++; expect(blocked).toBe(10); expect(limited("1.1.1.1", 1000 + 61e3, 60)).toBe(false); });
+  it("CORS funciona mesmo sem variável de ambiente (origem padrão)", () => {
+    expect(corsFor("https://pedronucci.github.io", undefined)["Access-Control-Allow-Origin"]).toBe("https://pedronucci.github.io");
+    expect(corsFor("https://pedronucci.github.io", "")["Access-Control-Allow-Origin"]).toBe("https://pedronucci.github.io");
+  });
   it("CORS só para origens autorizadas (e localhost)", () => {
     expect(corsFor("https://pedronucci.github.io", "https://pedronucci.github.io")["Access-Control-Allow-Origin"]).toBe("https://pedronucci.github.io");
     expect(corsFor("https://evil.com", "https://pedronucci.github.io")["Access-Control-Allow-Origin"]).toBe("https://pedronucci.github.io");

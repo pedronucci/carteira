@@ -3,8 +3,7 @@
 name = "bst-market-proxy"
 main = "src/index.ts"
 compatibility_date = "2026-11-01"
-keep_vars = true
 
 [vars]
-# origens autorizadas a ler (separe por vírgula)
-ALLOWED_ORIGINS = "https://pedronucci.github.io"
+# origens EXTRAS autorizadas a ler (separe por vírgula); pedronucci.github.io já é padrão no código
+ALLOWED_ORIGINS = ""
