@@ -37,6 +37,7 @@ if (process.env.BST_DEMO === "1") {
   let prev: { theme?: string } = {};
   try { prev = JSON.parse(localStorage.getItem("bst.prefs.v1") ?? "{}"); } catch { /* */ }
   set("bst.prefs.v1", { ...prev, ccy: "USD" });
+  set("bst.mi.v1", { proxyUrl: "https://demo-proxy.invalid", read: [], seenAlerts: [], dismissed: [], alertsOn: true });
   if (!location.hash || location.hash === "#") location.hash = "#/estrategia";
   addEventListener("DOMContentLoaded", () => {
     const b = document.createElement("div");
@@ -64,12 +65,33 @@ if (process.env.BST_DEMO === "1") {
   } catch { /* */ }
   // responde as cotações com os mesmos números, para a prévia não mostrar "sem conexão"
   const json = (b: unknown) => Promise.resolve(new Response(JSON.stringify(b), { status: 200, headers: { "content-type": "application/json" } }));
+  const mn = (id: string, title: string, ageH: number, source: string, summary: string) => ({ id, title, url: `https://exemplo.invalid/${id}`, source, publishedAt: now - ageH * 3600e3, summary });
+  const NEWS = [
+    mn("n1", "Fed mantém juros e Bitcoin oscila perto de US$ 76 mil", 1.2, "InfoMoney", "Decisão veio em linha com o esperado; mercado de cripto reagiu com volatilidade moderada."),
+    mn("n2", "ETFs de Bitcoin registram novo fluxo de entrada", 3, "Portal do Bitcoin", "Fundos listados somaram entradas líquidas no dia, segundo dados de mercado."),
+    mn("n3", "Ethereum sobe e analistas citam renovação de máxima do mês", 2, "Livecoins", "ETH acompanha o movimento do Bitcoin e testa resistência."),
+    mn("n4", "Hacker explora protocolo DeFi em Ethereum e drena milhões", 5, "Cointelegraph Brasil", "Equipe de segurança investiga o ataque e pede que usuários revoguem permissões."),
+    mn("n5", "Liquidações em futuros passam de US$ 300 milhões em 24 horas", 4, "Cointelegraph Brasil", "Alavancagem elevada em perpétuos amplificou a queda do fim da tarde."),
+    mn("n6", "Hyperliquid atinge recorde de volume em perpétuos", 8, "Livecoins", "HYPE acompanha o aumento de uso da plataforma."),
+    mn("n7", "CVM publica nova regulamentação para criptoativos", 20, "InfoMoney", "Texto detalha regras para prestadores de serviço de ativos virtuais."),
+    mn("n8", "Solana lança atualização de rede", 30, "Portal do Bitcoin", "SOL recebe melhoria de desempenho."),
+    mn("n9", "Dólar fecha em alta com falas de dirigente do Fed", 9, "InfoMoney", "Moeda americana avançou frente ao real."),
+  ];
+  const EVS = [
+    { id: "fed:fomc:2026-12-9", title: "FOMC 8–9 dez (com projeções)", start: Date.UTC(2026, 11, 9, 19), source: "federalreserve.gov", kind: "FOMC", country: "US", importance: "alta" },
+    { id: "bls:cpi", title: "Consumer Price Index for October 2026", start: now + 30 * 3600e3, source: "bls.gov", kind: "CPI", country: "US", importance: "alta" },
+    { id: "bls:ppi", title: "Producer Price Index", start: now + 54 * 3600e3, source: "bls.gov", kind: "PPI", country: "US", importance: "media" },
+    { id: "fed:fomc:2026-10-28", title: "FOMC 27–28 out", start: now - 12 * 86400e3, source: "federalreserve.gov", kind: "FOMC", country: "US", importance: "alta" },
+    { id: "bls:jobs", title: "Employment Situation", start: now - 4 * 86400e3, source: "bls.gov", kind: "EMPREGO", country: "US", importance: "alta" },
+  ];
   window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     const u = String(input);
     if (u.includes("hyperliquid") && String(init?.body ?? "").includes("candleSnapshot")) return json(Array.from({ length: 168 }, (_, i) => ({ t: now - (168 - i) * 3600e3, c: String(40 + Math.sin(i / 9) * 3 + i * 0.02) })));
     if (u.includes("ticker/price")) return json({ price: u.includes("BTCBRL") ? String(75855 * 5.4) : "75855.00" });
     if (u.includes("/klines")) { const brl = u.includes("BTCBRL"); return json(usd.map((k) => { const c = brl ? k.c * 5.4 : k.c; return [k.t * 1000, c, c, c, c, 1000, (k.t + DAY) * 1000 - 1]; })); }
     if (u.includes("fng")) return json({ data: [{ value: "52", value_classification: "Neutral", timestamp: String(Math.floor(now / 1000)) }] });
+    if (u.includes("demo-proxy.invalid/news")) return json({ at: now, items: NEWS, sources: [{ name: "Portal do Bitcoin", ok: true, count: 2 }, { name: "Livecoins", ok: true, count: 2 }, { name: "Cointelegraph Brasil", ok: true, count: 2 }, { name: "InfoMoney", ok: true, count: 3 }] });
+    if (u.includes("demo-proxy.invalid/calendar")) return json({ at: now, consensus: null, events: EVS, sources: [{ name: "federalreserve.gov (lista fixa)", ok: true }, { name: "bls.gov", ok: true }] });
     if (u.includes("awesomeapi")) return json({ USDBRL: { ask: "5.4" } });
     return Promise.reject(new Error("prévia sem rede"));
   }) as typeof fetch;

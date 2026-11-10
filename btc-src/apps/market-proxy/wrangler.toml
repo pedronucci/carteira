@@ -1,0 +1,10 @@
+# Proxy PÚBLICO do Market Intelligence. Sem KV, sem segredos, sem Access: só repassa notícias (RSS) e calendário
+# oficial. O app NUNCA envia dados do seu portfólio a este Worker. Passo a passo: ../../MARKET-INTELLIGENCE.md
+name = "bst-market-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+keep_vars = true
+
+[vars]
+# origens autorizadas a ler (separe por vírgula)
+ALLOWED_ORIGINS = "https://pedronucci.github.io"

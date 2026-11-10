@@ -1,0 +1,18 @@
+{
+  "name": "@bst/market-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Proxy público do Market Intelligence (Cloudflare Worker): RSS de notícias em português e calendário econômico oficial. Só dados públicos, sem credenciais, sem dados do portfólio.",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20260702.1",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4",
+    "wrangler": "4.158.0"
+  }
+}

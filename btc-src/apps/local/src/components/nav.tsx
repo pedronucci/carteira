@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
-  Activity, ArrowLeftRight, Bell, Bitcoin, ChartCandlestick, ChartLine, Ellipsis, Eye, EyeOff, Gauge, LayoutDashboard,
+  Activity, ArrowLeftRight, Bell, Bitcoin, ChartCandlestick, ChartLine, Ellipsis, Eye, EyeOff, Gauge, Newspaper, LayoutDashboard,
   Moon, NotebookPen, PanelLeftClose, PanelLeftOpen, Settings, Sun, Wallet, X,
 } from "lucide-react";
 import { fmtRelative } from "@bst/domain";
@@ -37,6 +37,7 @@ export const MODULES: Module[] = [
   { href: "/mercado", label: "Mercado", icon: ChartCandlestick, match: ["/mercado", "/mercado"] },
   { href: "/risco", label: "Risk Center", short: "Risco", icon: Gauge },
   { href: "/inteligencia", label: "Performance Analytics", short: "Performance", icon: ChartLine },
+  { href: "/mercado-intel", label: "Market Intelligence", short: "Mercado", icon: Newspaper },
   { href: "/diario", label: "Trading Journal", short: "Diário", icon: NotebookPen },
   { href: "/ajustes", label: "Configurações e Integrações", short: "Ajustes", icon: Settings, match: ["/ajustes", "/ajustes"] },
 ];

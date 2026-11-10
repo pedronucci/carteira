@@ -15,6 +15,7 @@ import { prices } from "@/lib/local/prices";
 import { riskLevel } from "@/lib/perps/positions";
 import { allocation, longShort, marginUse, roiOnMargin } from "@/lib/dashboard/hub";
 import { useIntegrations } from "@/components/nav";
+import { useMarketIntel } from "@/lib/market/use";
 import { useAnalytics } from "@/lib/analytics/use";
 import { CoinLogo } from "@/components/coin-logo";
 import { DirBadge } from "@/app/perps/page";
@@ -413,6 +414,29 @@ export function PerfAnalyticsCard({ className }: { className?: string }) {
           <div><p className="lbl">Rentabilidade (TWR)</p><p className={cn("font-semibold", toneCls(toneOf(a.evo?.twr)))}>{a.evo?.twr != null ? f.pct(a.evo.twr) : "Dados insuficientes"}</p></div>
           <div><p className="lbl">Funding líquido</p><p className={toneCls(toneOf(a.wf.funding))}>{f.money(a.wf.funding, { signed: true })}</p></div>
           <div><p className="lbl">Taxas</p><p className="text-loss">{f.money(a.wf.fees, { signed: true })}</p></div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+/** Radar de Mercado: alertas por regras, próximos eventos e manchetes mais relevantes para as suas posições. Só leitura. */
+export function RadarCard({ className }: { className?: string }) {
+  const mi = useMarketIntel({ poll: true });
+  const { st } = mi;
+  const next = mi.upcoming.filter((e) => e.importance === "alta" && e.start > mi.now)[0] ?? null;
+  const top = mi.news.slice(0, 3);
+  const unseen = mi.alerts.length;
+  return (
+    <Panel tech className={cn("overflow-hidden", className)}>
+      <PanelHead title="Radar de Mercado" sub={unseen ? `${unseen} alerta${unseen > 1 ? "s" : ""} ativo${unseen > 1 ? "s" : ""}` : "sem alertas agora"} right={<Link href="/mercado-intel" className="text-[12px] font-medium text-accent">Abrir ›</Link>} />
+      {!st.proxyUrl ? <p className="px-4 py-6 text-[13px] text-muted">Proxy de notícias não configurado. <Link href="/mercado-intel" className="text-accent">Configurar</Link></p> : (
+        <div className="space-y-3 px-4 py-4 text-[12.5px]">
+          {mi.alerts[0] && <div><p className="lbl">Atenção</p><p className="font-semibold leading-snug">{mi.alerts[0].title}</p></div>}
+          <div><p className="lbl">Próximo evento de alta importância</p><p className="font-semibold">{next ? <>{next.kind} <span className="num text-[12px] font-normal text-muted">{new Date(next.start).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span></> : "Dados insuficientes"}</p></div>
+          <div><p className="lbl">Manchetes relevantes</p>
+            {top.length === 0 ? <p className="text-muted">Dados insuficientes</p> : <ul className="space-y-1.5">{top.map((n) => <li key={n.id} className="leading-snug"><a href={n.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{n.title}</a> <span className="text-[11px] text-muted">{n.source}</span></li>)}</ul>}
+          </div>
         </div>
       )}
     </Panel>

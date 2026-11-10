@@ -11,6 +11,7 @@ import Settings from "@/app/settings/page";
 import Risk from "@/app/risk/page";
 import Trading from "@/app/trading/page";
 import Intel from "@/app/intel/page";
+import MercadoIntel from "@/app/mercado-intel/page";
 import Journal from "@/app/journal/page";
 import Alerts from "@/app/alerts/page";
 import Cycles from "@/app/cycles/page";
@@ -22,7 +23,7 @@ const PAGES: Record<string, () => React.ReactNode> = {
   "/": Dashboard,
   "/estrategia": StrategyMonitor, "/estrategia/performance": Performance, "/estrategia/transacoes": Operations, "/estrategia/ciclos": Cycles,
   "/mercado": Market, "/ajustes": Settings,
-  "/portfolio": Portfolio, "/perpetuos": Perps, "/trading": Trading, "/risco": Risk, "/inteligencia": Intel, "/performance-analytics": Intel, "/diario": Journal, "/alertas": Alerts,
+  "/portfolio": Portfolio, "/perpetuos": Perps, "/trading": Trading, "/risco": Risk, "/inteligencia": Intel, "/performance-analytics": Intel, "/mercado-intel": MercadoIntel, "/diario": Journal, "/alertas": Alerts,
 };
 /** Endereços da versão 4 (favoritos e atalhos antigos continuam funcionando). */
 const ALIAS: Record<string, string> = { "/performance": "/estrategia/performance", "/operations": "/estrategia/transacoes", "/market": "/mercado", "/settings": "/ajustes" };
