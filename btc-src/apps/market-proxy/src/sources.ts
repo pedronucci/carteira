@@ -25,3 +25,22 @@ export function fedEvents(): CalEvent[] {
     ...OTHER.map(([y, m, d, t, k]): CalEvent => ({ id: `fed:${k}:${y}-${m}-${d}`, title: t, start: at14(y, m, d), source: "federalreserve.gov", kind: k, country: "US", importance: k === "ATA-FOMC" ? "media" : "baixa" })),
   ];
 }
+
+/**
+ * Datas oficiais do BLS (bls.gov/schedule), todas às 8:30 de Nova York. Usadas SÓ quando o iCal ao vivo do BLS falha
+ * (o site às vezes recusa servidores com HTTP 403). Atualizar quando o BLS publicar novas datas.
+ */
+const BLS: [number, number, number, string, string, CalEvent["importance"]][] = [
+  [2026, 10, 14, "Consumer Price Index for September 2026", "CPI", "alta"],
+  [2026, 11, 6, "Employment Situation for October 2026", "EMPREGO", "alta"],
+  [2026, 11, 10, "Consumer Price Index for October 2026", "CPI", "alta"],
+  [2026, 11, 13, "Producer Price Index for October 2026", "PPI", "media"],
+  [2026, 12, 4, "Employment Situation for November 2026", "EMPREGO", "alta"],
+  [2026, 12, 10, "Consumer Price Index for November 2026", "CPI", "alta"],
+  [2026, 12, 15, "Producer Price Index for November 2026", "PPI", "media"],
+  [2027, 1, 13, "Consumer Price Index for December 2026", "CPI", "alta"],
+  [2027, 2, 11, "Consumer Price Index for January 2027", "CPI", "alta"],
+];
+export function blsStaticEvents(): CalEvent[] {
+  return BLS.map(([y, m, d, title, kind, importance]): CalEvent => ({ id: `bls:static:${kind}:${y}-${m}-${d}`, title, start: Date.UTC(y, m - 1, d, 8 + nyOffsetHours(y, m, d, 8), 30), source: "bls.gov", kind, country: "US", importance }));
+}

@@ -30,7 +30,7 @@ Custo: plano gratuito da Cloudflare; nenhuma chave de API necessária.
 
 ## Limitações conhecidas
 - Os feeds RSS e o iCal do BLS **não puderam ser testados ao vivo** (o ambiente de desenvolvimento não alcança esses sites): parsers cobertos por testes com amostras; o `/news` do Worker informa por fonte se funcionou. Se uma URL de feed mudar, ajuste `src/sources.ts`.
-- Lista do FOMC é fixa (atualizar 1x/ano); 2027 só até julho (publicado).
+- Lista do FOMC é fixa (atualizar 1x/ano); 2027 só até julho (publicado). Se o iCal do BLS responder 403, o Worker usa uma lista fixa de datas oficiais do BLS (CPI, emprego, PPI) até fev/2027.
 - Classificação por palavras-chave: pode errar em manchetes ambíguas.
 - Limite de uso por IP no Worker é em memória (melhor esforço).
 - Sem alerta com o app fechado (apenas no app).

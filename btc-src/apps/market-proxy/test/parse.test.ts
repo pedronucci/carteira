@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cleanSummary, dedupe, parseFeed, parseIcs, classifyEvent, nyOffsetHours } from "../src/parse";
-import { fedEvents } from "../src/sources";
+import { blsStaticEvents, fedEvents } from "../src/sources";
 import { corsFor, limited } from "../src/index";
 
 const rss = `<?xml version="1.0"?><rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel>
@@ -85,6 +85,7 @@ describe("parseIcs", () => {
 describe("calendário do Fed e proteção", () => {
   it("FOMC 9 dez 2026 às 14:00 de Nova York = 19:00 UTC", () => expect(fedEvents().find((e) => e.id === "fed:fomc:2026-12-9")!.start).toBe(Date.UTC(2026, 11, 9, 19)));
   it("FOMC de julho (horário de verão) = 18:00 UTC", () => expect(fedEvents().find((e) => e.id === "fed:fomc:2026-7-29")!.start).toBe(Date.UTC(2026, 6, 29, 18)));
+  it("BLS lista fixa: CPI de 10/12/2026 às 8:30 de NY (EST) = 13:30 UTC", () => expect(blsStaticEvents().find((e) => e.id === "bls:static:CPI:2026-12-10")!.start).toBe(Date.UTC(2026, 11, 10, 13, 30)));
   it("limite de uso por IP", () => { let blocked = 0; for (let i = 0; i < 70; i++) if (limited("1.1.1.1", 1000, 60)) blocked++; expect(blocked).toBe(10); expect(limited("1.1.1.1", 1000 + 61e3, 60)).toBe(false); });
   it("CORS funciona mesmo sem variável de ambiente (origem padrão)", () => {
     expect(corsFor("https://pedronucci.github.io", undefined)["Access-Control-Allow-Origin"]).toBe("https://pedronucci.github.io");

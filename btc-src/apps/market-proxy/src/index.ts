@@ -4,10 +4,10 @@
  * - Cache de borda (notícias 5 min, calendário 6 h), falha isolada por fonte, limite de uso por IP (melhor esforço).
  */
 import { dedupe, parseFeed, parseIcs, type CalEvent, type NewsItem } from "./parse";
-import { BLS_ICS, FEEDS, fedEvents } from "./sources";
+import { BLS_ICS, FEEDS, blsStaticEvents, fedEvents } from "./sources";
 
 export interface Env { ALLOWED_ORIGINS?: string }
-export const VERSION = "2026-11-10.4";
+export const VERSION = "2026-11-10.5";
 const UA = "Mozilla/5.0 (compatible; BST-MarketProxy/1.0; +https://pedronucci.github.io/carteira/btc)"; // bls.gov recusa clientes sem identificação de navegador (HTTP 403)
 const hits = new Map<string, { n: number; t: number }>();
 export function limited(ip: string, now: number, max = 60, windowMs = 60e3): boolean {
@@ -41,9 +41,12 @@ export async function loadNews(): Promise<{ items: NewsItem[]; sources: { id: st
 export async function loadCalendar(): Promise<{ events: CalEvent[]; sources: { name: string; ok: boolean; error?: string }[] }> {
   const sources: { name: string; ok: boolean; error?: string }[] = [{ name: "federalreserve.gov (lista fixa)", ok: true }];
   let bls: CalEvent[] = [];
-  try { bls = parseIcs(await get(BLS_ICS, 21600), "bls.gov", "US"); sources.push({ name: "bls.gov", ok: bls.length > 0, ...(bls.length ? {} : { error: "sem eventos" }) }); }
-  catch (e) { sources.push({ name: "bls.gov", ok: false, error: String((e as Error).message).slice(0, 80) }); }
-  const events = [...fedEvents(), ...bls.filter((e) => e.kind !== "OUTRO")].sort((a, b) => a.start - b.start);
+  let liveErr = "";
+  try { bls = parseIcs(await get(BLS_ICS, 21600), "bls.gov", "US").filter((e) => e.kind !== "OUTRO"); if (!bls.length) liveErr = "sem eventos"; }
+  catch (e) { liveErr = String((e as Error).message).slice(0, 80); }
+  if (bls.length) sources.push({ name: "bls.gov (ao vivo)", ok: true });
+  else { bls = blsStaticEvents(); sources.push({ name: `bls.gov (lista fixa; ao vivo indisponível: ${liveErr})`, ok: true }); }
+  const events = [...fedEvents(), ...bls].sort((a, b) => a.start - b.start);
   return { events, sources };
 }
 
