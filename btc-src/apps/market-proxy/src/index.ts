@@ -7,6 +7,7 @@ import { dedupe, parseFeed, parseIcs, type CalEvent, type NewsItem } from "./par
 import { BLS_ICS, FEEDS, fedEvents } from "./sources";
 
 export interface Env { ALLOWED_ORIGINS?: string }
+export const VERSION = "2026-11-10.4";
 const UA = "Mozilla/5.0 (compatible; BST-MarketProxy/1.0; +https://pedronucci.github.io/carteira/btc)"; // bls.gov recusa clientes sem identificação de navegador (HTTP 403)
 const hits = new Map<string, { n: number; t: number }>();
 export function limited(ip: string, now: number, max = 60, windowMs = 60e3): boolean {
@@ -55,7 +56,7 @@ export default {
     const path = new URL(req.url).pathname.replace(/\/+$/, "");
     if (path === "/news") { const d = await loadNews(); return json({ at: Date.now(), ...d }, 200, cors, 300); }
     if (path === "/calendar") { const d = await loadCalendar(); return json({ at: Date.now(), consensus: null, ...d }, 200, cors, 3600); }
-    if (path === "/health" || path === "") return json({ ok: true, at: Date.now(), feeds: FEEDS.map((f) => f.name) }, 200, cors);
+    if (path === "/health" || path === "") return json({ ok: true, version: VERSION, at: Date.now(), feeds: FEEDS.map((f) => f.name) }, 200, cors);
     return json({ error: "não encontrado" }, 404, cors);
   },
 };
