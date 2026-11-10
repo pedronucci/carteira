@@ -7,7 +7,7 @@ import { dedupe, parseFeed, parseIcs, type CalEvent, type NewsItem } from "./par
 import { BLS_ICS, FEEDS, fedEvents } from "./sources";
 
 export interface Env { ALLOWED_ORIGINS?: string }
-const UA = "BST-MarketProxy/1.0 (+https://pedronucci.github.io/carteira/btc)";
+const UA = "Mozilla/5.0 (compatible; BST-MarketProxy/1.0; +https://pedronucci.github.io/carteira/btc)"; // bls.gov recusa clientes sem identificação de navegador (HTTP 403)
 const hits = new Map<string, { n: number; t: number }>();
 export function limited(ip: string, now: number, max = 60, windowMs = 60e3): boolean {
   const h = hits.get(ip);
