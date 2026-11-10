@@ -122,6 +122,8 @@ export function portfolioView() {
   return { accounts, holdings, positions, prices, c, classified, series, flows, pending: classified.filter((e) => e.cls === "pending") };
 }
 
+const REF_COINS = ["ETH", "SOL", "HYPE"];
+const refPx = (prices: Record<string, { usd?: number | null } | undefined>) => { const o: Record<string, number> = {}; for (const c of REF_COINS) { const x = prices[c]?.usd; if (x && Number.isFinite(x)) o[c] = x; } return Object.keys(o).length ? o : undefined; };
 /** Retrato completo do portfólio agora (conta, ativo, BTC equivalente, perpétuos, câmbio). Nada é estimado: o que falta fica de fora. */
 export function buildSnapshot(v: ReturnType<typeof portfolioView>, now = Date.now()): PSnapshot {
   const r2 = (x: number) => Math.round(x * 100) / 100;
@@ -136,7 +138,7 @@ export function buildSnapshot(v: ReturnType<typeof portfolioView>, now = Date.no
     }
   } catch { /* sem perpétuos */ }
   const spot = btcPrices().spot;
-  return { t: now, v: 2, byAccount, total: r2(v.c.totalUsd), byAsset, btcUsd: spot?.btcUsd ?? v.prices.BTC?.usd ?? null, usdBrl: spot?.usdBrl ?? null, btcEq: v.c.btcEquivalent ?? null, perps, recon, src: "app" };
+  return { t: now, v: 2, byAccount, total: r2(v.c.totalUsd), byAsset, btcUsd: spot?.btcUsd ?? v.prices.BTC?.usd ?? null, usdBrl: spot?.usdBrl ?? null, btcEq: v.c.btcEquivalent ?? null, perps, recon, src: "app", px: refPx(v.prices) };
 }
 
 /** Grava um retrato (no máximo um por hora, sem duplicar) para a evolução patrimonial. */

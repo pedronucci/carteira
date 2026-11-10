@@ -14,11 +14,13 @@ const STABLE = ["USDC", "USDT", "USDT0", "USDE", "USDH", "UBTC", "BTC"];
 export interface PerpAccountView {
   id: string; name: string; address: string; primary: boolean; live: HlLive | null; stale: boolean; at: number | null; error: string | null;
   positions: PerpPosition[]; summary: PerpSummary; trades: Trade[]; stats: TradeStats; historyComplete: boolean; recon: ReconResult | null; sim: SimInput | null;
+  /** pagamentos de funding (usd > 0 = recebido) */ funding: { key: string; time: number; coin: string; usd: number }[];
 }
 export interface PerpsView {
   connected: boolean; accounts: PerpAccountView[]; stale: boolean; at: number | null; error: string | null;
   /** todas as contas juntas */
   positions: PerpPosition[]; summary: PerpSummary; trades: Trade[]; stats: TradeStats; historyComplete: boolean;
+  funding: { key: string; time: number; coin: string; usd: number }[];
 }
 
 function accountView(o: { id: string; name: string; address: string; primary: boolean; live: HlLive | null; history: HlHistory | null; error: string | null }): PerpAccountView {
@@ -36,7 +38,7 @@ function accountView(o: { id: string; name: string; address: string; primary: bo
   }) : null;
   return {
     id: o.id, name: o.name, address: o.address, primary: o.primary, live, stale: !live || Date.now() - live.at > STALE_MS, at: live?.at ?? null, error: o.error,
-    positions, summary: summarize(positions, live ? live.total : null, minLiq), trades, stats: tradeStats(trades), historyComplete: Boolean(h) && !h!.truncated, recon,
+    positions, summary: summarize(positions, live ? live.total : null, minLiq), trades, stats: tradeStats(trades), historyComplete: Boolean(h) && !h!.truncated, recon, funding: h?.funding ?? [],
     sim: live ? { accountValue: live.total, positions: positions.map((p) => ({ coin: p.coin, szi: p.dir === "LONG" ? p.size : -p.size, mark: p.mark ?? 0, upnl: p.upnl, marginUsed: p.margin ?? 0, maintRate: maint, liqPx: p.liq })) } : null,
   };
 }
@@ -54,6 +56,6 @@ export function perpsView(): PerpsView {
   return {
     connected: accounts.length > 0, accounts, stale: accounts.some((a) => a.stale), at: accounts.length ? Math.min(...accounts.map((a) => a.at ?? 0)) || null : null,
     error: accounts.find((a) => a.error)?.error ?? null,
-    positions, summary: summarize(positions, equities.length ? equities.reduce((a, b) => a + b, 0) : null, minLiq), trades, stats: tradeStats(trades), historyComplete: accounts.every((a) => a.historyComplete),
+    positions, summary: summarize(positions, equities.length ? equities.reduce((a, b) => a + b, 0) : null, minLiq), trades, stats: tradeStats(trades), historyComplete: accounts.every((a) => a.historyComplete), funding: accounts.flatMap((a) => a.funding),
   };
 }

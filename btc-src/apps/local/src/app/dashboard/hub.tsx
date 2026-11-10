@@ -15,6 +15,7 @@ import { prices } from "@/lib/local/prices";
 import { riskLevel } from "@/lib/perps/positions";
 import { allocation, longShort, marginUse, roiOnMargin } from "@/lib/dashboard/hub";
 import { useIntegrations } from "@/components/nav";
+import { useAnalytics } from "@/lib/analytics/use";
 import { CoinLogo } from "@/components/coin-logo";
 import { DirBadge } from "@/app/perps/page";
 import { C } from "@/components/charts";
@@ -393,6 +394,27 @@ export function IntegrationsPanel({ className }: { className?: string }) {
         ))}
       </ul>
       <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Somente leitura: o terminal nunca envia ordens nem guarda chaves.</p>
+    </Panel>
+  );
+}
+
+/** Cartão compacto do Performance Analytics (30 dias): resultado das operações, maior contribuinte, funding e taxas. */
+export function PerfAnalyticsCard({ className }: { className?: string }) {
+  const f = useFmt();
+  const a = useAnalytics("30", undefined, null);
+  const ok = Boolean(a.perps?.connected);
+  return (
+    <Panel tech className={cn("overflow-hidden", className)}>
+      <PanelHead title="Performance Analytics" sub="últimos 30 dias" right={<Link href="/inteligencia" className="text-[12px] font-medium text-accent">Abrir ›</Link>} />
+      {!ok ? <p className="px-4 py-6 text-[13px] text-muted">Hyperliquid não conectada: sem resultado de operações.</p> : (
+        <div className="num grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-4 text-[12.5px]">
+          <div className="col-span-2"><p className="lbl">Resultado líquido das operações</p><p className={cn("text-[20px] font-semibold tracking-tight", toneCls(toneOf(a.wf.net)))}>{f.money(a.wf.net, { signed: true })}</p></div>
+          <div><p className="lbl">Principal ativo</p><p className="font-semibold">{a.topCoin ? <>{a.topCoin.coin} <span className={cn("text-[12px]", toneCls(toneOf(a.topCoin.net)))}>{f.money(a.topCoin.net, { signed: true, compact: true })}</span></> : "—"}</p></div>
+          <div><p className="lbl">Rentabilidade (TWR)</p><p className={cn("font-semibold", toneCls(toneOf(a.evo?.twr)))}>{a.evo?.twr != null ? f.pct(a.evo.twr) : "Dados insuficientes"}</p></div>
+          <div><p className="lbl">Funding líquido</p><p className={toneCls(toneOf(a.wf.funding))}>{f.money(a.wf.funding, { signed: true })}</p></div>
+          <div><p className="lbl">Taxas</p><p className="text-loss">{f.money(a.wf.fees, { signed: true })}</p></div>
+        </div>
+      )}
     </Panel>
   );
 }

@@ -36,7 +36,7 @@ export const MODULES: Module[] = [
   { href: "/trading", label: "Trading", icon: ArrowLeftRight },
   { href: "/mercado", label: "Mercado", icon: ChartCandlestick, match: ["/mercado", "/mercado"] },
   { href: "/risco", label: "Risk Center", short: "Risco", icon: Gauge },
-  { href: "/inteligencia", label: "Performance Intelligence", short: "Performance", icon: ChartLine },
+  { href: "/inteligencia", label: "Performance Analytics", short: "Performance", icon: ChartLine },
   { href: "/diario", label: "Trading Journal", short: "Diário", icon: NotebookPen },
   { href: "/ajustes", label: "Configurações e Integrações", short: "Ajustes", icon: Settings, match: ["/ajustes", "/ajustes"] },
 ];

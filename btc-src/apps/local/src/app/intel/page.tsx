@@ -1,6 +1,6 @@
 "use client";
 /**
- * Performance Intelligence. Três visões separadas (nunca misturadas): Estratégia BTC/USDC, Portfólio Consolidado
+ * Performance Analytics (antes "Performance Intelligence"; a rota /inteligencia continua). Três visões separadas (nunca misturadas): Estratégia BTC/USDC, Portfólio Consolidado
  * e Trading (diário). Volatilidade e Sharpe só aparecem com amostra mínima de dias.
  */
 import { journalStats } from "@bst/domain";
@@ -8,6 +8,7 @@ import { usePerformance } from "@/lib/api";
 import { useFmt } from "@/lib/state";
 import { portfolio } from "@/lib/portfolio/db";
 import { fmtDuration } from "@/lib/local/strategy";
+import { AnalyticsSection } from "./analytics";
 import { Kpi, KpiGrid, Notice, Panel, PanelHead, Pill, Skeleton, cn, toneCls, toneOf } from "@/components/ui";
 
 const need = (n: number, min: number) => `precisa de ${min} dias (há ${n})`;
@@ -22,8 +23,10 @@ export default function IntelPage() {
   const rAll = v.pv.series.length >= 2 ? v.pv.series.at(-1)! : null;
   return (
     <div className="pt-5">
-      <h1 className="text-[20px] font-semibold tracking-tight">Performance Intelligence</h1>
+      <h1 className="text-[20px] font-semibold tracking-tight">Performance Analytics</h1>
       <p className="mb-4 text-[12px] text-muted">Aportes e retiradas nunca contam como lucro. Métricas estatísticas só com amostra suficiente.</p>
+
+      <AnalyticsSection strategyStart={s?.startT ?? null} />
 
       <Panel className="mb-4 overflow-hidden border-gold/40">
         <PanelHead title={<span className="text-gold">Estratégia BTC/USDC</span>} right={s ? `${s.label} · ${fmtDuration(Date.now() - s.startT)}` : undefined} />

@@ -8,7 +8,7 @@ import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpRight, Bitcoin, Percent, SlidersHorizontal, TrendingUp, Wallet } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { DEFAULT_SCENARIO_RULES, SCENARIO_LABEL, type EvoCcy, type EvoPeriod } from "@bst/domain";
-import { AllocationPanel, AssetPerfPanel, EvolutionPanel, FundingFeesPanel, HlSummaryPanel, HubKpis, IntegrationsPanel, LongShortPanel, MarginPanel, PerpsTable, useHub } from "./hub";
+import { AllocationPanel, AssetPerfPanel, EvolutionPanel, FundingFeesPanel, HlSummaryPanel, HubKpis, IntegrationsPanel, LongShortPanel, MarginPanel, PerfAnalyticsCard, PerpsTable, useHub } from "./hub";
 import { NeedsSetup, useMarket, usePortfolio, useSnapshot } from "@/lib/api";
 import { useFmt } from "@/lib/state";
 import { drawdownPoints, inCcy, periodReturn } from "@/lib/local/engine";
@@ -94,6 +94,7 @@ export default function DashboardPage() {
           </Panel>
         ) : <StrategyCard s={s} />}
         <IntegrationsPanel className="lg:order-10 lg:col-span-5" />
+        <PerfAnalyticsCard className="lg:order-11 lg:col-span-4" />
 
         {s && shown.map((id) => <Widget key={id} id={id} s={s} />)}
       </div>

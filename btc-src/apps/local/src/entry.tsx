@@ -22,7 +22,7 @@ const PAGES: Record<string, () => React.ReactNode> = {
   "/": Dashboard,
   "/estrategia": StrategyMonitor, "/estrategia/performance": Performance, "/estrategia/transacoes": Operations, "/estrategia/ciclos": Cycles,
   "/mercado": Market, "/ajustes": Settings,
-  "/portfolio": Portfolio, "/perpetuos": Perps, "/trading": Trading, "/risco": Risk, "/inteligencia": Intel, "/diario": Journal, "/alertas": Alerts,
+  "/portfolio": Portfolio, "/perpetuos": Perps, "/trading": Trading, "/risco": Risk, "/inteligencia": Intel, "/performance-analytics": Intel, "/diario": Journal, "/alertas": Alerts,
 };
 /** Endereços da versão 4 (favoritos e atalhos antigos continuam funcionando). */
 const ALIAS: Record<string, string> = { "/performance": "/estrategia/performance", "/operations": "/estrategia/transacoes", "/market": "/mercado", "/settings": "/ajustes" };
