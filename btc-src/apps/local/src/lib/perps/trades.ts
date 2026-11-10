@@ -1,5 +1,5 @@
 /** Agrupa execuções (fills) de perpétuos em OPERAÇÕES (round-trips) por instrumento e calcula estatísticas. */
-export interface Fill { key: string; time: number; coin: string; px: number; sz: number; side: "B" | "A"; dir: string; fee: number; closedPnl: number; startPosition: number }
+export interface Fill { key: string; time: number; coin: string; px: number; sz: number; side: "B" | "A"; dir: string; fee: number; closedPnl: number; startPosition: number; oid?: number; liq?: boolean; feeToken?: string }
 export interface FundingRow { key: string; time: number; coin: string; usd: number }
 
 export interface Trade {

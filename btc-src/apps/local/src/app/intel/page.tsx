@@ -9,6 +9,7 @@ import { useFmt } from "@/lib/state";
 import { portfolio } from "@/lib/portfolio/db";
 import { fmtDuration } from "@/lib/local/strategy";
 import { AnalyticsSection } from "./analytics";
+import { AttributionSection } from "./attribution";
 import { Kpi, KpiGrid, Notice, Panel, PanelHead, Pill, Skeleton, cn, toneCls, toneOf } from "@/components/ui";
 
 const need = (n: number, min: number) => `precisa de ${min} dias (há ${n})`;
@@ -25,6 +26,8 @@ export default function IntelPage() {
     <div className="pt-5">
       <h1 className="text-[20px] font-semibold tracking-tight">Performance Analytics</h1>
       <p className="mb-4 text-[12px] text-muted">Aportes e retiradas nunca contam como lucro. Métricas estatísticas só com amostra suficiente.</p>
+
+      <AttributionSection />
 
       <AnalyticsSection strategyStart={s?.startT ?? null} />
 

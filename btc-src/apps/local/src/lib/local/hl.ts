@@ -144,20 +144,29 @@ export async function refreshLive(address: string, opts: { includeArb?: boolean;
 // ───────── histórico bruto (auditoria) ─────────
 
 /** Execução (todas as moedas), compacta. */
-export interface HlFill { key: string; time: number; coin: string; px: number; sz: number; side: "B" | "A"; dir: string; fee: number; closedPnl: number; startPosition: number }
+export interface HlFill { key: string; time: number; coin: string; px: number; sz: number; side: "B" | "A"; dir: string; fee: number; closedPnl: number; startPosition: number;
+  /** id da ordem que gerou a execução (permite saber se foi stop, take profit ou ordem comum) */ oid?: number; /** execução de liquidação */ liq?: boolean;
+  /** moeda em que a taxa foi cobrada (spot: pode ser a moeda comprada) */ feeToken?: string }
+/** Tipo de ordem (da lista de ordens históricas): stop, take profit, limite ou a mercado */
+export type HlOrderKind = "SL" | "TP" | "LIM" | "MKT";
 /** IN/OUT: fluxo externo · INTERNAL: entre spot e perp da mesma conta · INCOME: recompensa (resultado, não aporte) */
-export interface HlLedger { key: string; time: number; kind: "IN" | "OUT" | "INTERNAL" | "INCOME"; amount: number; label: string; type: string }
+export interface HlLedger { key: string; time: number; kind: "IN" | "OUT" | "INTERNAL" | "INCOME"; amount: number; label: string; type: string;
+  /** endereço da outra ponta em transferências (para reconhecer transferência entre contas próprias) */ peer?: string }
 export interface HlFunding { key: string; time: number; coin: string; usd: number }
 export interface HlHistory {
   at: number; fills: HlFill[]; ledger: HlLedger[]; funding: HlFunding[];
   /** Valor oficial da conta ao longo do tempo (endpoint portfolio): [ms, usd] */
   accountValue: [number, number][]; pnl: [number, number][];
   truncated: boolean; syncs: number;
+  /** oid → tipo da ordem (para marcar execuções de stop / take profit). Mesclado de forma incremental. */
+  orders?: Record<string, HlOrderKind>;
+  /** 1 = as execuções guardadas já trazem o oid (as antigas são completadas uma vez, sem apagar nada) */
+  oidV?: number;
   /** 2 = execuções individuais com chave pelo id do negócio (tid). Versões anteriores são re-sincronizadas. */
   v?: number;
 }
 
-type RawFill = { coin: string; px: string; sz: string; side: "B" | "A"; time: number; startPosition: string; dir: string; closedPnl: string; fee: string; hash?: string; oid?: number; tid?: number };
+type RawFill = { coin: string; px: string; sz: string; side: "B" | "A"; time: number; startPosition: string; dir: string; closedPnl: string; fee: string; hash?: string; oid?: number; tid?: number; liquidation?: unknown; feeToken?: string };
 type RawLedger = { time: number; hash?: string; delta: { type: string; usdc?: string; amount?: string; usdcValue?: string; token?: string; user?: string; destination?: string; toPerp?: boolean } };
 type RawFunding = { time: number; hash?: string; delta: { coin: string; usdc: string } };
 type Portfolio = [string, { accountValueHistory: [number, string][]; pnlHistory: [number, string][] }][];
@@ -174,7 +183,8 @@ function ledgerRow(r: RawLedger, me: string): HlLedger | null {
   if (!amt) return null;
   const key = `l|${r.time}|${r.hash ?? ""}|${x.type}|${amt}`;
   const dirIn = (x.destination ?? "").toLowerCase() === me;
-  const row = (kind: HlLedger["kind"], label: string): HlLedger => ({ key, time: r.time, kind, amount: amt, label, type: x.type });
+  const other = (dirIn ? x.user : x.destination)?.toLowerCase();
+  const row = (kind: HlLedger["kind"], label: string): HlLedger => ({ key, time: r.time, kind, amount: amt, label, type: x.type, ...(other && /^0x[0-9a-f]{40}$/.test(other) ? { peer: other } : {}) });
   switch (x.type) {
     case "deposit": return row("IN", "via Arbitrum");
     case "withdraw": return row("OUT", "para Arbitrum");
@@ -196,13 +206,19 @@ const mergeBy = <T extends { key: string; time: number }>(old: T[], add: T[]) =>
 export async function fetchHistory(address: string, prev: HlHistory | null): Promise<HlHistory> {
   const user = address.trim().toLowerCase();
   const from = (rows: { time: number }[] | undefined) => (rows?.length ? Math.max(0, rows[rows.length - 1]!.time - 3600e3) : 0);
-  const [f, l, fu, pf] = await Promise.all([
-    paged<RawFill>({ type: "userFillsByTime", user }, from(prev?.fills), 15, 2000),
+  // histórico guardado antes do campo oid: baixa as execuções de novo UMA vez e mescla por chave (nada é apagado)
+  const backfill = Boolean(prev?.fills.length) && !prev?.oidV;
+  const [f, l, fu, pf, ho] = await Promise.all([
+    paged<RawFill>({ type: "userFillsByTime", user }, backfill ? 0 : from(prev?.fills), 15, 2000),
     paged<RawLedger>({ type: "userNonFundingLedgerUpdates", user }, from(prev?.ledger)),
     paged<RawFunding>({ type: "userFunding", user }, from(prev?.funding), 40),
     info<Portfolio>({ type: "portfolio", user }).catch(() => null),
+    info<RawHistOrder[]>({ type: "historicalOrders", user }).catch(() => null),
   ]);
-  const fills = f.rows.map((x): HlFill => ({ key: x.tid != null ? `f|${x.tid}` : `f|${x.time}|${x.oid ?? ""}|${x.px}|${x.sz}|${x.side}`, time: x.time, coin: x.coin, px: Number(x.px), sz: Number(x.sz), side: x.side, dir: x.dir, fee: Number(x.fee), closedPnl: Number(x.closedPnl), startPosition: Number(x.startPosition) }));
+  const fills = f.rows.map((x): HlFill => ({ key: x.tid != null ? `f|${x.tid}` : `f|${x.time}|${x.oid ?? ""}|${x.px}|${x.sz}|${x.side}`, time: x.time, coin: x.coin, px: Number(x.px), sz: Number(x.sz), side: x.side, dir: x.dir, fee: Number(x.fee), closedPnl: Number(x.closedPnl), startPosition: Number(x.startPosition),
+    ...(x.oid != null ? { oid: x.oid } : {}), ...(x.liquidation ? { liq: true } : {}), ...(x.feeToken && x.feeToken !== "USDC" ? { feeToken: x.feeToken } : {}) }));
+  const orders: Record<string, HlOrderKind> = { ...(prev?.orders ?? {}) };
+  for (const r of Array.isArray(ho) ? ho : []) { const k = orderKind(r.order); if (r.order?.oid != null && k) orders[String(r.order.oid)] = k; }
   const ledger = l.rows.map((r) => ledgerRow(r, user)).filter((x): x is HlLedger => Boolean(x));
   const funding = fu.rows.map((x): HlFunding => ({ key: `u|${x.time}|${x.delta.coin}`, time: x.time, coin: x.delta.coin, usd: Number(x.delta.usdc) }));
   // valor oficial da conta: junta os períodos (dia, semana, mês, tudo) — os curtos têm mais pontos
@@ -219,7 +235,7 @@ export async function fetchHistory(address: string, prev: HlHistory | null): Pro
   }
   return {
     at: Date.now(), fills: mergeBy(prev?.fills ?? [], fills), ledger: mergeBy(prev?.ledger ?? [], ledger), funding: mergeBy(prev?.funding ?? [], funding),
-    accountValue: av, pnl, truncated: Boolean(prev?.truncated) || f.truncated || l.truncated || (!prev && new Set(f.rows.map((x) => x.tid ?? `${x.time}${x.px}${x.sz}`)).size >= 10000), syncs: (prev?.syncs ?? 0) + 1, v: 2,
+    accountValue: av, pnl, orders, oidV: 1, truncated: Boolean(prev?.truncated) || f.truncated || l.truncated || (!prev && new Set(f.rows.map((x) => x.tid ?? `${x.time}${x.px}${x.sz}`)).size >= 10000), syncs: (prev?.syncs ?? 0) + 1, v: 2,
   };
 }
 
@@ -235,6 +251,61 @@ export async function refreshHistory(address: string, _opts: { includeArb?: bool
     set({ error: (e as Error).message, syncing: false });
   }
 }
+
+// ───────── ordens, velas e universo de contratos (somente leitura) ─────────
+
+type RawHistOrder = { order: { oid: number; orderType?: string; isTrigger?: boolean; reduceOnly?: boolean; isPositionTpsl?: boolean } };
+/** Classifica o tipo de uma ordem pelo texto da Hyperliquid ("Stop Market", "Take Profit Limit", "Limit"…). */
+export function orderKind(o: { orderType?: string; isTrigger?: boolean } | undefined): HlOrderKind | null {
+  const t = (o?.orderType ?? "").toLowerCase();
+  if (t.includes("take profit")) return "TP";
+  if (t.includes("stop")) return "SL";
+  if (t.includes("market")) return "MKT";
+  if (t.includes("limit")) return "LIM";
+  return null;
+}
+
+/** Ordem aberta na Hyperliquid (lida de frontendOpenOrders). Nunca é criada, alterada ou cancelada por este app. */
+export interface HlOrder {
+  oid: number; coin: string; side: "B" | "A"; sz: number; origSz: number | null; limitPx: number | null; triggerPx: number | null;
+  isTrigger: boolean; orderType: string; reduceOnly: boolean; isPositionTpsl: boolean; triggerCondition: string; tif: string | null; at: number;
+}
+type RawOpenOrder = { coin: string; side: "B" | "A"; limitPx: string; sz: string; oid: number; timestamp: number; triggerCondition?: string; isTrigger?: boolean; triggerPx?: string; isPositionTpsl?: boolean; reduceOnly?: boolean; orderType?: string; origSz?: string; tif?: string | null };
+export async function fetchOpenOrders(address: string): Promise<HlOrder[]> {
+  const rows = await info<RawOpenOrder[]>({ type: "frontendOpenOrders", user: address.trim().toLowerCase() });
+  const pos = (v: string | undefined) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null; };
+  return (Array.isArray(rows) ? rows : []).map((r) => ({
+    oid: r.oid, coin: r.coin, side: r.side, sz: Number(r.sz), origSz: pos(r.origSz), limitPx: pos(r.limitPx), triggerPx: pos(r.triggerPx), isTrigger: Boolean(r.isTrigger),
+    orderType: r.orderType ?? "", reduceOnly: Boolean(r.reduceOnly), isPositionTpsl: Boolean(r.isPositionTpsl), triggerCondition: r.triggerCondition ?? "", tif: r.tif ?? null, at: r.timestamp,
+  }));
+}
+
+/** Vela completa (com volume). t = abertura, T = fechamento, em ms. */
+export interface HlCandle { t: number; T: number; o: number; h: number; l: number; c: number; v: number; n: number }
+type RawCandle = { t: number; T: number; o: string; h: string; l: string; c: string; v: string; n: number };
+export const HL_INTERVALS = ["1m", "5m", "15m", "30m", "1h", "4h", "1d", "1w"] as const;
+export type HlInterval = (typeof HL_INTERVALS)[number];
+/** Velas de um contrato no intervalo [start, end]. A API devolve no máximo 5.000 velas por consulta. */
+export async function fetchCandles(coin: string, interval: HlInterval, startTime: number, endTime: number): Promise<HlCandle[]> {
+  const rows = await info<RawCandle[]>({ type: "candleSnapshot", req: { coin, interval, startTime, endTime } });
+  return (Array.isArray(rows) ? rows : []).map((r) => ({ t: r.t, T: r.T, o: Number(r.o), h: Number(r.h), l: Number(r.l), c: Number(r.c), v: Number(r.v), n: r.n })).filter((c) => Number.isFinite(c.o) && Number.isFinite(c.c));
+}
+
+/** Contratos perpétuos listados agora na Hyperliquid (consulta dinâmica; nenhuma lista fixa de ativos). */
+export interface HlPerpMeta { name: string; szDecimals: number; maxLeverage: number; delisted: boolean }
+export async function fetchPerpUniverse(): Promise<HlPerpMeta[]> {
+  const m = await info<{ universe: { name: string; szDecimals: number; maxLeverage: number; isDelisted?: boolean }[] }>({ type: "meta" });
+  return (m?.universe ?? []).map((u) => ({ name: u.name, szDecimals: u.szDecimals, maxLeverage: u.maxLeverage, delisted: Boolean(u.isDelisted) }));
+}
+/** "@107" → "HYPE": nomes dos pares spot cotados em USDC (as execuções spot usam o índice do par). Outras cotações ficam de fora. */
+export async function fetchSpotNames(): Promise<Record<string, string>> {
+  const m = await info<{ tokens: { name: string; index: number }[]; universe: { name: string; tokens: [number, number] }[] }>({ type: "spotMeta" });
+  const tok = new Map((m?.tokens ?? []).map((t) => [t.index, t.name]));
+  const out: Record<string, string> = {};
+  for (const u of m?.universe ?? []) { const base = tok.get(u.tokens[0]), quote = tok.get(u.tokens[1]); if (base && quote === "USDC") out[u.name] = base; }
+  return out;
+}
+export const HL_WS = "wss://api.hyperliquid.xyz/ws";
 
 // ───────── retrato em um instante passado ─────────
 

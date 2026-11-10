@@ -5,6 +5,8 @@
  * Coleções: contas, saldos (manuais e lidos das fontes), movimentações, retratos (evolução) e preferências.
  * Em memória fica uma cópia para leitura síncrona pelas telas; cada gravação vai para o IndexedDB.
  */
+import type { PlannedLevel, HistoricLevel } from "../perps/chart-lines";
+import type { TradeNote } from "../journal/types";
 import { migrateSnapshots, type JournalEntry, type PAccount, type PEvent, type PHolding, type PPosition, type PSnapshot } from "@bst/domain";
 
 export interface PortfolioData {
@@ -24,10 +26,16 @@ export interface PortfolioData {
   sync: Record<string, { state: "ok" | "error" | "sync"; at: number; error?: string; info?: string }>;
   /** Trading Journal: independente da contabilidade patrimonial */
   journal: JournalEntry[];
+  /** níveis planejados pelo usuário (TP/SL/entrada). NÃO são ordens da exchange. */
+  plans: PlannedLevel[];
+  /** anotações de cada operação do Trading Journal, por id da operação (conta|primeira execução) */
+  tradeNotes: Record<string, TradeNote>;
+  /** TP/SL reais vistos na exchange durante cada operação (continuam no gráfico depois do encerramento) */
+  levelHistory: Record<string, HistoricLevel[]>;
 }
 
 const DB = "bst5", STORE = "kv", KEY = "portfolio";
-const EMPTY = (): PortfolioData => ({ v: 1, accounts: [], manual: [], synced: [], positions: [], events: [], snapshots: [], priceIds: {}, manualPrices: {}, sync: {}, journal: [] });
+const EMPTY = (): PortfolioData => ({ v: 1, accounts: [], manual: [], synced: [], positions: [], events: [], snapshots: [], priceIds: {}, manualPrices: {}, sync: {}, journal: [], plans: [], tradeNotes: {}, levelHistory: {} });
 
 let data: PortfolioData = EMPTY();
 let ready = false;

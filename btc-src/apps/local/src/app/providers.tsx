@@ -7,7 +7,9 @@ import { getStore, subscribeStore } from "@/lib/local/store";
 import { hlState, refreshHistory, refreshLive } from "@/lib/local/hl";
 import { tsOf } from "@/lib/local/engine";
 import { setPricesLoading } from "@/lib/api";
-import { loadPortfolio } from "@/lib/portfolio/db";
+import { loadPortfolio, portfolioReady } from "@/lib/portfolio/db";
+import { perpsView } from "@/lib/perps/view";
+import { refreshAllOrders } from "@/lib/perps/orders-store";
 import { extraState, refreshAllExtras } from "@/lib/local/hl-extra";
 import { migrateWallets } from "@/lib/wallets";
 import { recordSnapshot, refreshPortfolioPrices } from "@/lib/portfolio/engine";
@@ -66,6 +68,8 @@ function HlLoop() {
       if (full) lastFull = Date.now();
       if (getStore().settings.hl?.address) syncHlNow(full).catch(() => undefined);
       refreshAllExtras(full).catch(() => undefined);
+      // TP/SL reais das posições abertas: guardados por operação para continuarem no gráfico depois do fechamento (só com o banco local já carregado)
+      if (portfolioReady()) void (async () => { try { await refreshAllOrders(perpsView()); } catch { /* sem ordens agora */ } })();
     };
     tick();
     const id = setInterval(tick, 20_000);

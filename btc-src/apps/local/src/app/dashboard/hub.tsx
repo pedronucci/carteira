@@ -17,6 +17,8 @@ import { allocation, longShort, marginUse, roiOnMargin } from "@/lib/dashboard/h
 import { useIntegrations } from "@/components/nav";
 import { useMarketIntel } from "@/lib/market/use";
 import { useAnalytics } from "@/lib/analytics/use";
+import { useAttrData } from "@/lib/journal/use";
+import { attribute, journalHref } from "@/lib/attribution/engine";
 import { CoinLogo } from "@/components/coin-logo";
 import { DirBadge } from "@/app/perps/page";
 import { C } from "@/components/charts";
@@ -168,7 +170,7 @@ export function PerpsTable({ className }: { className?: string }) {
                   {v.positions.map((p) => {
                     const r = riskLevel(p.liqDistance, minLiq);
                     return (
-                      <tr key={p.id} onClick={() => navigate("/perpetuos")} className="num cursor-pointer [@media(hover:hover)]:hover:bg-surface-2">
+                      <tr key={p.id} onClick={() => navigate(`/posicao?acc=${encodeURIComponent(p.accountId)}&coin=${encodeURIComponent(p.coin)}`)} className="num cursor-pointer [@media(hover:hover)]:hover:bg-surface-2">
                         <td className="px-2 py-2.5"><span className="flex items-center gap-2" title={acc(p.accountId)}><CoinLogo symbol={p.coin} size={20} /><span className="font-semibold text-ink">{p.coin}</span></span></td>
                         <td className="px-2 py-2.5"><span className="flex items-center gap-1.5"><DirBadge dir={p.dir} /><span className="text-[11px] text-muted">{p.leverage}×</span></span></td>
                         <td className="hidden px-2 py-2.5 text-right 2xl:table-cell">{f.hidden ? "•••" : p.size.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}</td>
@@ -190,7 +192,7 @@ export function PerpsTable({ className }: { className?: string }) {
                 const edge = p.upnl > 0 ? "border-l-gain" : p.upnl < 0 ? "border-l-loss" : "border-l-gold";
                 return (
                   <li key={p.id}>
-                    <button onClick={() => navigate("/perpetuos")} aria-label={`Abrir ${p.coin} ${p.dir}`} className={cn("w-full rounded-xl border border-line border-l-[3px] bg-surface-2/60 px-3.5 py-3 text-left active:bg-surface-2", edge)}>
+                    <button onClick={() => navigate(`/posicao?acc=${encodeURIComponent(p.accountId)}&coin=${encodeURIComponent(p.coin)}`)} aria-label={`Abrir gráfico de ${p.coin} ${p.dir}`} className={cn("w-full rounded-xl border border-line border-l-[3px] bg-surface-2/60 px-3.5 py-3 text-left active:bg-surface-2", edge)}>
                       <div className="flex items-center gap-2"><CoinLogo symbol={p.coin} size={22} /><span className="text-[15px] font-semibold">{p.coin}</span><DirBadge dir={p.dir} /><span className="num ml-auto text-[12px] text-muted">{p.leverage}×</span></div>
                       <div className="num mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5"><span className="text-[12px] text-muted">{p.entry != null ? f.px(p.entry) : "—"} → {p.mark != null ? f.px(p.mark) : "—"}</span><span className={cn("text-[16px] font-semibold", toneCls(toneOf(p.upnl)))}>{f.money(p.upnl, { signed: true })}</span></div>
                       <div className="num mt-1 flex flex-wrap justify-between gap-x-3 text-[11.5px] text-muted"><span className="whitespace-nowrap">notional {f.money(p.notional, { compact: true })}</span><span className="whitespace-nowrap">{p.roiOnMargin != null ? `ROI ${f.pct(p.roiOnMargin)}` : ""} · liq. {p.liqDistance != null ? f.pct(p.liqDistance, false) : "n/d"}</span></div>
@@ -202,7 +204,32 @@ export function PerpsTable({ className }: { className?: string }) {
             <p className="border-t border-line px-4 py-2 text-[11px] text-muted">ROI = P&L aberto ÷ margem usada da posição. Funding mostrado como resultado (positivo = recebido) desde a abertura.</p>
           </>
         )}
+      <AttrMini />
     </Panel>
+  );
+}
+
+/** Resumo do Attribution (30 dias): os ativos que mais contribuíram, com atalho para o Journal filtrado por ativo e período. */
+function AttrMini() {
+  const f = useFmt();
+  const { data } = useAttrData();
+  const to = Date.now(), from = to - 30 * 86400e3;
+  const a = data ? attribute(data.ledger, { range: { from, to } }) : null;
+  const top = a ? [...a.rows].sort((x, y) => Math.abs(y.total.net) - Math.abs(x.total.net)).slice(0, 3) : [];
+  return (
+    <div className="border-t border-line px-4 py-3 text-[12.5px]">
+      <div className="mb-1.5 flex items-center justify-between"><span className="lbl">Contribuição por ativo (30 dias)</span><Link href="/inteligencia?p=30" className="text-[12px] font-medium text-accent">Detalhes ›</Link></div>
+      {top.length ? (
+        <ul className="num space-y-1">
+          {top.map((r) => (
+            <li key={r.asset}><button onClick={() => navigate(journalHref({ coin: r.asset, from, to }))} className="flex min-h-9 w-full items-center justify-between text-left" aria-label={`Ver operações de ${r.asset} no Trading Journal`}>
+              <span className="font-semibold">{r.asset}</span><span className={cn("font-semibold", toneCls(toneOf(r.total.net)))}>{f.money(r.total.net, { signed: true })}</span>
+            </button></li>
+          ))}
+        </ul>
+      ) : <p className="text-muted">{data ? "Sem resultados nos últimos 30 dias." : "Carregando…"}</p>}
+      <Link href="/diario" className="mt-1.5 inline-block text-[12px] font-medium text-accent">Trading Journal ›</Link>
+    </div>
   );
 }
 

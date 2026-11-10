@@ -6,6 +6,9 @@ import { buildPositions, summarize, type PerpPosition, type PerpSummary } from "
 import { groupTrades, tradeStats, type Trade, type TradeStats } from "./trades";
 import type { SimInput } from "./scenario";
 import { reconcilePerps, type ReconResult } from "./reconcile";
+import { isSpotCoin } from "./market-kind";
+import type { Fill } from "./trades";
+import type { HlLedger, HlOrderKind } from "../local/hl";
 
 export const HL_ACCOUNT_ID = "hl-principal";
 const STALE_MS = 3 * 60e3;
@@ -15,6 +18,8 @@ export interface PerpAccountView {
   id: string; name: string; address: string; primary: boolean; live: HlLive | null; stale: boolean; at: number | null; error: string | null;
   positions: PerpPosition[]; summary: PerpSummary; trades: Trade[]; stats: TradeStats; historyComplete: boolean; recon: ReconResult | null; sim: SimInput | null;
   /** pagamentos de funding (usd > 0 = recebido) */ funding: { key: string; time: number; coin: string; usd: number }[];
+  /** execuções de pares spot (fora das operações de perpétuos), movimentações da conta e tipos de ordem conhecidos */
+  spotFills: Fill[]; ledger: HlLedger[]; orderKinds: Record<string, HlOrderKind>; historyAt: number | null;
 }
 export interface PerpsView {
   connected: boolean; accounts: PerpAccountView[]; stale: boolean; at: number | null; error: string | null;
@@ -28,17 +33,21 @@ function accountView(o: { id: string; name: string; address: string; primary: bo
   const maint = Number(getStore().settings.maintenanceRate) || 0.0125;
   const { live, history: h } = o;
   const positions = live ? buildPositions(o.id, live.positions) : [];
-  const trades = h ? groupTrades(h.fills, h.funding) : [];
+  // a Hyperliquid mistura execuções spot ("@107") e de perpétuos no mesmo histórico: só os perpétuos formam operações
+  const perpFills = h ? h.fills.filter((f) => !isSpotCoin(f.coin)) : [];
+  const spotFills = h ? h.fills.filter((f) => isSpotCoin(f.coin)) : [];
+  const trades = h ? groupTrades(perpFills, h.funding) : [];
   const av0 = h?.accountValue[0] ?? null;
   const flows = h && av0 ? h.ledger.filter((l) => (l.kind === "IN" || l.kind === "OUT") && l.time > av0[0]).reduce((a, l) => a + (l.kind === "IN" ? l.amount : -l.amount), 0) : null;
   const recon = h && live ? reconcilePerps({
     now: Date.now(), liveAt: live.at, officialEquity: live.total, livePositions: live.positions.map((p) => ({ coin: p.coin, szi: p.szi, upnl: p.upnl })),
-    fills: h.fills, funding: h.funding, trades, netExternalFlows: flows, startEquity: av0 ? av0[1] : null, since: av0?.[0], historyTruncated: h.truncated,
+    fills: perpFills, funding: h.funding, trades, netExternalFlows: flows, startEquity: av0 ? av0[1] : null, since: av0?.[0], historyTruncated: h.truncated,
     unmodeledSpot: live.balances.some((b) => b.where === "spot" && !STABLE.includes(b.coin)),
   }) : null;
   return {
     id: o.id, name: o.name, address: o.address, primary: o.primary, live, stale: !live || Date.now() - live.at > STALE_MS, at: live?.at ?? null, error: o.error,
     positions, summary: summarize(positions, live ? live.total : null, minLiq), trades, stats: tradeStats(trades), historyComplete: Boolean(h) && !h!.truncated, recon, funding: h?.funding ?? [],
+    spotFills, ledger: h?.ledger ?? [], orderKinds: h?.orders ?? {}, historyAt: h?.at ?? null,
     sim: live ? { accountValue: live.total, positions: positions.map((p) => ({ coin: p.coin, szi: p.dir === "LONG" ? p.size : -p.size, mark: p.mark ?? 0, upnl: p.upnl, marginUsed: p.margin ?? 0, maintRate: maint, liqPx: p.liq })) } : null,
   };
 }

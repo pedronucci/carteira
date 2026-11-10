@@ -76,7 +76,7 @@ export default function PerpsPage() {
 
       {s.count === 0 && v.connected && <Panel className="px-4 py-6 text-[14px] text-muted">Nenhuma posição perpétua aberta agora.</Panel>}
       <div className="grid gap-3 lg:grid-cols-2">
-        {positions.map((p) => <PositionCard key={p.id} p={p} minLiq={minLiq} account={v.accounts.length > 1 ? nameOf(p.accountId) : null} onOpen={() => setOpen(p.id)} />)}
+        {positions.map((p) => <PositionCard key={p.id} p={p} minLiq={minLiq} account={v.accounts.length > 1 ? nameOf(p.accountId) : null} onOpen={() => navigate(`/posicao?acc=${encodeURIComponent(p.accountId)}&coin=${encodeURIComponent(p.coin)}`)} />)}
       </div>
 
       {(scoped ? [scoped] : v.accounts).map((a) => a.recon && <ReconPanel key={a.id} a={a} multi={v.accounts.length > 1} busy={busy} />)}
