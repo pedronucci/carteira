@@ -90,6 +90,7 @@ describe("calendário do Fed e proteção", () => {
     expect(corsFor("https://pedronucci.github.io", undefined)["Access-Control-Allow-Origin"]).toBe("https://pedronucci.github.io");
     expect(corsFor("https://pedronucci.github.io", "")["Access-Control-Allow-Origin"]).toBe("https://pedronucci.github.io");
   });
+  it("CORS libera também o gateway (carteira.workers.dev)", () => expect(corsFor("https://carteira.pedro-nucci10.workers.dev", undefined)["Access-Control-Allow-Origin"]).toBe("https://carteira.pedro-nucci10.workers.dev"));
   it("CORS só para origens autorizadas (e localhost)", () => {
     expect(corsFor("https://pedronucci.github.io", "https://pedronucci.github.io")["Access-Control-Allow-Origin"]).toBe("https://pedronucci.github.io");
     expect(corsFor("https://evil.com", "https://pedronucci.github.io")["Access-Control-Allow-Origin"]).toBe("https://pedronucci.github.io");

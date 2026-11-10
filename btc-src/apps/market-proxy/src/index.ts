@@ -15,7 +15,7 @@ export function limited(ip: string, now: number, max = 60, windowMs = 60e3): boo
   h.n++; return h.n > max;
 }
 /** Origens padrão: não depender de variável de ambiente (sem ela o navegador bloquearia tudo com "Failed to fetch"). */
-export const DEFAULT_ORIGINS = ["https://pedronucci.github.io"];
+export const DEFAULT_ORIGINS = ["https://pedronucci.github.io", "https://carteira.pedro-nucci10.workers.dev"];
 export const corsFor = (origin: string | null, allowed: string | undefined): Record<string, string> => {
   const extra = (allowed ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   const list = [...new Set([...DEFAULT_ORIGINS, ...extra])];
