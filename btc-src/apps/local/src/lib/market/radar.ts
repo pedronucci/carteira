@@ -29,7 +29,8 @@ const THEME_RE: Record<Theme, RegExp> = {
 
 export interface Tagged extends NewsItem { assets: string[]; themes: Theme[] }
 export function classify(n: NewsItem): Tagged {
-  const t = `${n.title} ${n.summary}`;
+  // "Mercado Bitcoin" é uma corretora, não notícia sobre o ativo BTC
+  const t = `${n.title} ${n.summary}`.replace(/mercado bitcoin/gi, "MB");
   return { ...n, assets: ASSETS.filter((a) => ASSET_RE[a]!.test(t)), themes: THEMES.map((x) => x.value).filter((th) => THEME_RE[th].test(t)) };
 }
 

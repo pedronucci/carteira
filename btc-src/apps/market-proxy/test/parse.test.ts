@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dedupe, parseFeed, parseIcs, classifyEvent, nyOffsetHours } from "../src/parse";
+import { cleanSummary, dedupe, parseFeed, parseIcs, classifyEvent, nyOffsetHours } from "../src/parse";
 import { fedEvents } from "../src/sources";
 import { corsFor, limited } from "../src/index";
 
@@ -34,6 +34,15 @@ describe("parseFeed", () => {
     expect(s.length).toBe(280); expect(s.endsWith("…")).toBe(true);
   });
   it("id estável por URL", () => expect(parseFeed(rss, "x")[0]!.id).toBe(parseFeed(rss, "y")[0]!.id));
+});
+
+describe("cleanSummary", () => {
+  it("remove rodapés de WordPress", () => {
+    expect(cleanSummary("Resumo bom. The post Título appeared first on InfoMoney .")).toBe("Resumo bom.");
+    expect(cleanSummary("Resumo. O post Título apareceu primeiro em Portal do Bitcoin .")).toBe("Resumo.");
+    expect(cleanSummary("Texto Fonte: Título Veja mais notícias sobre Bitcoin. Siga o Livecoins no Facebook")).toBe("Texto");
+    expect(cleanSummary("Sem rodapé")).toBe("Sem rodapé");
+  });
 });
 
 describe("dedupe", () => {

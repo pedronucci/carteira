@@ -16,6 +16,7 @@ describe("classify", () => {
     expect(classify(n("O sol brilha hoje")).assets).toContain("SOL");
     expect(classify(n("Receita da empresa cresce")).assets).toEqual([]);
   });
+  it("\"Mercado Bitcoin\" (corretora) não marca BTC", () => expect(classify(n("Mercado Bitcoin libera acesso após ataque hacker")).assets).toEqual([]));
   it("hack envolvendo Ethereum", () => { const t = classify(n("Hacker drena protocolo em Ethereum")); expect(t.assets).toEqual(["ETH"]); expect(t.themes).toContain("seguranca"); });
 });
 

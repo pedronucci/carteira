@@ -4,7 +4,7 @@ import { nyOffsetHours, type CalEvent } from "./parse";
 export const FEEDS: { id: string; name: string; url: string }[] = [
   { id: "portaldobitcoin", name: "Portal do Bitcoin", url: "https://portaldobitcoin.uol.com.br/feed/" },
   { id: "livecoins", name: "Livecoins", url: "https://livecoins.com.br/feed/" },
-  { id: "cointelegraph-br", name: "Cointelegraph Brasil", url: "https://br.cointelegraph.com/rss" },
+  { id: "cointelegraph-br", name: "Cointelegraph Brasil", url: "https://cointelegraph.com.br/rss" },
   { id: "infomoney", name: "InfoMoney", url: "https://www.infomoney.com.br/feed/" },
 ];
 export const BLS_ICS = "https://www.bls.gov/schedule/news_release/bls.ics";

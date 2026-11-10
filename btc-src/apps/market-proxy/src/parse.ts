@@ -11,6 +11,12 @@ export function decode(s: string): string {
 }
 const unCdata = (s: string) => s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, (_, c: string) => c.replace(/&/g, "&amp;").replace(/</g, "&lt;"));
 export const plain = (s: string) => decode(decode(unCdata(s)).replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
+/** Remove rodapés automáticos de WordPress ("The post X appeared first on Y", "O post X apareceu primeiro em Y", "Fonte: … Veja mais notícias… Siga o … no Facebook…"). */
+export const cleanSummary = (s: string) => s
+  .replace(/\s*(?:The post|O post)\b[\s\S]*?(?:appeared first on|apareceu primeiro (?:em|no|na))[\s\S]*$/i, "")
+  .replace(/\s*Fonte:[\s\S]*$/i, "")
+  .replace(/\s*Veja mais notícias sobre[\s\S]*$/i, "")
+  .replace(/\s+/g, " ").trim();
 const trunc = (s: string, n = 280) => (s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s);
 export function hash(s: string): string { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); }
 
@@ -32,7 +38,7 @@ export function parseFeed(xml: string, source: string): NewsItem[] {
       if (!url) url = decode(/<link\b[^>]*\bhref="([^"]+)"/i.exec(b)?.[1] ?? "");
       const when = Date.parse(plain(tag(b, ["pubDate", "published", "updated", "dc:date"]) ?? ""));
       if (!title || !/^https?:\/\//i.test(url) || !Number.isFinite(when)) continue;
-      const summary = trunc(plain(tag(b, ["description", "summary", "content:encoded", "content"]) ?? ""));
+      const summary = trunc(cleanSummary(plain(tag(b, ["description", "summary", "content:encoded", "content"]) ?? "")));
       out.push({ id: hash(url), title, url, source, publishedAt: when, summary });
     }
     return out;
