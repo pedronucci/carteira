@@ -5,7 +5,7 @@
  */
 import { useMemo, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
-import { Activity, Bitcoin, Percent, Wallet } from "lucide-react";
+import { Activity, Bitcoin, Layers3, TrendingUp, Radio, Newspaper, Percent, Wallet } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { assetChanges, btcReturn, evolution, fmtMoney, type EvoCcy, type EvoPeriod } from "@bst/domain";
 import { usePerps, usePortfolio } from "@/lib/api";
@@ -27,7 +27,7 @@ import { Notice, Panel, PanelHead, Pill, Segmented, cn, toneCls, toneOf } from "
 
 export const PERIODS: { value: EvoPeriod; label: string }[] = [{ value: "1", label: "24h" }, { value: "7", label: "7d" }, { value: "30", label: "30d" }, { value: "90", label: "90d" }, { value: "365", label: "1a" }, { value: "all", label: "Tudo" }];
 const WIDE = ["Tamanho", "Margem", "Funding"];
-const NA = <span className="text-muted">Não disponível</span>;
+const NA = <span className="text-muted">—</span>;
 const dmy = (t: number) => new Date(t).toLocaleDateString("pt-BR");
 const hm = (t: number) => new Date(t).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
@@ -66,7 +66,7 @@ function KpiCard({ icon: Icon, label, value, sub, tone, gold, spark, sparkTone, 
         <span className={cn("grid size-9 shrink-0 place-items-center rounded-xl border", gold ? "border-gold/40 bg-gold-soft text-gold" : "border-accent/30 bg-accent-soft text-accent")}><Icon className="size-[18px]" strokeWidth={1.75} /></span>
         <p className="truncate text-[12.5px] text-ink-2">{label}</p>
       </div>
-      <div className="[container-type:inline-size]"><p className={cn("num whitespace-nowrap text-[clamp(18px,10cqi,28px)] leading-tight font-semibold tracking-[-0.03em]", toneCls(tone))}>{value}</p></div>
+      <div className="nexus-kpi-value [container-type:inline-size]"><p className={cn("num whitespace-nowrap text-[clamp(18px,10cqi,28px)] leading-tight font-semibold tracking-[-0.03em]", toneCls(tone))}>{value}</p></div>
       {sub && <p className="num min-h-4 text-[11.5px] leading-snug text-muted">{sub}</p>}
       {spark && <Spark values={spark} tone={sparkTone ?? (gold ? "gold" : "accent")} />}
     </Panel>
@@ -86,7 +86,7 @@ export function HubKpis({ h, period, ccy }: { h: Hub; period: EvoPeriod; ccy: Ev
   const reliable = evo && !evo.incomplete;
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <KpiCard className="col-span-1" icon={Wallet} label="Patrimônio consolidado" value={f.money(pv.c.totalUsd)}
+      <KpiCard className="col-span-1" icon={Layers3} label="Patrimônio consolidado" value={f.money(pv.c.totalUsd)}
         sub={evoUsd?.rawChangeUsd != null ? <>variação {label}: <span className={toneCls(toneOf(evoUsd.rawChangeUsd))}>{f.money(evoUsd.rawChangeUsd, { signed: true })}</span>{evoUsd.flowsUsd ? <> · fluxos {f.money(evoUsd.flowsUsd, { signed: true })}</> : null}</> : `${pv.accounts.length} conta${pv.accounts.length === 1 ? "" : "s"} · histórico em formação`}
         spark={evoUsd?.points.map((p) => p.usd)} />
       <KpiCard icon={Activity} label="P&L dos perpétuos" tone={toneOf(upnl)} value={upnl != null ? f.money(upnl, { signed: true }) : NA}
@@ -95,7 +95,7 @@ export function HubKpis({ h, period, ccy }: { h: Hub; period: EvoPeriod; ccy: Ev
         sub={evoBtc?.rawChangeUsd != null && evoBtc.points.length >= 2 && evoBtc.points[0]!.value ? <>{label}: <span className={toneCls(toneOf(evoBtc.points.at(-1)!.value! - evoBtc.points[0]!.value))}>{f.pct(evoBtc.points.at(-1)!.value! / evoBtc.points[0]!.value - 1)}</span></> : "histórico em formação"}
         spark={evoBtc?.points.map((p) => p.value)} />
       <KpiCard className="col-span-1" icon={Percent} label="Rentabilidade (TWR)" tone={reliable ? toneOf(evo!.twr) : null} value={evo?.twr != null ? f.pct(evo.twr) : NA}
-        sub={evo?.twr != null ? <>{label} · sem aportes/retiradas{evo.incomplete && evo.availableFrom ? <> · <span className="text-warn">desde {dmy(evo.availableFrom)}</span></> : null}{evo.resultUsd != null ? <> · {f.money(evo.resultUsd, { signed: true })}</> : null}</> : "precisa de ao menos 2 retratos"} />
+        sub={evo?.twr != null ? <>{label} · sem aportes/retiradas{evo.incomplete && evo.availableFrom ? <> · <span className="text-warn">desde {dmy(evo.availableFrom)}</span></> : null}{evo.resultUsd != null ? <> · {f.money(evo.resultUsd, { signed: true })}</> : null}</> : "aguardando histórico"} />
     </div>
   );
 }
@@ -112,7 +112,7 @@ export function EvolutionPanel({ h, period, setPeriod, ccy, setCcy, className }:
   const hodl = evo ? btcReturn(snaps, evo.fromT, evo.toT) : null;
   return (
     <Panel tech className={cn("min-w-0 overflow-hidden", className)}>
-      <PanelHead title="Evolução do patrimônio" right={<Link href="/portfolio" className="text-[12px] font-medium text-accent">Portfólio ›</Link>} />
+      <PanelHead title={<span className="flex items-center gap-2"><TrendingUp className="size-6 text-accent" />Evolução do Patrimônio</span>} right={<Link href="/portfolio" className="text-[12px] font-medium text-accent">Portfólio ›</Link>} />
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3">
         <Segmented size="sm" label="Período" value={period} onChange={setPeriod} options={PERIODS} />
         <Segmented size="sm" label="Moeda" value={ccy} onChange={setCcy} options={[{ value: "USD", label: "USD" }, { value: "BRL", label: "BRL" }, { value: "BTC", label: "BTC" }]} />
@@ -156,8 +156,9 @@ export function PerpsTable({ className }: { className?: string }) {
   const acc = (id: string) => v?.accounts.find((a) => a.id === id)?.name ?? "";
   return (
     <Panel tech className={cn("min-w-0 overflow-hidden", className)}>
-      <PanelHead title="Posições perpétuas" right={<Link href="/perpetuos" className="text-[12px] font-medium text-accent">Detalhes ›</Link>}
+      <PanelHead title={<span className="flex items-center gap-2"><Activity className="size-6 text-accent" />Posições Perpétuas</span>} right={<Link href="/perpetuos" className="text-[12px] font-medium text-accent">Detalhes ›</Link>}
         sub={v?.connected ? <>{v.summary.count} aberta{v.summary.count === 1 ? "" : "s"} · bruta {f.money(v.summary.gross, { compact: true })} · atualizado {v.at ? hm(v.at) : "—"}{v.stale ? <span className="ml-1 text-warn">· desatualizado</span> : null}</> : undefined} />
+      {!v?.connected && <div className="nexus-empty-positions"><table className="w-full"><thead><tr>{["Ativo", "Direção", "Qtd.", "Preço Médio", "Mark Price", "P&L", "ROI"].map(x=><th key={x}>{x}</th>)}</tr></thead><tbody><tr><td colSpan={7}>Conecte sua conta Hyperliquid para acompanhar as posições.</td></tr></tbody></table></div>}
       {!v || !v.connected ? <p className="px-4 py-6 text-[13px] text-muted">Conecte um endereço da Hyperliquid em Ajustes para acompanhar suas posições (somente leitura).</p>
         : v.positions.length === 0 ? <p className="px-4 py-6 text-[13px] text-muted">Nenhuma posição perpétua aberta agora.</p> : (
           <>
@@ -204,7 +205,7 @@ export function PerpsTable({ className }: { className?: string }) {
             <p className="border-t border-line px-4 py-2 text-[11px] text-muted">ROI = P&L aberto ÷ margem usada da posição. Funding mostrado como resultado (positivo = recebido) desde a abertura.</p>
           </>
         )}
-      <AttrMini />
+      <details className="nexus-attr-details"><summary>Contribuição por ativo no período</summary><AttrMini /></details>
     </Panel>
   );
 }
@@ -252,7 +253,7 @@ export function AllocationPanel({ h, className }: { h: Hub; className?: string }
   const parts = h.pv ? allocation(h.pv.c.assets) : [];
   return (
     <Panel tech className={cn("overflow-hidden", className)}>
-      <PanelHead title="Alocação por ativo" sub="patrimônio próprio + equity de derivativos (sem notional)" />
+      <PanelHead title={<span className="flex items-center gap-2"><Layers3 className="size-5 text-accent" />Alocação do Portfólio</span>}  />
       {parts.length === 0 ? <p className="px-4 py-6 text-[13px] text-muted">Sem ativos avaliados ainda.</p> : (
         <div className="flex items-center gap-4 px-4 py-4">
           <div className="nexus-donut"><Donut parts={parts} /><span>{f.money(h.pv?.c.totalUsd ?? 0, { compact: true })}</span></div>
@@ -274,7 +275,7 @@ export function AssetPerfPanel({ h, period, className }: { h: Hub; period: EvoPe
   const byKey = new Map(r.rows.map((x) => [x.key, x]));
   return (
     <Panel tech className={cn("overflow-hidden", className)}>
-      <PanelHead title="Desempenho por ativo" sub="variação de valor no período e do preço em 24h" />
+      <PanelHead title={<span className="flex items-center gap-2"><Activity className="size-5 text-accent" />Desempenho por Ativo</span>}  />
       {assets.length === 0 ? <p className="px-4 py-6 text-[13px] text-muted">Sem ativos avaliados ainda.</p> : (
         <ul className="divide-y divide-line">
           {assets.map((a) => {
@@ -457,13 +458,13 @@ export function RadarCard({ className }: { className?: string }) {
   const unseen = mi.alerts.length;
   return (
     <Panel tech className={cn("overflow-hidden", className)}>
-      <PanelHead title="Radar de Mercado" sub={unseen ? `${unseen} alerta${unseen > 1 ? "s" : ""} ativo${unseen > 1 ? "s" : ""}` : "sem alertas agora"} right={<Link href="/mercado-intel" className="text-[12px] font-medium text-accent">Abrir ›</Link>} />
+      <PanelHead title={<span className="flex items-center gap-2"><Radio className="size-5 text-accent" />Radar de Mercado</span>} sub={unseen ? `${unseen} alerta${unseen > 1 ? "s" : ""} ativo${unseen > 1 ? "s" : ""}` : "sem alertas agora"} right={<Link href="/mercado-intel" className="text-[12px] font-medium text-accent">Abrir ›</Link>} />
       {!st.proxyUrl ? <p className="px-4 py-6 text-[13px] text-muted">Proxy de notícias não configurado. <Link href="/mercado-intel" className="text-accent">Configurar</Link></p> : (
         <div className="space-y-3 px-4 py-4 text-[12.5px]">
           {mi.alerts[0] && <div><p className="lbl">Atenção</p><p className="font-semibold leading-snug">{mi.alerts[0].title}</p></div>}
           <div><p className="lbl">Próximo evento de alta importância</p><p className="font-semibold">{next ? <>{next.kind} <span className="num text-[12px] font-normal text-muted">{new Date(next.start).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span></> : "Dados insuficientes"}</p></div>
           <div><p className="lbl">Manchetes relevantes</p>
-            {top.length === 0 ? <p className="text-muted">Dados insuficientes</p> : <ul className="space-y-1.5">{top.map((n) => <li key={n.id} className="leading-snug"><a href={n.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{n.title}</a> <span className="text-[11px] text-muted">{n.source}</span></li>)}</ul>}
+            {top.length === 0 ? <p className="text-muted">Dados insuficientes</p> : <ul className="space-y-1.5">{top.map((n) => <li key={n.id} className="nexus-news-row"><span className="nexus-news-icon"><Newspaper className="size-5" /></span><div><a href={n.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{n.title}</a><span className="block text-[10px] text-muted">{n.source}</span></div><time className="text-[10px] text-muted" dateTime={new Date(n.publishedAt).toISOString()}>{new Date(n.publishedAt).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</time></li>)}</ul>}
           </div>
         </div>
       )}

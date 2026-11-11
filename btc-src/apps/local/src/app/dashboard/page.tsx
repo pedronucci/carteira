@@ -6,7 +6,7 @@
 import { NexusHorizon } from "@/components/nexus-art";
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ArrowUpRight, Bitcoin, Percent, SlidersHorizontal, TrendingUp, Wallet } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, Bitcoin, ChartLine, NotebookPen, ShieldCheck, Percent, SlidersHorizontal, TrendingUp, Wallet } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { DEFAULT_SCENARIO_RULES, SCENARIO_LABEL, type EvoCcy, type EvoPeriod } from "@bst/domain";
 import { AllocationPanel, AssetPerfPanel, EvolutionPanel, FundingFeesPanel, HlSummaryPanel, HubKpis, IntegrationsPanel, LongShortPanel, MarginPanel, PerfAnalyticsCard, PerpsTable, RadarCard, useHub } from "./hub";
@@ -73,9 +73,9 @@ export default function DashboardPage() {
       <div className="nexus-hero mb-4 flex flex-wrap items-center justify-between gap-3">
         <NexusHorizon />
         <div>
-          <p className="mb-1 text-[13px] text-ink-2">Seu centro de comando</p>
+          <p className="mb-1 text-[13px] text-ink-2">Olá, Pedro</p>
           <h1 className="text-[26px] font-bold tracking-[-0.03em] lg:text-[32px]">Visão Geral</h1>
-          <p className="mt-1 text-[13px] text-ink-2">Portfólio, perpétuos e estratégia BTC em um só lugar.</p>
+          <p className="mt-1 text-[13px] text-ink-2">Seu centro de comando para portfólio, perpétuos e estratégia BTC</p>
         </div>
         <div className="nexus-hero-actions"><Link href="/ajustes" className="nexus-sync"><span className={healthy ? "bg-gain" : "bg-warn"} /><div>{healthy ? "Fontes atualizadas" : "Verificar conexões"}<small>{latest ? `Última leitura: ${new Date(latest).toLocaleTimeString("pt-BR", {hour:"2-digit",minute:"2-digit"})}` : "Aguardando fontes"}</small></div></Link><Button size="sm" variant="ghost" onClick={() => setEdit(true)}><SlidersHorizontal className="size-4" />Personalizar</Button></div>
       </div>
@@ -83,31 +83,29 @@ export default function DashboardPage() {
       <div className="mb-4"><HubKpis h={hub} period={period} ccy={hccy} /></div>
 
       <div className="nexus-grid grid gap-4 lg:grid-cols-12 lg:items-stretch">
-        <EvolutionPanel h={hub} period={period} setPeriod={setPeriod} ccy={hccy} setCcy={setHccy} className="nexus-evolution lg:order-1 lg:col-span-6" />
-        <PerpsTable className="nexus-perps lg:order-4 lg:col-span-7" />
-        <MarginPanel className="lg:order-14 lg:col-span-4" />
-        <AllocationPanel h={hub} className="nexus-allocation lg:order-2 lg:col-span-3" />
-        <LongShortPanel className="lg:order-15 lg:col-span-4" />
-        <AssetPerfPanel h={hub} period={period} className="nexus-asset-perf lg:order-3 lg:col-span-3" />
-        <FundingFeesPanel className="lg:order-16 lg:col-span-4" />
-        <HlSummaryPanel className="lg:order-17 lg:col-span-4" />
-        {setup || !s ? (
-          <Panel glow className="lg:order-9 lg:col-span-7">
-            <PanelHead title={<span className="flex items-center gap-2 text-gold"><Bitcoin className="size-4" />Estratégia BTC/USDC</span>} />
-            <div className="px-4 py-6">
-              <p className="text-[14px] text-ink-2">Nenhum ciclo configurado ainda.</p>
-              <Link href="/estrategia" className="mt-3 inline-flex text-[13px] font-medium text-accent">Configurar a estratégia ›</Link>
-            </div>
-          </Panel>
-        ) : <StrategyCard s={s} />}
-        <IntegrationsPanel className="lg:order-10 lg:col-span-5" />
-        <PerfAnalyticsCard className="lg:order-12 lg:col-span-4" />
-        <RadarCard className="nexus-radar lg:order-5 lg:col-span-5" />
-
-        <Link href="/diario" className="nexus-shortcut lg:order-12 lg:col-span-4"><span>Trading Journal</span><p>Histórico, estatísticas e padrões das operações.</p><ArrowUpRight /></Link>
-        <Link href="/risco" className="nexus-shortcut lg:order-12 lg:col-span-4"><span>Risk Center</span><p>Riscos, margem e simulação de cenários.</p><ArrowUpRight /></Link>
-        {s && shown.map((id) => <Widget key={id} id={id} s={s} />)}
+        <EvolutionPanel h={hub} period={period} setPeriod={setPeriod} ccy={hccy} setCcy={setHccy} className="nexus-evolution lg:col-span-6" />
+        <AllocationPanel h={hub} className="nexus-allocation lg:col-span-3" />
+        <AssetPerfPanel h={hub} period={period} className="nexus-asset-perf lg:col-span-3" />
+        <PerpsTable className="nexus-perps lg:col-span-7" />
+        <RadarCard className="nexus-radar lg:col-span-5" />
       </div>
+      <div className="nexus-footer">
+        <Panel glow className="nexus-strategy-summary">
+          <PanelHead title={<span className="flex items-center gap-2 text-gold"><Bitcoin className="size-6" />Estratégia BTC/USDC</span>} right={<Pill tone="gold">{s?.scope.kind === "strategy" && !s.closed ? "Ciclo ativo" : "Sem ciclo ativo"}</Pill>} />
+          <div className="nexus-strategy-metrics">
+            <div><p>Patrimônio</p><strong>{s ? f.money(s.equity) : "—"}</strong></div>
+            <div><p>BTC equivalente</p><strong>{s ? f.btc(s.btc.equivalent, 4) : "—"}</strong></div>
+            <div><p>P&L do ciclo</p><strong className={toneCls(toneOf(s?.result))}>{s ? f.money(s.result, {signed:true}) : "—"}</strong></div>
+            <Link href="/estrategia" aria-label="Abrir estratégia" className="nexus-strategy-arrow"><ArrowUpRight /></Link>
+          </div>
+        </Panel>
+        {[{href:"/inteligencia",title:"Performance Analytics",desc:"Análise de resultados e contribuição por ativo.",icon:ChartLine},{href:"/diario",title:"Trading Journal",desc:"Histórico, estatísticas e padrões das operações.",icon:NotebookPen},{href:"/risco",title:"Risk Center",desc:"Riscos, margem, liquidação e simulação de cenários.",icon:ShieldCheck}].map(x=><Link key={x.href} href={x.href} className="nexus-shortcut"><span className="flex items-center gap-2"><x.icon className="size-7 text-accent" />{x.title}</span><p>{x.desc}</p><ArrowUpRight /></Link>)}
+      </div>
+      <details className="nexus-extras"><summary>Análises complementares e personalização</summary><div className="grid gap-4 lg:grid-cols-12">
+        <MarginPanel className="lg:col-span-4" /><LongShortPanel className="lg:col-span-4" /><FundingFeesPanel className="lg:col-span-4" />
+        <HlSummaryPanel className="lg:col-span-4" /><IntegrationsPanel className="lg:col-span-4" /><PerfAnalyticsCard className="lg:col-span-4" />
+        {s && <StrategyCard s={s} />}{s && shown.map(id=><Widget key={id} id={id} s={s} />)}
+      </div></details>
 
       {edit && (
         <Sheet title="Personalizar Dashboard" onClose={() => setEdit(false)}>

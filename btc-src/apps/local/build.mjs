@@ -23,7 +23,7 @@ await build({
   jsx: "automatic", tsconfig: resolve(here, "tsconfig.json"),
   alias: { "next/link": resolve(here, "src/lib/next-link.tsx"), "next/navigation": resolve(here, "src/lib/next-navigation.ts") },
   define: { "process.env.NODE_ENV": '"production"', "process.env.BST_DEMO": JSON.stringify(process.env.BST_DEMO ?? "") },
-  loader: { ".woff2": "dataurl", ".woff": "dataurl" },
+  loader: { ".webp": "dataurl", ".woff2": "dataurl", ".woff": "dataurl" },
   logLevel: "warning", legalComments: "none",
 });
 

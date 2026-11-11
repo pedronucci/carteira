@@ -261,8 +261,9 @@ function BottomNav() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const path = usePathname();
   return (
-    <div className="flex min-h-dvh">
+    <div className={cn("flex min-h-dvh", path === "/" && "nexus-home")}>
       <Sidebar />
       <div className="min-w-0 flex-1">
         <TopBar />

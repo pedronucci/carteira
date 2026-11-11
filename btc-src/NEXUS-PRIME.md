@@ -23,3 +23,12 @@ A arte é uma interpretação vetorial leve da referência, não uma reproduçã
 ## Prévia
 
 Do diretório `publicacao/repositorio`: `python -m http.server 8766 --bind 127.0.0.1 --directory btc-src/apps/local/dist`. Abra `http://127.0.0.1:8766`.
+
+
+## Revisão 2 — maior fidelidade ao modelo
+
+Nova arte raster criada a partir da referência, convertida para WebP (133.434 bytes) e incorporada ao HTML. Substitui o horizonte vetorial simplificado. A geração foi feita com a habilidade imagegen; Pillow foi usado apenas para otimização em WebP, sem edição do conteúdo.
+
+Dashboard recomposta com header baixo, quatro KPIs de 108 px, primeira linha de painéis de 234 px, tabela/radar de 240 px e faixa inferior de estratégia e três atalhos. As análises complementares continuam acessíveis em um bloco expansível. Notícias mantêm fonte e hora reais. Tabela mantém cabeçalho mesmo sem contas carregadas. Nenhum dado ilustrativo foi adicionado.
+
+Arquivos adicionais: `apps/local/src/assets/nexus-horizon-v2.webp`, `apps/local/src/assets.d.ts`, adaptação do loader de imagem no `apps/local/build.mjs`. Cálculos, sincronização e persistência permanecem sem alterações nesta revisão. Produção continua aguardando aprovação.
