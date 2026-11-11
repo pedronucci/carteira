@@ -3,6 +3,7 @@
  * Navegação do Terminal 5.0: barra lateral recolhível no computador, barra inferior com 5 acessos
  * no celular (Início, Estratégia BTC, Portfólio, Mercado, Mais) e cabeçalho com o estado das integrações.
  */
+import { NexusTerrain } from "./nexus-art";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
@@ -41,6 +42,8 @@ export const MODULES: Module[] = [
   { href: "/diario", label: "Trading Journal", short: "Diário", icon: NotebookPen },
   { href: "/ajustes", label: "Configurações e Integrações", short: "Ajustes", icon: Settings, match: ["/ajustes", "/ajustes"] },
 ];
+const moduleOrder = ["/", "/perpetuos", "/portfolio", "/inteligencia", "/diario", "/mercado-intel", "/estrategia", "/risco", "/trading", "/mercado", "/ajustes"];
+MODULES.sort((a,b) => moduleOrder.indexOf(a.href) - moduleOrder.indexOf(b.href));
 const BOTTOM = ["/", "/perpetuos", "/portfolio", "/estrategia"];
 
 export function useActive() {
@@ -51,14 +54,10 @@ export function useActive() {
 /** Marca do terminal. */
 export function Mark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 512 512" className={cn("size-8 shrink-0", className)} aria-hidden>
-      <defs><linearGradient id="mk" x1="0.2" y1="0.05" x2="0.8" y2="0.95"><stop offset="0" stopColor="#ffb648" /><stop offset="0.55" stopColor="#f7931a" /><stop offset="1" stopColor="#d4650a" /></linearGradient></defs>
-      <rect width="512" height="512" rx="114" fill="#0b1220" />
-      <circle cx="256" cy="256" r="196" fill="url(#mk)" />
-      <g fill="#fff" transform="translate(256 256) rotate(14) scale(1.6) translate(-101 -100)">
-        <path fillRule="evenodd" d="M60 40 H112 C128 40 136 52 136 68 C136 80 130 88 122 92 C134 96 142 106 142 120 C142 142 128 160 108 160 H60 Z M82 59 H107 C113 59 116 64 116 70.5 C116 77 112 82 106 82 H82 Z M82 101 H110 C117 101 121 107 121 120.5 C121 134 116 141 108 141 H82 Z" />
-        {[66, 90].flatMap((x) => [24, 158].map((y) => <rect key={`${x}-${y}`} x={x} y={y} width="12" height="18" rx="2" />))}
-      </g>
+    <svg viewBox="0 0 100 100" className={cn("size-10 shrink-0 nexus-mark", className)} aria-hidden>
+      <defs><linearGradient id="nexus-mark"><stop stopColor="#efffff"/><stop offset=".45" stopColor="#00e5df"/><stop offset="1" stopColor="#066576"/></linearGradient></defs>
+      <path d="M50 4L96 88H60L50 69 40 88H4Z" fill="url(#nexus-mark)"/>
+      <path d="M50 25L30 66H44L50 54 57 66H70Z" fill="#06171e"/><path d="M50 4V25L30 66 4 88Z" fill="#c9ffff" opacity=".4"/>
     </svg>
   );
 }
@@ -188,24 +187,25 @@ function Sidebar() {
   const [open, setOpen] = useState(() => { try { return localStorage.getItem("bst.nav.open") !== "0"; } catch { return true; } });
   const toggle = () => setOpen((o) => { try { localStorage.setItem("bst.nav.open", o ? "0" : "1"); } catch { /* */ } return !o; });
   return (
-    <aside className={cn("sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-line bg-sidebar/85 backdrop-blur-xl transition-[width] duration-200 lg:flex", open ? "w-[232px]" : "w-[60px]")}>
-      <div className="flex h-12 items-center gap-2.5 border-b border-line px-[14px]">
-        <Mark className="size-7" />
-        {open && <span className="min-w-0 leading-tight"><span className="block truncate text-[12px] font-semibold tracking-[0.06em]">BITCOIN STRATEGY</span><span className="block text-[11px] tracking-[0.06em] text-muted">TERMINAL <span className="text-accent">5.1</span></span></span>}
+    <aside className={cn("nexus-sidebar sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-line bg-sidebar/85 backdrop-blur-xl transition-[width] duration-200 lg:flex", open ? "w-[242px]" : "w-[60px]")}>
+      <div className="flex h-[112px] items-center gap-3 border-b border-line px-[14px]">
+        <Mark className="size-12" />
+        {open && <span className="min-w-0 leading-tight"><span className="block truncate text-[12px] font-semibold tracking-[0.06em]">BITCOIN<br />STRATEGY</span><span className="block text-[11px] tracking-[0.06em] text-muted"><span className="text-accent">TERMINAL</span></span></span>}
       </div>
-      <nav className="flex-1 space-y-0.5 overflow-y-auto p-2" aria-label="Módulos">
+      <nav className="relative z-10 flex-1 space-y-1.5 overflow-y-auto p-2" aria-label="Módulos">
         {MODULES.map((m) => {
           const on = active(m);
           return (
             <Link key={m.href} href={m.href} title={open ? undefined : m.label} aria-current={on ? "page" : undefined}
-              className={cn("group relative flex h-10 items-center gap-3 rounded-xl border px-2.5 text-[13px] font-medium transition-colors duration-150",
-                on ? "border-gold/55 bg-gradient-to-b from-gold/[0.16] to-gold/[0.05] text-gold shadow-[0_14px_28px_-18px_var(--glow-shadow)]" : "border-transparent text-ink-2 [@media(hover:hover)]:hover:bg-surface-2/70 [@media(hover:hover)]:hover:text-ink")}>
+              className={cn("group relative flex h-11 items-center gap-3 rounded-xl border px-2.5 text-[13px] font-medium transition-colors duration-150",
+                on ? "border-accent/70 bg-accent-soft text-ink shadow-[inset_0_0_20px_#00e5df20,0_0_14px_#00e5df18]" : "border-transparent text-ink-2 [@media(hover:hover)]:hover:bg-surface-2/70 [@media(hover:hover)]:hover:text-ink")}>
               <m.icon className={cn("size-[18px] shrink-0", !on && m.strategy && "text-gold/80")} strokeWidth={1.75} />
               {open && <span className="truncate">{m.label}</span>}
             </Link>
           );
         })}
       </nav>
+      <NexusTerrain />
       <button onClick={toggle} className="flex h-10 items-center gap-3 border-t border-line px-[19px] text-[12px] text-muted [@media(hover:hover)]:hover:text-ink" aria-label={open ? "Recolher menu" : "Expandir menu"}>
         {open ? <PanelLeftClose className="size-[18px]" /> : <PanelLeftOpen className="size-[18px]" />}{open && "Recolher"}
       </button>
@@ -244,7 +244,7 @@ function BottomNav() {
   const [more, setMore] = useState(false);
   const items = MODULES.filter((m) => BOTTOM.includes(m.href));
   const moreOn = MODULES.some((m) => !BOTTOM.includes(m.href) && active(m));
-  const cls = (on: boolean) => cn("flex min-h-[52px] flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl text-[10.5px] font-semibold transition-colors", on ? "bg-gold-soft text-gold ring-1 ring-gold/45" : "text-ink-2");
+  const cls = (on: boolean) => cn("flex min-h-[52px] flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl text-[10.5px] font-semibold transition-colors", on ? "bg-accent-soft text-accent ring-1 ring-accent/45" : "text-ink-2");
   return (
     <>
       <nav className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+8px)] z-40 flex gap-0.5 rounded-3xl border border-line-strong bg-bg/85 p-1.5 shadow-[0_20px_40px_-14px_var(--shadow-pop)] backdrop-blur-2xl lg:hidden" aria-label="Principal">
@@ -266,7 +266,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Sidebar />
       <div className="min-w-0 flex-1">
         <TopBar />
-        <main className="mx-auto max-w-[1280px] px-4 pb-[calc(env(safe-area-inset-bottom)+104px)] lg:px-6 lg:pb-12">{children}</main>
+        <main className="mx-auto max-w-[1760px] px-4 pb-[calc(env(safe-area-inset-bottom)+104px)] lg:px-6 lg:pb-12">{children}</main>
       </div>
       <BottomNav />
     </div>

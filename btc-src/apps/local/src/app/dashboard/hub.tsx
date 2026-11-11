@@ -61,7 +61,7 @@ function Spark({ values, tone = "accent", h = 34 }: { values: (number | null)[];
 
 function KpiCard({ icon: Icon, label, value, sub, tone, gold, spark, sparkTone, className }: { icon: ComponentType<{ className?: string; strokeWidth?: number }>; label: string; value: ReactNode; sub?: ReactNode; tone?: "gain" | "loss" | null; gold?: boolean; spark?: (number | null)[]; sparkTone?: "accent" | "gold" | "gain" | "loss"; className?: string }) {
   return (
-    <Panel glow={gold} tech={!gold} className={cn("flex min-w-0 flex-col gap-2 p-4", className)}>
+    <Panel glow={gold} tech={!gold} className={cn("nexus-kpi flex min-w-0 flex-col gap-2 p-4", className)}>
       <div className="flex items-center gap-2.5">
         <span className={cn("grid size-9 shrink-0 place-items-center rounded-xl border", gold ? "border-gold/40 bg-gold-soft text-gold" : "border-accent/30 bg-accent-soft text-accent")}><Icon className="size-[18px]" strokeWidth={1.75} /></span>
         <p className="truncate text-[12.5px] text-ink-2">{label}</p>
@@ -86,15 +86,15 @@ export function HubKpis({ h, period, ccy }: { h: Hub; period: EvoPeriod; ccy: Ev
   const reliable = evo && !evo.incomplete;
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <KpiCard gold className="col-span-2 lg:col-span-1" icon={Wallet} label="Patrimônio consolidado" value={f.money(pv.c.totalUsd)}
+      <KpiCard className="col-span-1" icon={Wallet} label="Patrimônio consolidado" value={f.money(pv.c.totalUsd)}
         sub={evoUsd?.rawChangeUsd != null ? <>variação {label}: <span className={toneCls(toneOf(evoUsd.rawChangeUsd))}>{f.money(evoUsd.rawChangeUsd, { signed: true })}</span>{evoUsd.flowsUsd ? <> · fluxos {f.money(evoUsd.flowsUsd, { signed: true })}</> : null}</> : `${pv.accounts.length} conta${pv.accounts.length === 1 ? "" : "s"} · histórico em formação`}
         spark={evoUsd?.points.map((p) => p.usd)} />
       <KpiCard icon={Activity} label="P&L dos perpétuos" tone={toneOf(upnl)} value={upnl != null ? f.money(upnl, { signed: true }) : NA}
         sub={perps?.connected ? `${perps.summary.count} posiç${perps.summary.count === 1 ? "ão" : "ões"} · ROI ${roi != null ? f.pct(roi) : "n/d"} s/ margem` : "Hyperliquid não conectada"} spark={perpSpark} sparkTone={toneOf(upnl) === "loss" ? "loss" : "gain"} />
-      <KpiCard icon={Bitcoin} label="Equivalente em BTC" value={pv.c.btcEquivalent != null ? `${f.btc(pv.c.btcEquivalent, 4)} BTC` : NA}
+      <KpiCard gold icon={Bitcoin} label="Equivalente em BTC" value={pv.c.btcEquivalent != null ? `${f.btc(pv.c.btcEquivalent, 4)} BTC` : NA}
         sub={evoBtc?.rawChangeUsd != null && evoBtc.points.length >= 2 && evoBtc.points[0]!.value ? <>{label}: <span className={toneCls(toneOf(evoBtc.points.at(-1)!.value! - evoBtc.points[0]!.value))}>{f.pct(evoBtc.points.at(-1)!.value! / evoBtc.points[0]!.value - 1)}</span></> : "histórico em formação"}
         spark={evoBtc?.points.map((p) => p.value)} />
-      <KpiCard gold className="col-span-2 lg:col-span-1" icon={Percent} label="Rentabilidade (TWR)" tone={reliable ? toneOf(evo!.twr) : null} value={evo?.twr != null ? f.pct(evo.twr) : NA}
+      <KpiCard className="col-span-1" icon={Percent} label="Rentabilidade (TWR)" tone={reliable ? toneOf(evo!.twr) : null} value={evo?.twr != null ? f.pct(evo.twr) : NA}
         sub={evo?.twr != null ? <>{label} · sem aportes/retiradas{evo.incomplete && evo.availableFrom ? <> · <span className="text-warn">desde {dmy(evo.availableFrom)}</span></> : null}{evo.resultUsd != null ? <> · {f.money(evo.resultUsd, { signed: true })}</> : null}</> : "precisa de ao menos 2 retratos"} />
     </div>
   );
@@ -255,7 +255,7 @@ export function AllocationPanel({ h, className }: { h: Hub; className?: string }
       <PanelHead title="Alocação por ativo" sub="patrimônio próprio + equity de derivativos (sem notional)" />
       {parts.length === 0 ? <p className="px-4 py-6 text-[13px] text-muted">Sem ativos avaliados ainda.</p> : (
         <div className="flex items-center gap-4 px-4 py-4">
-          <Donut parts={parts} />
+          <div className="nexus-donut"><Donut parts={parts} /><span>{f.money(h.pv?.c.totalUsd ?? 0, { compact: true })}</span></div>
           <ul className="min-w-0 flex-1 space-y-1.5">
             {parts.map((p) => (
               <li key={p.symbol} className="flex items-center gap-2 text-[12.5px]"><span className="size-2.5 shrink-0 rounded-sm" style={{ background: p.color }} aria-hidden /><span className="min-w-0 flex-1 truncate">{p.symbol}</span><span className="num hidden text-muted 2xl:inline">{f.money(p.value, { compact: true })}</span><span className="num w-11 text-right text-ink-2">{f.pct(p.share, false)}</span></li>
@@ -282,6 +282,7 @@ export function AssetPerfPanel({ h, period, className }: { h: Hub; period: EvoPe
             return (
               <li key={a.econ} className="flex items-center gap-3 px-4 py-2.5 text-[13px]">
                 <CoinLogo symbol={a.symbol} size={22} />
+                {c?.changePct != null && <span className="nexus-perf-bar" aria-hidden><i style={{width: `${Math.min(100, Math.abs(c.changePct) * 200)}%`, background: c.changePct >= 0 ? "var(--color-accent)" : "var(--color-loss)"}} /></span>}
                 <span className="min-w-0 flex-1 truncate font-medium">{a.symbol}</span>
                 <span className="num hidden text-[12px] text-muted 2xl:inline">{f.money(a.valueUsd!, { compact: true })}</span>
                 <span className={cn("num w-[68px] text-right text-[12px]", toneCls(toneOf(c?.changePct)))}>{c?.changePct != null ? f.pct(c.changePct) : "—"}</span>

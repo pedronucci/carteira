@@ -3,6 +3,7 @@
  * Dashboard do Terminal 5.0: visão geral com a Estratégia BTC/USDC em destaque permanente.
  * Só mostra dados reais. Fontes ainda não conectadas aparecem como estado vazio, nunca com valores de exemplo.
  */
+import { NexusHorizon } from "@/components/nexus-art";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowDown, ArrowUp, ArrowUpRight, Bitcoin, Percent, SlidersHorizontal, TrendingUp, Wallet } from "lucide-react";
@@ -53,6 +54,10 @@ export default function DashboardPage() {
   const [period, setPeriod] = useState<EvoPeriod>("30");
   const [hccy, setHccy] = useState<EvoCcy>("USD");
   const hub = useHub(period, hccy);
+  const sources = useIntegrations();
+  const connected = sources.filter(x => x.state !== "none");
+  const healthy = connected.length > 0 && connected.every(x => x.state === "ok");
+  const latest = Math.max(0, ...connected.map(x => x.at ?? 0));
   const s = q.data;
   const pts = useMemo(() => (s ? inCcy(s.points, f.ccy, f.fx) : []), [s, f.ccy, f.fx]);
   const save = (l: Layout) => { setLayout(l); try { localStorage.setItem(DKEY, JSON.stringify(l)); } catch { /* */ } };
@@ -64,26 +69,28 @@ export default function DashboardPage() {
     const shown = WIDGETS.length ? layout.order.filter((id) => !layout.hidden.includes(id)) : [];
 
   return (
-    <div className="pt-5">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <div className="nexus-dashboard pt-5">
+      <div className="nexus-hero mb-4 flex flex-wrap items-center justify-between gap-3">
+        <NexusHorizon />
         <div>
+          <p className="mb-1 text-[13px] text-ink-2">Seu centro de comando</p>
           <h1 className="text-[26px] font-bold tracking-[-0.03em] lg:text-[32px]">Visão Geral</h1>
-          <p className="mt-1 text-[13px] text-ink-2">Panorama da sua estratégia, portfólio e desempenho consolidado. Somente leitura.</p>
+          <p className="mt-1 text-[13px] text-ink-2">Portfólio, perpétuos e estratégia BTC em um só lugar.</p>
         </div>
-        <Button size="sm" variant="ghost" onClick={() => setEdit(true)}><SlidersHorizontal className="size-4" />Personalizar</Button>
+        <div className="nexus-hero-actions"><Link href="/ajustes" className="nexus-sync"><span className={healthy ? "bg-gain" : "bg-warn"} /><div>{healthy ? "Fontes atualizadas" : "Verificar conexões"}<small>{latest ? `Última leitura: ${new Date(latest).toLocaleTimeString("pt-BR", {hour:"2-digit",minute:"2-digit"})}` : "Aguardando fontes"}</small></div></Link><Button size="sm" variant="ghost" onClick={() => setEdit(true)}><SlidersHorizontal className="size-4" />Personalizar</Button></div>
       </div>
 
       <div className="mb-4"><HubKpis h={hub} period={period} ccy={hccy} /></div>
 
-      <div className="grid gap-4 lg:grid-cols-12 lg:items-stretch">
-        <EvolutionPanel h={hub} period={period} setPeriod={setPeriod} ccy={hccy} setCcy={setHccy} className="lg:order-2 lg:col-span-4" />
-        <PerpsTable className="lg:order-1 lg:col-span-8" />
-        <MarginPanel className="lg:order-3 lg:col-span-4" />
-        <AllocationPanel h={hub} className="lg:order-6 lg:col-span-4" />
-        <LongShortPanel className="lg:order-4 lg:col-span-4" />
-        <AssetPerfPanel h={hub} period={period} className="lg:order-7 lg:col-span-4" />
-        <FundingFeesPanel className="lg:order-5 lg:col-span-4" />
-        <HlSummaryPanel className="lg:order-8 lg:col-span-4" />
+      <div className="nexus-grid grid gap-4 lg:grid-cols-12 lg:items-stretch">
+        <EvolutionPanel h={hub} period={period} setPeriod={setPeriod} ccy={hccy} setCcy={setHccy} className="nexus-evolution lg:order-1 lg:col-span-6" />
+        <PerpsTable className="nexus-perps lg:order-4 lg:col-span-7" />
+        <MarginPanel className="lg:order-14 lg:col-span-4" />
+        <AllocationPanel h={hub} className="nexus-allocation lg:order-2 lg:col-span-3" />
+        <LongShortPanel className="lg:order-15 lg:col-span-4" />
+        <AssetPerfPanel h={hub} period={period} className="nexus-asset-perf lg:order-3 lg:col-span-3" />
+        <FundingFeesPanel className="lg:order-16 lg:col-span-4" />
+        <HlSummaryPanel className="lg:order-17 lg:col-span-4" />
         {setup || !s ? (
           <Panel glow className="lg:order-9 lg:col-span-7">
             <PanelHead title={<span className="flex items-center gap-2 text-gold"><Bitcoin className="size-4" />Estratégia BTC/USDC</span>} />
@@ -94,9 +101,11 @@ export default function DashboardPage() {
           </Panel>
         ) : <StrategyCard s={s} />}
         <IntegrationsPanel className="lg:order-10 lg:col-span-5" />
-        <PerfAnalyticsCard className="lg:order-11 lg:col-span-4" />
-        <RadarCard className="lg:order-11 lg:col-span-4" />
+        <PerfAnalyticsCard className="lg:order-12 lg:col-span-4" />
+        <RadarCard className="nexus-radar lg:order-5 lg:col-span-5" />
 
+        <Link href="/diario" className="nexus-shortcut lg:order-12 lg:col-span-4"><span>Trading Journal</span><p>Histórico, estatísticas e padrões das operações.</p><ArrowUpRight /></Link>
+        <Link href="/risco" className="nexus-shortcut lg:order-12 lg:col-span-4"><span>Risk Center</span><p>Riscos, margem e simulação de cenários.</p><ArrowUpRight /></Link>
         {s && shown.map((id) => <Widget key={id} id={id} s={s} />)}
       </div>
 
@@ -171,7 +180,7 @@ function Widget({ id, s }: { id: WidgetId; s: Snap }) {
   const f = useFmt();
   const m = useMarket();
   const integ = useIntegrations();
-  const span = "lg:order-11 lg:col-span-4";
+  const span = "lg:order-12 lg:col-span-4";
   if (id === "risk") {
     const c = s.current;
     const rules = { ...DEFAULT_SCENARIO_RULES, ...(s.s.settings.scenarioRules ?? {}) };
