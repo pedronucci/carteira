@@ -8,6 +8,14 @@ export const SNAPSHOT_BUCKET_MS = 3600e3;
 export type EvoPeriod = "1" | "7" | "30" | "90" | "365" | "all";
 export type EvoCcy = "USD" | "BRL" | "BTC";
 export interface Flow { t: number; accountId: string; usd: number }
+/** Uma única seleção temporal para retorno, drawdown e benchmark; preserva a âncora real. */
+export function selectSnapshotRange(snaps: PSnapshot[], range: { from: number | null; to: number }): PSnapshot[] {
+  const all = [...snaps].filter((s) => s.t <= range.to).sort((a, b) => a.t - b.t);
+  if (range.from == null) return all;
+  let anchor = -1;
+  for (let i = 0; i < all.length; i++) if (all[i]!.t <= range.from) anchor = i;
+  return anchor >= 0 ? all.slice(anchor) : all.filter((s) => s.t >= range.from!);
+}
 
 export const snapshotTotal = (s: PSnapshot) => (s.total != null && Number.isFinite(s.total) ? s.total : Object.values(s.byAccount).reduce((x, v) => x + v, 0));
 
@@ -82,8 +90,8 @@ export function evolution(snaps: PSnapshot[], flows: Flow[], period: EvoPeriod, 
   const r = rets[rets.length - 1]!;
   return {
     points, rawChangeUsd: tooShort ? null : snapshotTotal(last) - snapshotTotal(first), flowsUsd: fl,
-    resultUsd: tooShort ? null : r.resultUsd, twr: tooShort ? null : r.index - 1, fromT: first.t, toT: last.t,
-    incomplete: tooShort || gap, availableFrom: gap || tooShort ? first.t : null, approx, count: sel.length,
+    resultUsd: tooShort || !r.valid ? null : r.resultUsd, twr: tooShort || !r.valid ? null : r.index - 1, fromT: first.t, toT: last.t,
+    incomplete: tooShort || gap || !r.valid, availableFrom: gap || tooShort ? first.t : null, approx, count: sel.length,
   };
 }
 

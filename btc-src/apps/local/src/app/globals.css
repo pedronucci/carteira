@@ -150,3 +150,13 @@ input[type="date"]::-webkit-calendar-picker-indicator, input[type="datetime-loca
 header.pt-safe { background-image: linear-gradient(var(--statusbar), var(--statusbar)); background-size: 100% env(safe-area-inset-top); background-repeat: no-repeat; }
 .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 .no-scrollbar { scrollbar-width: none; } .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Revisão de legibilidade e acessibilidade: metadados essenciais e navegação. */
+.num, td { font-variant-numeric: tabular-nums; }
+.text-\[10px\], .text-\[11px\] { font-size: 12px; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--color-accent, #38bdf8); outline-offset: 3px;
+}
+.ticker-mask:focus-within .ticker-track { animation-play-state: paused; }
+@media (max-width: 640px) { button, [role="tab"] { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }

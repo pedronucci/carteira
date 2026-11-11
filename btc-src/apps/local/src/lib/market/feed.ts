@@ -7,7 +7,7 @@ import type { CalEvent, NewsItem } from "./radar";
 const KEY = "bst.mi.v1", CACHE = "bst.mi.cache.v1";
 /** Preenchido depois do deploy do Worker (ou pelo usuário na tela). Pode ser trocado na tela do Market Intelligence. */
 export const DEFAULT_PROXY = "https://bst-market-proxy.pedro-nucci10.workers.dev";
-export interface SourceStatus { name: string; ok: boolean; count?: number; error?: string }
+export interface SourceStatus { name: string; ok: boolean; count?: number; error?: string; mode?: "static" | "live"; coverageUntil?: number }
 export interface MiCache { newsAt: number | null; calAt: number | null; news: NewsItem[]; events: CalEvent[]; newsSources: SourceStatus[]; calSources: SourceStatus[] }
 export interface MiPrefs { proxyUrl: string; read: string[]; seenAlerts: string[]; dismissed: string[]; alertsOn: boolean }
 export interface MiState extends MiCache, MiPrefs { loading: boolean; error: string | null }

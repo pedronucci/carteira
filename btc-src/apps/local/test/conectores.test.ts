@@ -26,7 +26,7 @@ describe("EVM", () => {
     expect(r.holdings.find((h) => h.symbol === "USDC.e")!.wrapped).toBe(true);
   });
   it("uma rede fora do ar não derruba as outras", async () => {
-    const f: typeof fetch = async (u) => (String(u).includes("arbitrum") ? new Response("", { status: 503 }) : new Response(JSON.stringify([{ id: 0, result: "0x0" }]), { status: 200 }));
+    const f: typeof fetch = async (u, init) => (String(u).includes("arbitrum") ? new Response("", { status: 503 }) : new Response(JSON.stringify(JSON.parse(String(init!.body)).map((c: { id: number }) => ({ id: c.id, result: "0x0" }))), { status: 200 }));
     const r = await syncEvm("acc", ADDR, { chains: [42161, 8453], fetch: f });
     expect(r.chains.find((c) => c.id === 42161)!.ok).toBe(false);
     expect(r.chains.find((c) => c.id === 8453)!.ok).toBe(true);

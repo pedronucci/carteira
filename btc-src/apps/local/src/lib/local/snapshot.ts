@@ -41,7 +41,7 @@ export async function buildSnapshot(startAt: number, opts: { arbUsd?: number } =
     const h = hlState().history;
     if (!h) return { snap: null, missing: ["equity"], detail: ["Histórico da Hyperliquid ainda não sincronizado."] };
     // patrimônio oficial no instante
-    const flows = h.ledger.filter((l) => l.kind !== "INTERNAL").map((l): [number, number] => [l.time, l.kind === "IN" ? l.amount : -l.amount]);
+    const flows = h.ledger.filter((l) => l.kind === "IN" || l.kind === "OUT").map((l): [number, number] => [l.time, l.kind === "IN" ? l.amount : -l.amount]);
     let equity = seriesAt(h.accountValue, startAt, 6 * 3600e3, flows);
     if (equity != null) detail.push("Patrimônio pelo histórico oficial de valor da conta (Hyperliquid).");
     else if (!acc.truncated && !acc.otherCoins.length) {
@@ -86,7 +86,7 @@ export async function buildSnapshot(startAt: number, opts: { arbUsd?: number } =
       snap: {
         at: startAt, source: "reconstructed", equityUsd: equity.toFixed(2), btcUsd: String(mark),
         balances: acc.includeArb && opts.arbUsd ? [{ coin: "USDC", where: "arb", total: String(opts.arbUsd), usd: String(opts.arbUsd) }] : [],
-        positions: size > 0 ? [{ coin: "BTC", size: String(size), mark: String(mark), officialEntry: officialEntry ? officialEntry.toFixed(2) : undefined, upnl: officialEntry ? String(size * (mark - officialEntry)) : undefined }] : [],
+        positions: size !== 0 ? [{ coin: "BTC", size: String(size), mark: String(mark), officialEntry: officialEntry ? officialEntry.toFixed(2) : undefined, upnl: officialEntry ? String(size * (mark - officialEntry)) : undefined }] : [],
         accountPnlUsd: pnl != null ? pnl.toFixed(2) : undefined,
         note: detail.join(" "),
       },
@@ -101,7 +101,7 @@ export async function buildSnapshot(startAt: number, opts: { arbUsd?: number } =
     missing, detail: ["Calculado pelos seus lançamentos até o início."],
     snap: {
       at: startAt, source: "reconstructed", equityUsd: st.equity.toFixed(2), btcUsd: String(px),
-      balances: [], positions: st.size > 0 ? [{ coin: "BTC", size: String(st.size), mark: String(px) }] : [],
+      balances: [], positions: st.size !== 0 ? [{ coin: "BTC", size: String(st.size), mark: String(px) }] : [],
       note: "Calculado pelos lançamentos manuais.",
     },
   };

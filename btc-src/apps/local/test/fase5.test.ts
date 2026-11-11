@@ -40,7 +40,7 @@ describe("Risk Center com o ciclo real", () => {
   it("desempenho separado: Estratégia com TWR e sem Sharpe (amostra curta)", async () => {
     const { views } = await boot();
     const p = views.performanceView();
-    expect(p.strat!.twr!).toBeCloseTo(-0.0292, 3);
+    expect(p.strat!.twr!).toBeCloseTo(-0.0182601183, 6);
     expect(p.sStats.sharpe).toBeNull();
     expect(p.cycles).toHaveLength(1);
   });

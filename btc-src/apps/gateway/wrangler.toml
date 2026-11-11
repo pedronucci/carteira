@@ -7,6 +7,14 @@ compatibility_date = "2026-11-01"
 # mantém as variáveis configuradas no painel a cada deploy (sem isso, o Wrangler as apagaria)
 keep_vars = true
 
+[[durable_objects.bindings]]
+name = "REQUEST_GATE"
+class_name = "RequestGate"
+
+[[migrations]]
+tag = "request-gate-v1"
+new_sqlite_classes = ["RequestGate"]
+
 [assets]
 directory = "../local/dist"
 binding = "ASSETS"

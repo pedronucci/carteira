@@ -23,6 +23,8 @@ const closeAt = () => 76150; // fechamento diário (irrelevante aqui: tudo acont
 const run = () => replay({
   startT: START, endT: NOW, equity0: 8006, size0: 0, px0: 76150,
   events: windowEvents([open, deposit, add1, add2], START, NOW, true), closeAt, pxEnd: PX_NOW,
+  // Fixture com cotação intradiária explícita no aporte; produção não usa execução futura.
+  priceAt: (t) => t === deposit.t ? (add1 as Extract<SEv, { k: "trade" }>).px : null,
 });
 
 describe("ciclo de 05/11/2026 21:13", () => {

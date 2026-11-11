@@ -27,3 +27,12 @@ describe("simulate", () => {
   });
   it("grid", () => expect(scenarioGrid({ accountValue: 1000, positions: [btc] }, "BTC", [-0.1, 0, 0.1])).toHaveLength(3));
 });
+
+
+it("garantia incompleta e margem isolada não produzem fronteira de liquidação", () => {
+  for (const input of [{ accountValue: 1000, positions: [btc], liquidationAvailable: false }, { accountValue: 1000, positions: [{ ...btc, marginMode: "isolated" }] }]) {
+    expect(simulate(input, { BTC: -0.5 }).liquidationAvailable).toBe(false);
+    expect(breakEvenShock(input, ["BTC"])).toBeNull();
+  }
+  expect(() => simulate({ accountValue: 1000, positions: [btc] }, { BTC: -1.1 })).toThrow();
+});

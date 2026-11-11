@@ -38,15 +38,17 @@ export async function loadNews(): Promise<{ items: NewsItem[]; sources: { id: st
   const all = res.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
   return { items: dedupe(all).slice(0, 150), sources };
 }
-export async function loadCalendar(): Promise<{ events: CalEvent[]; sources: { name: string; ok: boolean; error?: string }[] }> {
-  const sources: { name: string; ok: boolean; error?: string }[] = [{ name: "federalreserve.gov (lista fixa)", ok: true }];
+type CalendarSource = { name: string; ok: boolean; error?: string; mode: "static" | "live"; coverageUntil: number };
+export async function loadCalendar(): Promise<{ events: CalEvent[]; sources: CalendarSource[] }> {
+  const fed = fedEvents(), fedUntil = Math.max(0, ...fed.map(e => e.start));
+  const sources: CalendarSource[] = [{ name: "federalreserve.gov", mode: "static", coverageUntil: fedUntil, ok: fedUntil > Date.now() }];
   let bls: CalEvent[] = [];
   let liveErr = "";
   try { bls = parseIcs(await get(BLS_ICS, 21600), "bls.gov", "US").filter((e) => e.kind !== "OUTRO"); if (!bls.length) liveErr = "sem eventos"; }
   catch (e) { liveErr = String((e as Error).message).slice(0, 80); }
-  if (bls.length) sources.push({ name: "bls.gov (ao vivo)", ok: true });
-  else { bls = blsStaticEvents(); sources.push({ name: `bls.gov (lista fixa; ao vivo indisponível: ${liveErr})`, ok: true }); }
-  const events = [...fedEvents(), ...bls].sort((a, b) => a.start - b.start);
+  if (bls.length) sources.push({ name: "bls.gov", mode: "live", coverageUntil: Math.max(...bls.map(e => e.start)), ok: true });
+  else { bls = blsStaticEvents(); sources.push({ name: "bls.gov", mode: "static", coverageUntil: Math.max(0, ...bls.map(e => e.start)), ok: false, error: `Consulta ao vivo indisponível: ${liveErr}` }); }
+  const events = [...fed, ...bls].sort((a, b) => a.start - b.start);
   return { events, sources };
 }
 

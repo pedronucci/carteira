@@ -24,7 +24,8 @@ interface St {
 
 function finish(s: St, closedAt: number | null, funding: FundingRow[]): Trade {
   const end = closedAt ?? Infinity;
-  const fund = funding.filter((f) => f.coin === s.coin && f.time >= s.openedAt && f.time <= end).reduce((a, f) => a + f.usd, 0);
+  // Funding na fronteira é anterior à execução: pertence à posição que está fechando.
+  const fund = [...new Map(funding.map((f) => [f.key, f])).values()].filter((f) => f.coin === s.coin && f.time > s.openedAt && f.time <= end).reduce((a, f) => a + f.usd, 0);
   return {
     id: `${s.coin}|${s.openedAt}`, coin: s.coin, dir: s.dir, openedAt: s.openedAt, closedAt, open: closedAt === null,
     entries: s.entries, exits: s.exits, maxSize: s.max, avgEntry: s.inSz > EPS ? s.inPx / s.inSz : null, avgExit: s.outSz > EPS ? s.outPx / s.outSz : null,
@@ -33,7 +34,7 @@ function finish(s: St, closedAt: number | null, funding: FundingRow[]): Trade {
 }
 
 export function groupTrades(fills: Fill[], funding: FundingRow[]): Trade[] {
-  const sorted = [...fills].sort((a, b) => a.time - b.time || a.key.localeCompare(b.key));
+  const sorted = [...new Map(fills.map((f) => [f.key, f])).values()].sort((a, b) => a.time - b.time || a.key.localeCompare(b.key, undefined, { numeric: true }));
   const byCoin = new Map<string, Fill[]>();
   for (const f of sorted) { const l = byCoin.get(f.coin) ?? []; l.push(f); byCoin.set(f.coin, l); }
   const out: Trade[] = [];
@@ -53,10 +54,10 @@ export function groupTrades(fills: Fill[], funding: FundingRow[]): Trade[] {
           a.cur += f.sz; a.max = Math.max(a.max, a.cur); a.inPx += f.px * f.sz; a.inSz += f.sz; a.entries++; a.fees += f.fee; a.pnl += f.closedPnl; a.fills.push(f);
         } else if (f.sz > a.cur + EPS) {
           const k = a.cur / f.sz;
-          const close: Fill = { ...f, sz: a.cur, fee: f.fee * k, closedPnl: f.closedPnl * k };
+          const close: Fill = { ...f, sz: a.cur, fee: f.fee * k, closedPnl: f.closedPnl };
           a.outPx += close.px * close.sz; a.outSz += close.sz; a.exits++; a.pnl += close.closedPnl; a.fees += close.fee; a.fills.push(close);
           out.push(finish(a, f.time, funding)); a = null;
-          rest = { ...f, sz: f.sz - close.sz, fee: f.fee - close.fee, closedPnl: f.closedPnl - close.closedPnl, startPosition: 0 };
+          rest = { ...f, sz: f.sz - close.sz, fee: f.fee - close.fee, closedPnl: 0, startPosition: 0 };
         } else {
           a.cur -= f.sz; a.outPx += f.px * f.sz; a.outSz += f.sz; a.exits++; a.pnl += f.closedPnl; a.fees += f.fee; a.fills.push(f);
           if (a.cur <= EPS) { out.push(finish(a, f.time, funding)); a = null; }

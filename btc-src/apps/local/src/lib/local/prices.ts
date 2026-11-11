@@ -75,8 +75,8 @@ export async function ensureHistory(sinceTs: number): Promise<void> {
       getJson<{ prices: [number, number][] }>("https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=brl&days=365&interval=daily"),
     ]);
     const day = (ms: number) => Math.floor(ms / 1000 / DAY) * DAY;
-    cache.usd = merge(cache.usd, u.prices.map(([t, c]) => ({ t: day(t), o: c, h: c, l: c, c, v: 0 })));
-    cache.brl = merge(cache.brl, b.prices.map(([t, c]) => ({ t: day(t), c })));
+    cache.usd = merge(cache.usd, u.prices.map(([t, c]) => ({ t: day(t) - DAY, o: c, h: c, l: c, c, v: 0, synthetic: true })));
+    cache.brl = merge(cache.brl, b.prices.map(([t, c]) => ({ t: day(t) - DAY, c })));
     cache.source = "CoinGecko (fechamento diário, 365 dias)";
   }
   cache.fetchedAt = Date.now();
@@ -137,8 +137,10 @@ export const prices = () => cache;
 
 /** Fechamento do dia em USD e BRL (busca o último candle até o instante). */
 function lookup<T extends { t: number }>(arr: T[], ts: number): T | null {
+  // Um fechamento só é conhecido no fim do candle, nunca em sua abertura.
+  const availableAt = ts - DAY + 1;
   let lo = 0, hi = arr.length - 1, best = -1;
-  while (lo <= hi) { const m = (lo + hi) >> 1; if (arr[m]!.t <= ts) { best = m; lo = m + 1; } else hi = m - 1; }
+  while (lo <= hi) { const m = (lo + hi) >> 1; if (arr[m]!.t <= availableAt) { best = m; lo = m + 1; } else hi = m - 1; }
   if (best < 0 || ts - arr[best]!.t > 4 * DAY) return null;
   return arr[best]!;
 }
@@ -147,11 +149,9 @@ export function closeUsdAt(ts: number): number | null { return lookup(cache.usd,
 export function closeBrlAt(ts: number): number | null {
   const b = lookup(cache.brl, ts)?.c;
   if (b) return b;
-  const u = closeUsdAt(ts);
-  const fx = cache.spot?.usdBrl;
-  return u && fx ? u * fx : null;
+  return null;
 }
 export function usdBrlAt(ts: number): number | null {
   const u = closeUsdAt(ts), b = lookup(cache.brl, ts)?.c;
-  return u && b ? b / u : cache.spot?.usdBrl ?? null;
+  return u && b ? b / u : null;
 }

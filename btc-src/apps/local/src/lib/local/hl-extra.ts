@@ -29,7 +29,7 @@ const patch = (id: string, p: Partial<HlExtra>) => commit({ ...st, accounts: st.
 
 if (typeof window !== "undefined") window.addEventListener("bst:extra-reload", () => { st = load(); subs.forEach((f) => f()); });
 
-export const extraId = (address: string) => `hl-${address.trim().toLowerCase().slice(2, 8)}`;
+export const extraId = (address: string) => `hl-${address.trim().toLowerCase().slice(2)}`;
 
 /** Valida e cadastra. Recusa endereço inválido, repetido ou igual ao da conta principal. */
 export function addExtra(name: string, address: string): string {

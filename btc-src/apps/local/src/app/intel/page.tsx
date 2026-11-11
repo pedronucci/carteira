@@ -41,7 +41,7 @@ export default function IntelPage() {
                 ["s/ capital", s.roc != null ? f.pct(s.roc) : "—", toneOf(s.roc), "retorno absoluto %"],
                 ["TWR", s.twr != null ? f.pct(s.twr) : "—", toneOf(s.twr), "ponderado no tempo"],
                 ["TIR (MWR)", v.sMwr != null && v.spanDays >= 30 ? f.pct(v.sMwr) : "—", toneOf(v.sMwr), v.spanDays < 30 ? "a.a., após 30 dias" : "ponderado pelo dinheiro, a.a."],
-                ["Queda máx.", f.pct(-s.maxDD), s.maxDD > 0 ? "loss" : null, undefined],
+                ["Queda máx.", f.pct(s.maxDD == null ? null : -s.maxDD), (s.maxDD ?? 0) > 0 ? "loss" : null, undefined],
                 ["Volatilidade", v.sStats.volAnnual != null ? f.pct(v.sStats.volAnnual, false) : "—", null, v.sStats.volAnnual != null ? "anualizada" : need(v.sStats.days, 14)],
                 ["Sharpe", v.sStats.sharpe != null ? v.sStats.sharpe.toFixed(2).replace(".", ",") : "—", null, v.sStats.sharpe != null ? "taxa livre = 0" : need(v.sStats.days, 30)],
                 ["vs. só BTC", s.vsHodlPct != null ? f.pct(s.vsHodlPct) : "—", toneOf(s.vsHodlPct), undefined],

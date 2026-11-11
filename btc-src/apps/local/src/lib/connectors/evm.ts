@@ -47,6 +47,7 @@ export async function syncEvm(accountId: string, address: string, opts: { chains
       ], f);
       const err = res.find((r) => r.error);
       if (err) throw new Error(err.error!.message);
+      if (res.length !== tokens.length + 1 || res.some((r, i) => r.id !== i || !r.result)) throw new Error("Resposta RPC incompleta: saldos anteriores preservados.");
       const native = ASSETS.find((a) => a.chainId === c.id && a.address === "native")!;
       const all = [{ def: native, raw: res[0]?.result }, ...tokens.map((t, i) => ({ def: t, raw: res[i + 1]?.result }))];
       for (const { def, raw } of all) {

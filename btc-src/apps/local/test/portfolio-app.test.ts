@@ -16,7 +16,7 @@ async function boot() {
   ls.setItem("bst.prices.v1", JSON.stringify({ usd: [], brl: [], source: "t", fetchedAt: 0, spot: { btcUsd: PX, btcBrl: PX * 5, usdBrl: 5, at: Date.now(), source: "t", fxSource: "t", stale: false } }));
   (globalThis as unknown as { localStorage: MemStorage }).localStorage = ls;
   vi.resetModules();
-  // sem IndexedDB no Node: o portfólio fica em memória e o erro de gravação é registrado (não quebra)
+  // IndexedDB simulado pelo setup; testes aguardam confirmação de gravação.
   const db = await import("../src/lib/portfolio/db");
   const pe = await import("../src/lib/portfolio/engine");
   const store = await import("../src/lib/local/store");
@@ -81,8 +81,62 @@ describe("backup v4", () => {
     expect(parsed.version).toBe(4);
     expect(parsed.portfolio.manual).toHaveLength(1);
     await db.updatePortfolio((d) => { d.manual = []; d.accounts = []; });
-    store.importBackup(text);
+    await store.importBackup(text);
     await new Promise((r) => setTimeout(r, 0));
     expect(db.portfolio().manual).toHaveLength(1);
   });
+});
+
+
+describe("regressões contábeis e persistência da auditoria", () => {
+  it("reduzir saldo conserva o sinal negativo do ajuste", async () => {
+    const { pe, db } = await boot();
+    await pe.saveManualHolding({ institution: "X", name: "", symbol: "BTC", qty: "1" });
+    await pe.saveManualHolding({ institution: "X", name: "", symbol: "BTC", qty: "0.5" });
+    expect(db.portfolio().events.at(-1)!.usd).toBe(-50000);
+    expect(pe.portfolioView().flows.at(-1)!.usd).toBe(-50000);
+  });
+  it("classificar transferência interna retira o fluxo de capital", async () => {
+    const { pe, db } = await boot();
+    await db.updatePortfolio(d => { d.events.push({ id: "out", accountId: "a", t: 1, kind: "withdraw", econ: "USDC", qty: 100, usd: 100 }); });
+    await pe.resolvePending("out", "internal");
+    expect(pe.portfolioView().flows).toHaveLength(0);
+  });
+  it("backup inválido em outra seção não altera a estratégia", async () => {
+    const { store } = await boot();
+    const before = structuredClone(store.getStore());
+    const backup = JSON.parse(store.exportBackup());
+    backup.portfolio.manual = [{ qty: "Infinity", accountId: "inexistente" }];
+    await expect(store.importBackup(JSON.stringify(backup))).rejects.toThrow();
+    expect(store.getStore()).toEqual(before);
+  });
+  it("falha do IndexedDB rejeita gravação, informa erro e permite nova tentativa", async () => {
+    const { db } = await boot();
+    const original = globalThis.indexedDB;
+    Object.defineProperty(globalThis, "indexedDB", { configurable: true, writable: true, value: undefined });
+    try { await expect(db.updatePortfolio(d => { d.manualPrices.BTC = 123; })).rejects.toThrow(); }
+    finally { globalThis.indexedDB = original; }
+    expect(db.portfolioError()).toMatch(/salvar/);
+    expect(db.portfolio().manualPrices.BTC).toBeUndefined();
+    await db.updatePortfolio(d => { d.manualPrices.BTC = 456; });
+    expect(db.portfolioError()).toBeNull(); expect(db.portfolio().manualPrices.BTC).toBe(456);
+  });
+  it("CSV com aspas preserva separadores e rejeita infinito/custo inválido", async () => {
+    const { pe } = await boot();
+    expect(pe.parseHoldingsCsv('ativo,quantidade,instituicao\nBTC,0.25,"Conta, principal"').rows[0]!.institution).toBe("Conta, principal");
+    expect(pe.parseHoldingsCsv("ativo;quantidade\nBTC;Infinity").errors).toHaveLength(1);
+    expect(pe.parseHoldingsCsv("ativo;quantidade;custo\nBTC;1;abc").errors).toHaveLength(1);
+  });
+});
+
+
+it("recupera restauração interrompida usando diário persistente", async () => {
+  const { pe, db, store } = await boot();
+  await pe.saveManualHolding({ institution: "Original", name: "", symbol: "BTC", qty: "1" });
+  const original = { data: structuredClone(store.getStore()), portfolio: db.exportPortfolio(), extra: null };
+  localStorage.setItem("bst.restore.pending.v1", JSON.stringify(original));
+  await db.updatePortfolio(d => { d.manual = []; });
+  expect(await store.recoverInterruptedRestore()).toBe(true);
+  expect(db.portfolio().manual[0]!.qty).toBe("1");
+  expect(localStorage.getItem("bst.restore.pending.v1")).toBeNull();
 });

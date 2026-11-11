@@ -29,8 +29,8 @@ describe("fluxos externos", () => {
   it("Buy & Hold compra BTC com cada aporte no preço do dia", () => {
     const close = (day: number) => (day * 1000 < T0 + 5 * D ? 100_000 : 50_000);
     const r = replay({ ...base, closeAt: close, pxEnd: 50_000, events: [flow(T0 + 6 * D, 5_000)] });
-    expect(r.hodlUnits).toBeCloseTo(0.1 + 0.1); // 10.000/100k + 5.000/50k
-    expect(r.hodl).toBeCloseTo(10_000);
+    expect(r.hodlUnits).toBeCloseTo(0.1 + 0.05); // cotação conhecida ANTES do aporte: 100k
+    expect(r.hodl).toBeCloseTo(7_500);
   });
 });
 

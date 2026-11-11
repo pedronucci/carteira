@@ -102,7 +102,7 @@ export function buildLedger(events: LedgerEvent[], method: CostMethod): LedgerRe
     }
     let left = q, cost = ZERO;
     const consumed: SellResult["consumedLots"] = [];
-    for (const l of lots) {
+    for (const l of [...lots].sort((a, b) => a.acquiredAt - b.acquiredAt)) {
       if (left.lte(EPS)) break;
       if (l.remaining.lte(EPS)) continue;
       const take = Decimal.min(l.remaining, left);
@@ -116,6 +116,9 @@ export function buildLedger(events: LedgerEvent[], method: CostMethod): LedgerRe
   };
 
   for (const ev of sorted) {
+    const eventQty = ev.type === "CONVERT" ? ev.qtyOut : ev.qty;
+    if (!eventQty.isFinite() || eventQty.lte(0)) throw new Error(`Evento ${ev.id}: quantidade deve ser positiva e finita.`);
+    if (ev.type === "CONVERT" && (!ev.qtyIn.isFinite() || ev.qtyIn.lte(0))) throw new Error(`Evento ${ev.id}: quantidade recebida inválida.`);
     switch (ev.type) {
       case "BUY": {
         const total = ev.costUsd.plus(ev.feeUsd);
@@ -135,7 +138,8 @@ export function buildLedger(events: LedgerEvent[], method: CostMethod): LedgerRe
         const { cost, consumed } = consume(ev.qty, ev.id);
         const effQty = consumed.reduce((a, c) => a.plus(c.qty), ZERO);
         qty = qty.minus(effQty); basis = basis.minus(cost);
-        const pnl = net.minus(cost);
+        // Receita sem estoque/custo conhecido não pode virar lucro fictício.
+        const pnl = net.mul(effQty.div(ev.qty)).minus(cost);
         realized = realized.plus(pnl);
         soldQty = soldQty.plus(ev.qty); sellProceeds = sellProceeds.plus(net); fees = fees.plus(ev.feeUsd);
         sells.push({ eventId: ev.id, ts: ev.ts, qty: ev.qty, proceedsUsd: net, costBasisUsd: cost, realizedPnlUsd: pnl, returnPct: safeDiv(pnl, cost), consumedLots: consumed });

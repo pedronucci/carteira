@@ -16,7 +16,8 @@ describe("groupTrades", () => {
   it("inversão divide o fill", () => {
     const r = groupTrades([F(1, "ETH", "B", 2, 100, 0, 0, 10), F(2, "ETH", "A", 5, 90, 2, -20, 25)], []);
     expect(r).toHaveLength(2);
-    expect(r[0]!.realizedPnl).toBeCloseTo(-8); expect(r[0]!.fees).toBeCloseTo(20);
+    expect(r[0]!.realizedPnl).toBeCloseTo(-20); expect(r[0]!.fees).toBeCloseTo(20);
+    expect(r[1]!.realizedPnl).toBe(0); // abrir o short não realiza o PnL do long encerrado
     expect(r[1]!.dir).toBe("SHORT"); expect(r[1]!.open).toBe(true); expect(r[1]!.maxSize).toBe(3); expect(r[1]!.fees).toBeCloseTo(15);
   });
   it("funding só dentro da janela e por moeda", () => {
@@ -51,4 +52,15 @@ describe("tradeStats e filtros", () => {
     expect(filterTrades(trades, { coin: "SOL", from: 3, to: 4 })).toHaveLength(1);
     expect(filterTrades(trades, { dir: "SHORT" })).toHaveLength(0);
   });
+});
+
+
+it("funding na reversão e fills repetidos são contabilizados uma única vez", () => {
+  const first = F(1, "BTC", "B", 1, 100, 0), reversal = F(2, "BTC", "A", 2, 110, 1, 10, 2);
+  const funding = { key: "fund", time: 2, coin: "BTC", usd: -3 };
+  const trades = groupTrades([first, reversal, reversal], [funding, funding]);
+  expect(trades).toHaveLength(2);
+  expect(trades.map(t => t.realizedPnl)).toEqual([10, 0]);
+  expect(trades.reduce((s, t) => s + t.funding, 0)).toBe(-3);
+  expect(trades.reduce((s, t) => s + t.fees, 0)).toBe(2);
 });

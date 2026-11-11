@@ -74,8 +74,8 @@ describe("transferências internas × aportes", () => {
   const ev = (p: Partial<PEvent> & Pick<PEvent, "id" | "accountId" | "kind" | "qty">): PEvent => ({ t: T, econ: "USDC", ...p });
   it("USDC OKX → Rabby → Hyperliquid: nenhum aporte, nenhum lucro", () => {
     const c = classifyFlows([
-      ev({ id: "1", accountId: "okx", kind: "withdraw", qty: 1000, t: T }),
-      ev({ id: "2", accountId: "rabby", kind: "transfer_in", qty: 999, t: T + 5 * 60e3 }),
+      ev({ id: "1", accountId: "okx", kind: "withdraw", qty: 1000, t: T, txid: "tx-a" }),
+      ev({ id: "2", accountId: "rabby", kind: "transfer_in", qty: 999, t: T + 5 * 60e3, txid: "tx-a" }),
       ev({ id: "3", accountId: "rabby", kind: "transfer_out", qty: 999, t: T + 3600e3 }),
       ev({ id: "4", accountId: "hl", kind: "deposit", qty: 999, t: T + 3600e3 + 120e3 }),
     ], accounts);

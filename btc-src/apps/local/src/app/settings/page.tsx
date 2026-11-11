@@ -125,8 +125,12 @@ function Backup() {
   const file = useRef<HTMLInputElement>(null);
   const [paste, setPaste] = useState("");
   const [confirm, setConfirm] = useState(0);
-  const doImport = (text: string) => {
-    try { importBackup(text); toast("Backup restaurado.", "gain"); setPaste(""); } catch (e) { toast((e as Error).message, "loss"); }
+  const doImport = async (text: string) => {
+    try {
+      const preview = JSON.parse(text);
+      if (!window.confirm(`Restaurar este backup? ${preview.data?.strategies?.length ?? 0} ciclo(s), ${preview.portfolio?.accounts?.length ?? 0} conta(s), exportado em ${preview.exportedAt ?? "data não informada"}. Uma cópia do estado atual será preservada.`)) return;
+      await importBackup(text); toast("Backup validado e salvo neste aparelho.", "gain"); setPaste("");
+    } catch (e) { toast((e as Error).message, "loss"); }
   };
   const download = () => {
     const a = document.createElement("a");

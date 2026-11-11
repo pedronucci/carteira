@@ -13,6 +13,8 @@ import { prices as btcPrices } from "../local/prices";
 import { portfolio, updatePortfolio, uidP } from "./db";
 import { fixUnifiedSnapshots, type UnifiedAccountRef } from "./unified-fix";
 import { isUnifiedMode } from "../local/hl";
+import { csvNumber, csvRows } from "../csv";
+import { finite, dateValue, nonempty } from "../validation";
 
 /** Ids CoinGecko dos ativos econômicos conhecidos. Outros ativos: id informado pelo usuário ou preço manual. */
 export const CG_IDS: Record<string, string> = {
@@ -51,9 +53,9 @@ export async function refreshPortfolioPrices(): Promise<void> {
 /** Livro de preços efetivo: CoinGecko + BTC da Estratégia + preços manuais (marcados como manuais). */
 export function priceBook(): PriceBook {
   const p = portfolio();
-  const out: PriceBook = { ...book };
+  const out: PriceBook = Object.fromEntries(Object.entries(book).filter(([, p]) => p && (!p.at || Date.now() - p.at <= 15 * 60e3)));
   const spot = btcPrices().spot?.btcUsd;
-  if (spot) out.BTC = { usd: spot, change24h: out.BTC?.change24h ?? null, at: btcPrices().spot?.at ?? Date.now(), source: btcPrices().spot?.source };
+  if (spot && !btcPrices().spot?.stale && Date.now() - (btcPrices().spot?.at ?? 0) < 3 * 60e3) out.BTC = { usd: spot, change24h: out.BTC?.change24h ?? null, at: btcPrices().spot?.at ?? Date.now(), source: btcPrices().spot?.source };
   for (const [e, v] of Object.entries(p.manualPrices)) if (!out[e] && v > 0) out[e] = { usd: v, source: "preço manual" };
   return out;
 }
@@ -101,7 +103,13 @@ function strategySource(): { account: PAccount; holdings: PHolding[]; positions:
 export function portfolioView() {
   const p = portfolio();
   const strat = strategySource();
-  const extras = extraState().accounts.filter((x) => x.live).map((x) => liveSource(x.id, `Hyperliquid · ${x.name}`, x.address, x.live!));
+  const configuredPrimary = getStore().settings.hl?.address?.toLowerCase();
+  const missingSources = [
+    ...(configuredPrimary && (!hlState().live || hlState().address !== configuredPrimary) ? ["Hyperliquid principal: saldo indisponível"] : []),
+    ...extraState().accounts.filter(a => !a.live || a.error).map(a => `${a.name}: saldo indisponível ou última sincronização falhou`),
+  ];
+  const seenAddresses = new Set(strat?.account.addresses ?? []);
+  const extras = extraState().accounts.filter((x) => { if (!x.live || seenAddresses.has(x.address)) return false; seenAddresses.add(x.address); return true; }).map((x) => liveSource(x.id, `Hyperliquid · ${x.name}`, x.address, x.live!));
   const accounts = [...(strat ? [strat.account] : []), ...extras.map((e) => e.account), ...p.accounts];
   const holdings = effectiveHoldings(accounts, [...(strat?.holdings ?? []), ...extras.flatMap((e) => e.holdings), ...p.manual, ...p.synced]);
   const positions = [...(strat?.positions ?? []), ...extras.flatMap((e) => e.positions), ...p.positions];
@@ -114,10 +122,21 @@ export function portfolioView() {
   const flows = [
     ...stratFlows,
     // pendentes contam como aporte/retirada até o usuário classificar: entrada não classificada nunca vira lucro
-    ...classified.filter((e) => (e.cls === "external" || e.cls === "pending" || e.kind === "adjust") && e.usd != null).map((e) => ({ t: e.t, accountId: e.accountId, usd: (e.kind === "withdraw" || e.kind === "transfer_out" ? -1 : 1) * Math.abs(e.usd!) })),
+    ...classified.filter((e) => (e.cls === "external" || e.cls === "pending" || e.kind === "adjust" && e.classification !== "internal") && e.usd != null).map((e) => ({ t: e.t, accountId: e.accountId, usd: e.kind === "adjust" ? e.usd! : (e.kind === "withdraw" || e.kind === "transfer_out" ? -1 : 1) * Math.abs(e.usd!) })),
   ];
-  const series = portfolioReturns(p.snapshots, flows);
-  return { accounts, holdings, positions, prices, c, classified, series, flows, pending: classified.filter((e) => e.cls === "pending") };
+  const unresolved = classified.some((e) => (e.cls === "external" || e.cls === "pending" || e.kind === "adjust" && e.classification !== "internal") && e.usd == null);
+  const incompleteHistory = accounts.some((a) => ["okx", "bitcoin"].includes(a.kind) && p.sync[a.id]?.historyComplete !== true) || classified.some(e => e.status === "pending");
+  const warnings = [
+    ...missingSources,
+    ...c.unpriced.map((h) => `${h.symbol} em ${h.account}: sem preço; total parcial.`),
+    ...Object.entries(p.sync).filter(([, s]) => s.state === "error" || s.state === "partial").map(([id, s]) => `${accounts.find((a) => a.id === id)?.name ?? id}: ${s.error ?? s.info ?? "sincronização parcial"}`),
+    ...(unresolved ? ["Há movimentações sem preço histórico: rentabilidade indisponível até completar os valores."] : []),
+    ...(incompleteHistory ? ["Cobertura histórica de transferências por conta incompleta ou confirmações pendentes; rentabilidade indisponível."] : []),
+  ];
+  const snapshots = p.snapshots.map((s) => unresolved || incompleteHistory ? { ...s, quality: "partial" as const } : s);
+  const series = portfolioReturns(snapshots, flows);
+  const quality = missingSources.length || c.unpriced.length || Object.values(p.sync).some((s) => s.state === "error" || s.state === "partial") ? "partial" as const : holdings.some((h) => h.source === "sync" && Date.now() - h.at > 15 * 60e3) ? "stale" as const : "complete" as const;
+  return { accounts, holdings, positions, prices, c, classified, series, flows, snapshots, pending: classified.filter((e) => e.cls === "pending"), quality, warnings };
 }
 
 const REF_COINS = ["ETH", "SOL", "HYPE"];
@@ -136,7 +155,7 @@ export function buildSnapshot(v: ReturnType<typeof portfolioView>, now = Date.no
     }
   } catch { /* sem perpétuos */ }
   const spot = btcPrices().spot;
-  return { t: now, v: 2, byAccount, total: r2(v.c.totalUsd), byAsset, btcUsd: spot?.btcUsd ?? v.prices.BTC?.usd ?? null, usdBrl: spot?.usdBrl ?? null, btcEq: v.c.btcEquivalent ?? null, perps, recon, src: "app", px: refPx(v.prices), uf: 1 };
+  return { t: now, v: 2, quality: v.quality, byAccount, total: r2(v.c.totalUsd), byAsset, btcUsd: spot?.btcUsd ?? v.prices.BTC?.usd ?? null, usdBrl: spot?.usdBrl ?? null, btcEq: v.c.btcEquivalent ?? null, perps, recon, src: "app", px: refPx(v.prices), uf: 1 };
 }
 
 /**
@@ -148,10 +167,10 @@ export function repairUnifiedSnapshots(): boolean {
   if (!p.snapshots.some((s) => s.uf !== 1)) return true;
   const refs: UnifiedAccountRef[] = [];
   const hl = hlState();
-  if (getStore().settings.hl?.address) { if (!hl.live) return false; refs.push({ portfolioId: STRATEGY_ID, perpAccountId: "hl-principal", unified: isUnifiedMode(hl.live.mode) }); }
+  if (getStore().settings.hl?.address) { if (!hl.live || hl.address !== getStore().settings.hl!.address.toLowerCase()) return false; refs.push({ portfolioId: STRATEGY_ID, perpAccountId: "hl-principal", unified: isUnifiedMode(hl.live.mode) }); }
   for (const x of extraState().accounts) { if (!x.live) return false; refs.push({ portfolioId: x.id, perpAccountId: x.id, unified: isUnifiedMode(x.live.mode) }); }
   const r = fixUnifiedSnapshots(p.snapshots, refs);
-  if (r.changed) void updatePortfolio((d) => { d.snapshots = fixUnifiedSnapshots(d.snapshots, refs).snapshots; });
+  if (r.changed) void updatePortfolio((d) => { d.snapshots = fixUnifiedSnapshots(d.snapshots, refs).snapshots; }).catch(() => undefined);
   return true;
 }
 
@@ -160,11 +179,13 @@ export function recordSnapshot(force = false) {
   if (!repairUnifiedSnapshots()) return; // espera a leitura ao vivo para não misturar retratos antigos e novos
   const p = portfolio();
   const v = portfolioView();
-  if (!v.c.byAccount.length) return;
+  if (!v.c.byAccount.length || v.quality !== "complete" || Object.values(p.sync).some((s) => s.state === "sync")) return;
+  const primary = getStore().settings.hl?.address;
+  if (primary && (hlState().address !== primary.toLowerCase() || !hlState().live || Date.now() - hlState().live!.at > 3 * 60e3)) return;
   const snap = buildSnapshot(v);
-  const next = nextSnapshots(p.snapshots, snap, force);
+  const next = nextSnapshots(p.snapshots, snap, true);
   if (next === p.snapshots) return;
-  void updatePortfolio((d) => { d.snapshots = nextSnapshots(d.snapshots, snap, force); });
+  void updatePortfolio((d) => { d.snapshots = nextSnapshots(d.snapshots, snap, true); }).catch(() => undefined);
 }
 
 // ───────── cadastro manual ─────────
@@ -192,6 +213,10 @@ function valueNow(h: PHolding): number | null {
  * a rentabilidade do portfólio desconsidera a diferença de valor.
  */
 export function saveManualHolding(input: ManualInput, editKey?: string) {
+  nonempty(input.symbol.trim(), "Ativo"); finite(input.qty, "Quantidade", 0);
+  if (input.costUsd) finite(input.costUsd, "Custo", 0);
+  if (input.manualPrice) finite(input.manualPrice, "Preço manual", Number.MIN_VALUE);
+  if (input.date) dateValue(input.date, "Data do saldo");
   const sym = input.symbol.trim().toUpperCase();
   const id = exchangeEcon(sym);
   const econ = id.econ;
@@ -208,8 +233,13 @@ export function saveManualHolding(input: ManualInput, editKey?: string) {
     if (input.manualPrice && Number(input.manualPrice) > 0) d.manualPrices[econ] = Number(input.manualPrice);
     d.manual = d.manual.filter((x) => x !== prev && !(x.accountId === accountId && x.assetKey === assetKey));
     d.manual.push(h);
-    const delta = (valueNow(h) ?? 0) - (prev ? valueNow(prev) ?? 0 : 0);
-    if (delta) d.events.push({ id: "adj-" + uidP(), accountId, t: Date.now(), kind: "adjust", econ, qty: Number(h.qty) - (prev ? Number(prev.qty) : 0), usd: delta, note: prev ? "alteração de saldo manual" : "cadastro de saldo manual" });
+    const newPrice = d.manualPrices[econ] ?? priceBook()[econ]?.usd ?? null;
+    const newValue = newPrice == null ? null : Number(h.qty) * newPrice;
+    const oldValue = prev ? valueNow(prev) : 0;
+    const moved = prev && (prev.accountId !== accountId || prev.econ !== econ);
+    if (moved) d.events.push({ id: "adj-" + uidP(), accountId: prev.accountId, t: Date.now(), kind: "adjust", econ: prev.econ, qty: -Number(prev.qty), usd: oldValue == null ? null : -oldValue, note: "remoção por alteração de conta/ativo" });
+    const delta = newValue == null || !moved && oldValue == null ? null : newValue - (moved ? 0 : oldValue!);
+    if (delta !== 0) d.events.push({ id: "adj-" + uidP(), accountId, t: Date.now(), kind: "adjust", econ, qty: Number(h.qty) - (prev && !moved ? Number(prev.qty) : 0), usd: delta, note: prev ? "alteração de saldo manual" : "cadastro de saldo manual" });
   }).then(() => { if (!priceBook()[econ]) void refreshPortfolioPrices(); });
 }
 export function removeManualHolding(key: string) {
@@ -218,11 +248,12 @@ export function removeManualHolding(key: string) {
     if (!h) return;
     d.manual = d.manual.filter((x) => x !== h);
     const v = valueNow(h);
-    if (v) d.events.push({ id: "adj-" + uidP(), accountId: h.accountId, t: Date.now(), kind: "adjust", econ: h.econ, qty: -Number(h.qty), usd: -v, note: "remoção de saldo manual" });
+    if (v !== 0) d.events.push({ id: "adj-" + uidP(), accountId: h.accountId, t: Date.now(), kind: "adjust", econ: h.econ, qty: -Number(h.qty), usd: v == null ? null : -v, note: "remoção de saldo manual" });
   });
 }
 /** Aporte ou retirada externa registrada à mão numa conta do portfólio. */
 export function addManualFlow(accountId: string, kind: "deposit" | "withdraw", usd: number, at: number, note?: string) {
+  finite(usd, "Valor do fluxo", Number.MIN_VALUE); finite(at, "Data do fluxo", 0);
   return updatePortfolio((d) => { d.events.push({ id: "mf-" + uidP(), accountId, t: at, kind, econ: "USD", qty: usd, usd, note }); });
 }
 /** Classificação manual de uma movimentação pendente. */
@@ -230,7 +261,8 @@ export function resolvePending(id: string, as: "internal" | "deposit" | "withdra
   return updatePortfolio((d) => {
     const e = d.events.find((x) => x.id === id);
     if (!e) return;
-    if (as === "internal") e.kind = "adjust"; else e.kind = as;
+    e.classification = as === "internal" ? "internal" : "external";
+    if (as !== "internal") e.kind = as;
     e.note = `${e.note ? e.note + " · " : ""}classificado pelo usuário`;
   });
 }
@@ -242,22 +274,23 @@ export function resolvePending(id: string, as: "internal" | "deposit" | "withdra
  * instituicao, ativo (símbolo), quantidade, nome, rede, data, custo_usd, observacao.
  * Devolve quantas linhas entraram e os erros por linha. Nada é gravado se nenhuma linha for válida.
  */
-export function parseHoldingsCsv(text: string): { rows: ManualInput[]; errors: string[] } {
+export function parseHoldingsCsv(text: string, locale?: "pt-BR" | "en-US"): { rows: ManualInput[]; errors: string[] } {
   const lines = text.replace(/^﻿/, "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (lines.length < 2) return { rows: [], errors: ["O arquivo precisa de um cabeçalho e ao menos uma linha."] };
   const sep = (lines[0]!.match(/;/g)?.length ?? 0) >= (lines[0]!.match(/,/g)?.length ?? 0) ? ";" : ",";
-  const split = (l: string) => l.split(sep).map((x) => x.trim().replace(/^"|"$/g, ""));
-  const head = split(lines[0]!).map((h) => h.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""));
+  let parsed: string[][];
+  try { parsed = csvRows(text, sep); } catch (e) { return { rows: [], errors: [(e as Error).message] }; }
+  const head = parsed[0]!.map((h) => h.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""));
   const col = (...names: string[]) => head.findIndex((h) => names.includes(h));
   const ci = { inst: col("instituicao", "custodia", "exchange", "carteira"), sym: col("ativo", "simbolo", "symbol"), qty: col("quantidade", "qtd", "amount"), name: col("nome", "name"), net: col("rede", "network", "blockchain"), date: col("data", "date"), cost: col("custo_usd", "custo", "cost"), note: col("observacao", "obs", "note") };
   if (ci.sym < 0 || ci.qty < 0) return { rows: [], errors: ["Faltam as colunas obrigatórias “ativo” e “quantidade”."] };
-  const num = (v: string | undefined) => (v ?? "").replace(/\s/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".");
+  const num = (v: string | undefined) => csvNumber(v, locale ?? (sep === ";" ? "pt-BR" : "en-US"));
   const rows: ManualInput[] = [], errors: string[] = [];
-  lines.slice(1).forEach((l, i) => {
-    const c = split(l);
+  parsed.slice(1).forEach((c, i) => {
     const qty = num(c[ci.qty]);
-    if (!c[ci.sym] || !(Number(qty) >= 0) || qty === "") { errors.push(`Linha ${i + 2}: ativo ou quantidade inválidos.`); return; }
+    if (!c[ci.sym] || !Number.isFinite(Number(qty)) || !(Number(qty) >= 0) || qty === "") { errors.push(`Linha ${i + 2}: ativo ou quantidade inválidos.`); return; }
     const cost = ci.cost >= 0 ? num(c[ci.cost]) : "";
+    if (ci.cost >= 0 && c[ci.cost]?.trim() && (!cost || !Number.isFinite(Number(cost)) || Number(cost) < 0)) { errors.push(`Linha ${i + 2}: custo inválido.`); return; }
     rows.push({ institution: ci.inst >= 0 ? c[ci.inst] ?? "" : "Importação CSV", symbol: c[ci.sym]!, qty, name: ci.name >= 0 ? c[ci.name] ?? "" : "", network: ci.net >= 0 ? c[ci.net] : undefined, date: ci.date >= 0 ? c[ci.date] : undefined, costUsd: cost && Number(cost) >= 0 ? cost : undefined, note: ci.note >= 0 ? c[ci.note] : undefined });
   });
   return { rows, errors };

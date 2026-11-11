@@ -48,6 +48,9 @@ export interface PHolding {
   /** valor informado pela fonte (USD): obrigatório para kind "equity" (patrimônio líquido de conta com derivativos) */
   valueUsd?: number | null;
   kind: "spot" | "equity" | "earn";
+  /** Equity denominada no ativo, distinta de uma linha sintética de equity da conta. */
+  quantityKind?: "asset" | "account";
+  custodyQty?: string | null;
   source: "sync" | "manual";
   /** representação de outro ativo (ex.: WBTC, cbBTC, UBTC representam BTC) */
   wrapped?: boolean;
@@ -62,6 +65,7 @@ export interface PPosition {
   accountId: string; instrument: string; dir: "LONG" | "SHORT"; size: number; entry: number | null; mark: number | null;
   notional: number | null; margin: number | null; upnl: number | null; liq: number | null; leverage: number | null;
   funding?: number | null; fees?: number | null; at: number;
+  sizeUnit?: "base" | "contracts";
 }
 
 // ───────── identidade dos ativos ─────────
@@ -97,10 +101,12 @@ export type PriceBook = Record<string, { usd: number; change24h?: number | null;
 export interface SourceLine {
   accountId: string; account: string; institution: string; network: string; assetKey: string; symbol: string;
   qty: number; available: number | null; locked: number | null; valueUsd: number | null; wrapped: boolean; kind: PHolding["kind"]; source: PHolding["source"];
+  custodyQty?: number | null;
 }
 export interface EconLine {
   econ: string; symbol: string; qty: number; priceUsd: number | null; valueUsd: number | null; share: number | null;
   change24h: number | null; costUsd: number | null; pnlUsd: number | null; avgCostUsd: number | null; sources: SourceLine[];
+  complete: boolean;
 }
 export interface Consolidated {
   totalUsd: number; btcEquivalent: number | null; unpriced: SourceLine[];
@@ -121,16 +127,18 @@ export function dedupeHoldings(h: PHolding[]): PHolding[] {
 
 export function consolidate(accounts: PAccount[], holdings: PHolding[], prices: PriceBook): Consolidated {
   const acc = new Map(accounts.map((a) => [a.id, a]));
-  const rows = dedupeHoldings(holdings).filter((h) => acc.has(h.accountId) && (Number(h.qty) !== 0 || h.kind === "equity"));
+  const rows = dedupeHoldings(holdings).filter((h) => acc.has(h.accountId) && Number.isFinite(Number(h.qty)) && (Number(h.qty) !== 0 || h.kind === "equity"));
   const lines: (SourceLine & { econ: string; costUsd: number | null })[] = rows.map((h) => {
     const a = acc.get(h.accountId)!;
     const qty = Number(h.qty);
     const px = h.kind === "equity" ? null : h.priceUsd ?? prices[h.econ]?.usd ?? null;
-    const value = h.valueUsd != null ? h.valueUsd : px != null ? qty * px : null;
+    const candidate = h.valueUsd != null ? h.valueUsd : px != null && px > 0 ? qty * px : null;
+    const value = candidate != null && Number.isFinite(candidate) ? candidate : null;
     return {
       accountId: a.id, account: a.name, institution: a.institution, network: h.network, assetKey: h.assetKey, symbol: h.symbol, econ: h.econ,
       qty, available: h.available != null ? Number(h.available) : null, locked: h.locked != null ? Number(h.locked) : null,
       valueUsd: value, wrapped: Boolean(h.wrapped), kind: h.kind, source: h.source, costUsd: h.costUsd ?? null,
+      custodyQty: h.kind !== "equity" ? qty : h.custodyQty != null ? Number(h.custodyQty) : null,
     };
   });
   const priced = lines.filter((l) => l.valueUsd != null);
@@ -141,14 +149,15 @@ export function consolidate(accounts: PAccount[], holdings: PHolding[], prices: 
   for (const l of lines) groups.set(l.econ, [...(groups.get(l.econ) ?? []), l]);
   const assets: EconLine[] = [...groups.entries()].map(([econ, ls]) => {
     const value = ls.every((l) => l.valueUsd == null) ? null : ls.reduce((x, l) => x + (l.valueUsd ?? 0), 0);
-    const qty = ls.filter((l) => l.kind !== "equity").reduce((x, l) => x + l.qty, 0) + ls.filter((l) => l.kind === "equity").reduce((x, l) => x + (l.valueUsd ?? 0), 0);
+    const qty = ls.reduce((x, l) => x + l.qty, 0);
+    const complete = ls.every((l) => l.valueUsd != null);
     // custo só é conhecido se TODOS os saldos do grupo têm custo (senão seria uma média enganosa)
     const allCost = ls.every((l) => l.costUsd != null);
     const cost = allCost ? ls.reduce((x, l) => x + l.costUsd!, 0) : null;
     const p = prices[econ];
     return {
       econ, symbol: econ.includes(":") ? ls[0]!.symbol : econ, qty, priceUsd: p?.usd ?? null, valueUsd: value, share: value != null ? share(value) : null,
-      change24h: p?.change24h ?? null, costUsd: cost, pnlUsd: cost != null && value != null ? value - cost : null, avgCostUsd: cost != null && qty > 0 ? cost / qty : null,
+      change24h: p?.change24h ?? null, costUsd: cost, pnlUsd: complete && cost != null && value != null ? value - cost : null, avgCostUsd: cost != null && qty > 0 ? cost / qty : null, complete,
       sources: ls.map(({ econ: _e, costUsd: _c, ...rest }) => rest),
     };
   }).sort((a, b) => (b.valueUsd ?? -1) - (a.valueUsd ?? -1));
@@ -159,14 +168,14 @@ export function consolidate(accounts: PAccount[], holdings: PHolding[], prices: 
     return [...m.entries()].map(([k, v]) => ({ key: k, valueUsd: v, share: share(v) })).sort((a, b) => b.valueUsd - a.valueUsd);
   };
   const byAccount = sumBy((l) => l.accountId).map((x) => ({ accountId: x.key, name: acc.get(x.key)!.name, institution: acc.get(x.key)!.institution, valueUsd: x.valueUsd, share: x.share }));
-  const btcLines = lines.filter((l) => l.econ === "BTC" && l.kind !== "equity");
+  const btcLines = lines.filter((l) => l.econ === "BTC" && l.custodyQty != null);
   const btcInst = new Map<string, number>();
-  for (const l of btcLines) btcInst.set(l.institution, (btcInst.get(l.institution) ?? 0) + l.qty);
+  for (const l of btcLines) btcInst.set(l.institution, (btcInst.get(l.institution) ?? 0) + l.custodyQty!);
   const btcPx = prices.BTC?.usd ?? null;
   return {
     totalUsd: total, btcEquivalent: btcPx ? total / btcPx : null, unpriced: lines.filter((l) => l.valueUsd == null),
     assets, byAccount, byInstitution: sumBy((l) => l.institution), byNetwork: sumBy((l) => l.network),
-    btcHeld: { total: btcLines.reduce((x, l) => x + l.qty, 0), byInstitution: [...btcInst.entries()].map(([key, qty]) => ({ key, qty })).sort((a, b) => b.qty - a.qty) },
+    btcHeld: { total: btcLines.reduce((x, l) => x + l.custodyQty!, 0), byInstitution: [...btcInst.entries()].map(([key, qty]) => ({ key, qty })).sort((a, b) => b.qty - a.qty) },
   };
 }
 
@@ -178,6 +187,9 @@ export interface PEvent {
   id: string; accountId: string; t: number; kind: FlowKind; econ: string; qty: number;
   /** valor em USD no instante, quando conhecido */
   usd?: number | null; txid?: string | null; counterparty?: string | null; note?: string;
+  classification?: "internal" | "external";
+  network?: string; confirmed?: boolean; status?: "pending" | "confirmed" | "void";
+  feeUsd?: number | null;
 }
 export type FlowClass = "external" | "internal" | "pending" | "result";
 export interface ClassifiedEvent extends PEvent { cls: FlowClass; matchedWith?: string; reason: string }
@@ -195,20 +207,23 @@ const EXIT: FlowKind[] = ["withdraw", "transfer_out"];
  */
 export function classifyFlows(events: PEvent[], accounts: PAccount[], opts: { maxGapMs?: number; maxFeePct?: number } = {}): ClassifiedEvent[] {
   const gap = opts.maxGapMs ?? 6 * 3600e3, feePct = opts.maxFeePct ?? 0.01;
-  const own = new Set(accounts.flatMap((a) => (a.addresses ?? []).map((x) => x.toLowerCase())));
-  const uniq = [...new Map(events.map((e) => [e.id, e])).values()].sort((a, b) => a.t - b.t);
+  const normAddress = (x: string) => /^0x/i.test(x) || /^bc1/i.test(x) ? x.toLowerCase() : x;
+  const own = new Set(accounts.filter((a) => a.config?.own !== false).flatMap((a) => (a.addresses ?? []).map(normAddress)));
+  const uniq = [...new Map(events.filter((e) => e.status !== "void").map((e) => [e.id, e])).values()].sort((a, b) => a.t - b.t);
   const out = new Map<string, ClassifiedEvent>();
   const used = new Set<string>();
   for (const e of uniq) {
+    if (e.classification) { out.set(e.id, { ...e, cls: e.classification, reason: "classificado pelo usuário" }); used.add(e.id); continue; }
     if (!ENTRY.includes(e.kind) && !EXIT.includes(e.kind)) out.set(e.id, { ...e, cls: e.kind === "adjust" ? "internal" : e.kind === "unknown" ? "pending" : "result", reason: e.kind === "adjust" ? "ajuste de cadastro" : e.kind === "unknown" ? "tipo desconhecido" : "resultado" });
   }
   const moves = uniq.filter((e) => ENTRY.includes(e.kind) || EXIT.includes(e.kind));
   // 1) contraparte é um endereço próprio
-  for (const e of moves) if (e.counterparty && own.has(e.counterparty.toLowerCase())) { out.set(e.id, { ...e, cls: "internal", reason: "contraparte é carteira própria" }); used.add(e.id); }
+  for (const e of moves) if (!used.has(e.id) && e.counterparty && own.has(normAddress(e.counterparty))) { out.set(e.id, { ...e, cls: "internal", reason: "contraparte é carteira própria" }); used.add(e.id); }
   // 2) mesmo txid em duas contas
   for (const a of moves) {
     if (used.has(a.id) || !a.txid || !EXIT.includes(a.kind)) continue;
-    const b = moves.find((x) => !used.has(x.id) && x.txid === a.txid && ENTRY.includes(x.kind) && x.accountId !== a.accountId);
+    const candidates = moves.filter((x) => !used.has(x.id) && x.txid === a.txid && x.econ === a.econ && (!a.network || !x.network || a.network === x.network) && x.qty <= a.qty * (1 + 1e-9) && x.qty >= a.qty * (1 - feePct) && ENTRY.includes(x.kind) && x.accountId !== a.accountId);
+    const b = candidates.length === 1 ? candidates[0] : undefined;
     if (b) { out.set(a.id, { ...a, cls: "internal", matchedWith: b.id, reason: "mesmo txid" }); out.set(b.id, { ...b, cls: "internal", matchedWith: a.id, reason: "mesmo txid" }); used.add(a.id); used.add(b.id); }
   }
   // 3) par saída → entrada do mesmo ativo, quantidade compatível (taxa de até feePct), dentro da janela
@@ -216,7 +231,7 @@ export function classifyFlows(events: PEvent[], accounts: PAccount[], opts: { ma
     if (used.has(a.id) || !EXIT.includes(a.kind)) continue;
     const cands = moves.filter((b) => !used.has(b.id) && ENTRY.includes(b.kind) && b.accountId !== a.accountId && b.econ === a.econ
       && b.t >= a.t - 10 * 60e3 && b.t - a.t <= gap && b.qty <= a.qty * (1 + 1e-9) && b.qty >= a.qty * (1 - feePct));
-    const b = cands.sort((x, y) => Math.abs(x.t - a.t) - Math.abs(y.t - a.t))[0];
+    const b = cands.length === 1 ? cands[0] : undefined;
     if (b) { out.set(a.id, { ...a, cls: "internal", matchedWith: b.id, reason: "par de transferência entre contas próprias" }); out.set(b.id, { ...b, cls: "internal", matchedWith: a.id, reason: "par de transferência entre contas próprias" }); used.add(a.id); used.add(b.id); }
   }
   // 4) o que sobrou
@@ -240,6 +255,7 @@ export interface PSnapshot {
   px?: Record<string, number>;
   /** 1 = conta unificada da Hyperliquid já sem a dupla contagem do P&L aberto (retratos antigos são corrigidos uma vez) */
   uf?: 1;
+  quality?: "complete" | "partial" | "stale";
 }
 export interface PSnapPerps { upnl: number; notional: number; margin: number; count: number; positions: { id: string; coin: string; dir: "LONG" | "SHORT"; upnl: number; notional: number }[] }
 
@@ -250,7 +266,10 @@ export interface PSnapPerps { upnl: number; notional: number; margin: number; co
  */
 export function portfolioReturns(snaps: PSnapshot[], flows: { t: number; accountId: string; usd: number }[]) {
   const s = [...snaps].sort((a, b) => a.t - b.t);
-  const points: { t: number; valueUsd: number; index: number; resultUsd: number }[] = [];
+  const points: { t: number; valueUsd: number; index: number; resultUsd: number; valid: boolean }[] = [];
+  let valid = true;
+  const flowIndex = new Map<string, typeof flows>();
+  for (const f of flows) { const list = flowIndex.get(f.accountId) ?? []; list.push(f); flowIndex.set(f.accountId, list); }
   let idx = 1, acc = 0;
   for (let i = 0; i < s.length; i++) {
     const cur = s[i]!;
@@ -261,15 +280,17 @@ export function portfolioReturns(snaps: PSnapshot[], flows: { t: number; account
       for (const [id, v1] of Object.entries(cur.byAccount)) {
         const v0 = prev.byAccount[id];
         if (v0 == null) continue;
-        const fl = flows.filter((f) => f.accountId === id && f.t > prev.t && f.t <= cur.t);
+        const fl = (flowIndex.get(id) ?? []).filter((f) => f.t > prev.t && f.t <= cur.t);
         const F = fl.reduce((x, f) => x + f.usd, 0);
         const W = fl.reduce((x, f) => x + f.usd * (cur.t - f.t) / Math.max(1, cur.t - prev.t), 0);
         num += v1 - v0 - F; den += v0 + W;
       }
-      if (den > 1e-9) idx *= 1 + num / den;
+      if (den > 1e-9 && Number.isFinite(num)) idx *= 1 + num / den;
+      else if (Math.abs(num) > 1e-9 || Object.keys(cur.byAccount).some((id) => prev.byAccount[id] != null)) valid = false;
+      if (cur.quality && cur.quality !== "complete" || prev.quality && prev.quality !== "complete") valid = false;
       acc += num;
     }
-    points.push({ t: cur.t, valueUsd: total, index: idx, resultUsd: acc });
+    points.push({ t: cur.t, valueUsd: total, index: idx, resultUsd: acc, valid });
   }
   return points;
 }
@@ -278,6 +299,6 @@ export function returnSince(points: ReturnType<typeof portfolioReturns>, ms: num
   if (points.length < 2) return null;
   const end = points[points.length - 1]!;
   const from = ms == null ? points[0]! : [...points].reverse().find((p) => p.t <= end.t - ms) ?? null;
-  if (!from || from === end) return null;
+  if (!from || from === end || !end.valid || from.index <= 0) return null;
   return { pct: end.index / from.index - 1, resultUsd: end.resultUsd - from.resultUsd, fromT: from.t };
 }

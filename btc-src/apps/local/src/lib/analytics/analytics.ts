@@ -6,7 +6,7 @@
  *  - Patrimônio, margem e notional ficam separados: notional nunca soma ao patrimônio; a equity já contém o P&L aberto.
  *  - Rentabilidade = TWR (ajustada por aportes/retiradas). Sem retratos suficientes: "Dados insuficientes".
  */
-import { portfolioReturns, type Flow, type PAccount, type PSnapshot } from "@bst/domain";
+import { portfolioReturns, selectSnapshotRange, type Flow, type PAccount, type PSnapshot } from "@bst/domain";
 import type { Trade } from "../perps/trades";
 
 export type RangeKind = "1" | "7" | "30" | "90" | "ytd" | "all" | "custom";
@@ -104,9 +104,10 @@ export function splitStrategy(trades: Trade[], funding: FundingRow[], startT: nu
 export interface DrawdownResult { max: number | null; current: number | null; series: { t: number; dd: number; result: number }[]; incomplete: boolean }
 /** Drawdown do índice TWR (descontados aportes/retiradas) dentro do período. */
 export function drawdown(snaps: PSnapshot[], flows: Flow[], range: Range): DrawdownResult {
-  const sel = snaps.filter((s) => inR(s.t, range)).sort((a, b) => a.t - b.t);
+  const sel = selectSnapshotRange(snaps, range);
   if (sel.length < 2) return { max: null, current: null, series: [], incomplete: true };
   const rets = portfolioReturns(sel, flows);
+  if (rets.some((p) => !p.valid)) return { max: null, current: null, series: [], incomplete: true };
   let peak = 1, max = 0;
   const series = rets.map((p) => { peak = Math.max(peak, p.index); const dd = peak > 0 ? 1 - p.index / peak : 0; max = Math.max(max, dd); return { t: p.t, dd, result: p.resultUsd }; });
   return { max, current: series.at(-1)!.dd, series, incomplete: false };
@@ -124,16 +125,16 @@ export function rangeEvolution(snaps: PSnapshot[], flows: Flow[], range: Range):
   const from = range.from ?? -Infinity;
   let anchor = -1;
   for (let i = 0; i < all.length; i++) if (all[i]!.t <= from) anchor = i;
-  const sel = all.filter((s, i) => s.t <= range.to && (anchor >= 0 ? i >= anchor : s.t >= from));
+  const sel = selectSnapshotRange(all, range);
   if (sel.length < 2) return { resultUsd: null, twr: null, rawChangeUsd: null, flowsUsd: 0, fromT: sel[0]?.t ?? null, toT: sel.at(-1)?.t ?? null, incomplete: true, availableFrom: all[0]?.t ?? null, points: [] };
   const rets = portfolioReturns(sel, flows);
   const first = sel[0]!, last = sel.at(-1)!;
   const win = range.from == null ? null : range.to - range.from;
   const gap = win != null && anchor < 0 && first.t - from > win * 0.15;
   return {
-    resultUsd: rets.at(-1)!.resultUsd, twr: rets.at(-1)!.index - 1, rawChangeUsd: sumAcc(last) - sumAcc(first),
+    resultUsd: rets.at(-1)!.valid ? rets.at(-1)!.resultUsd : null, twr: rets.at(-1)!.valid ? rets.at(-1)!.index - 1 : null, rawChangeUsd: sumAcc(last) - sumAcc(first),
     flowsUsd: flows.filter((f) => f.t > first.t && f.t <= last.t).reduce((x, f) => x + f.usd, 0),
-    fromT: first.t, toT: last.t, incomplete: gap, availableFrom: gap ? first.t : null,
+    fromT: first.t, toT: last.t, incomplete: gap || !rets.at(-1)!.valid, availableFrom: gap ? first.t : null,
     points: rets.map((p) => ({ t: p.t, usd: p.valueUsd, result: p.resultUsd, index: p.index })),
   };
 }
@@ -159,20 +160,21 @@ export interface Hodl { resultUsd: number; invested: number; pct: number }
  */
 export function hodlResult(snaps: PSnapshot[], flows: Flow[], sym: string, range: Range): Hodl | null {
   const price = (s: PSnapshot) => (sym === "BTC" ? s.btcUsd : s.px?.[sym]) ?? null;
-  const sel = snaps.filter((s) => inR(s.t, range)).sort((a, b) => a.t - b.t);
-  if (sel.length < 2) return null;
+  const sel = selectSnapshotRange(snaps, range);
+  if (sel.length < 2 || sel.some(s => s.quality != null && s.quality !== "complete")) return null;
   const first = sel[0]!, last = sel.at(-1)!;
   const p0 = price(first), p1 = price(last);
   const v0 = Object.values(first.byAccount).reduce((x, v) => x + v, 0);
-  if (!p0 || !p1) return null;
+  if (p0 == null || p1 == null || !Number.isFinite(p0) || !Number.isFinite(p1) || p0 <= 0 || p1 <= 0) return null;
   let units = v0 / p0, invested = v0, flowsSum = 0;
   for (const f of flows.filter((x) => x.t > first.t && x.t <= last.t)) {
     const ref = [...sel].reverse().find((s) => s.t <= f.t); // retrato imediatamente anterior (preço velho demais não é usado)
     const px = ref ? price(ref) : null;
-    if (!px) return null;
+    if (!px || !ref || f.t - ref.t > 2 * 3600e3) return null;
     units += f.usd / px; invested += f.usd; flowsSum += f.usd;
   }
   void flowsSum;
+  if (!(invested > 0)) return null;
   const end = units * p1;
   return { resultUsd: end - invested, invested, pct: invested > 0 ? end / invested - 1 : 0 };
 }

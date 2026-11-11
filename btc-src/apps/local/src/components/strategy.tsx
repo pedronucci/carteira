@@ -138,8 +138,8 @@ export function StrategyForm({ mode, edit, onDone }: { mode: "new" | "edit"; edi
       const eq = Number(num(mEq));
       if (!(eq >= 0) || mEq === "") return toast("Informe o patrimônio inicial em dólar.", "loss");
       const size = Number(num(mSize || "0")), px = Number(num(mPx || "0"));
-      if (size > 0 && !(px > 0)) return toast("Informe o preço de referência do BTC no início.", "loss");
-      snap = { at: startAt, source: "manual", equityUsd: String(eq), btcUsd: String(px || prices().spot?.btcUsd || 0), balances: [], positions: size > 0 ? [{ coin: "BTC", size: String(size), mark: String(px) }] : [], note: "Valores informados pelo usuário." };
+      if (size !== 0 && !(px > 0)) return toast("Informe o preço de referência do BTC no início.", "loss");
+      snap = { at: startAt, source: "manual", equityUsd: String(eq), btcUsd: String(px || prices().spot?.btcUsd || 0), balances: [], positions: size !== 0 ? [{ coin: "BTC", size: String(size), mark: String(px) }] : [], note: "Valores informados pelo usuário." };
     }
     if (!snap) return toast("Ainda não há patrimônio inicial. Aguarde o cálculo ou informe à mão.", "loss");
     const accounts: StrategyCycle["accounts"] = acc.kind === "hl" && s.settings.hl ? [{ kind: "hyperliquid", address: s.settings.hl.address, includeArb: s.settings.hl.includeArb }] : [{ kind: "manual" }];
@@ -149,11 +149,11 @@ export function StrategyForm({ mode, edit, onDone }: { mode: "new" | "edit"; edi
         const c = x.strategies.find((y) => y.id === edit.id);
         if (!c) return;
         const prev = x.strategies.find((y) => y.endAt === c.startAt);
-        if (prev) { prev.endAt = startAt; prev.endEquityUsd = snap!.equityUsd; }
-        Object.assign(c, { name: name.trim() || c.name, startAt, tz, snapshot: snap, accounts });
+        if (prev) { prev.endAt = startAt; prev.endEquityUsd = snap!.equityUsd; prev.endBtcUsd = snap!.btcUsd; }
+        Object.assign(c, { name: name.trim() || c.name, startAt, tz, snapshot: snap, accounts: edit.accounts });
       } else {
         const cur = x.strategies.find((y) => y.status === "active");
-        if (cur) { cur.status = "closed"; cur.endAt = startAt; cur.endEquityUsd = snap!.equityUsd; }
+        if (cur) { cur.status = "closed"; cur.endAt = startAt; cur.endEquityUsd = snap!.equityUsd; cur.endBtcUsd = snap!.btcUsd; }
         x.strategies.push({ id: "s-" + uid(), name: name.trim() || "Ciclo", startAt, tz, status: "active", accounts, snapshot: snap, createdAt: Date.now() });
       }
       x.view = "active";

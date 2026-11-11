@@ -8,6 +8,7 @@
 import type { PlannedLevel, HistoricLevel } from "../perps/chart-lines";
 import type { TradeNote } from "../journal/types";
 import { migrateSnapshots, type JournalEntry, type PAccount, type PEvent, type PHolding, type PPosition, type PSnapshot } from "@bst/domain";
+import { finite, nonempty, record, rows, unique } from "../validation";
 
 export interface PortfolioData {
   v: 1;
@@ -23,7 +24,7 @@ export interface PortfolioData {
   priceIds: Record<string, string>;
   manualPrices: Record<string, number>;
   /** estado da última sincronização de cada conta conectada */
-  sync: Record<string, { state: "ok" | "error" | "sync"; at: number; error?: string; info?: string }>;
+  sync: Record<string, { state: "ok" | "error" | "sync" | "partial"; at: number; error?: string; info?: string; historyComplete?: boolean }>;
   /** Trading Journal: independente da contabilidade patrimonial */
   journal: JournalEntry[];
   /** níveis planejados pelo usuário (TP/SL/entrada). NÃO são ordens da exchange. */
@@ -60,8 +61,8 @@ async function readRaw(): Promise<PortfolioData | null> {
   const db = await open();
   return new Promise((res, rej) => {
     const q = db.transaction(STORE, "readonly").objectStore(STORE).get(KEY);
-    q.onsuccess = () => res((q.result as PortfolioData | undefined) ?? null);
-    q.onerror = () => rej(q.error);
+    q.onsuccess = () => { db.close(); res((q.result as PortfolioData | undefined) ?? null); };
+    q.onerror = () => { db.close(); rej(q.error); };
   });
 }
 async function writeRaw(d: PortfolioData): Promise<void> {
@@ -69,38 +70,70 @@ async function writeRaw(d: PortfolioData): Promise<void> {
   return new Promise((res, rej) => {
     const tx = db.transaction(STORE, "readwrite");
     tx.objectStore(STORE).put(d, KEY);
-    tx.oncomplete = () => res();
-    tx.onerror = () => rej(tx.error ?? new Error("Falha ao gravar no banco local."));
+    tx.oncomplete = () => { db.close(); res(); };
+    tx.onerror = () => { db.close(); rej(tx.error ?? new Error("Falha ao gravar no banco local.")); };
+    tx.onabort = () => { db.close(); rej(tx.error ?? new Error("Gravação interrompida.")); };
   });
 }
 
-const normalize = (d: Partial<PortfolioData>): PortfolioData => { const n = { ...EMPTY(), ...d, v: 1 as const }; n.snapshots = migrateSnapshots(n.snapshots ?? []); return n; };
+export function validatePortfolio(input: unknown): PortfolioData {
+  const d = record(input, "Portfólio");
+  const accounts = rows(d.accounts, "Contas"); unique(accounts, "id", "Conta");
+  const ids = new Set(accounts.map((a) => a.id));
+  for (const a of accounts) { nonempty(a.name, "Nome da conta"); nonempty(a.institution, "Instituição"); if (!["strategy", "manual", "csv", "hyperliquid", "okx", "evm", "bitcoin", "solana"].includes(String(a.kind))) throw new Error("Tipo de conta inválido."); }
+  for (const key of ["manual", "synced"]) for (const h of rows(d[key] ?? [], "Saldos")) {
+    if (!ids.has(h.accountId)) throw new Error("Saldo de conta inexistente.");
+    nonempty(h.assetKey, "Identidade do ativo"); nonempty(h.econ, "Ativo"); nonempty(h.symbol, "Símbolo");
+    finite(h.qty, "Quantidade"); finite(h.at, "Data do saldo", 0);
+    for (const field of ["valueUsd", "priceUsd", "costUsd"]) if (h[field] != null) finite(h[field], field);
+    if (!["spot", "equity", "earn"].includes(String(h.kind))) throw new Error("Tipo de saldo inválido.");
+  }
+  const events = rows(d.events ?? [], "Eventos"); unique(events, "id", "Evento");
+  for (const e of events) { finite(e.t, "Data do evento", 0); finite(e.qty, "Quantidade do evento"); if (e.usd != null) finite(e.usd, "Valor do evento"); }
+  for (const s of rows(d.snapshots ?? [], "Retratos")) { finite(s.t, "Data do retrato", 0); for (const v of Object.values(record(s.byAccount, "Contas do retrato"))) finite(v, "Patrimônio"); }
+  for (const key of ["positions", "journal", "plans"]) rows(d[key] ?? [], key);
+  for (const key of ["priceIds", "manualPrices", "sync", "tradeNotes", "levelHistory"]) record(d[key] ?? {}, key);
+  for (const v of Object.values((d.manualPrices ?? {}) as Record<string, unknown>)) finite(v, "Preço manual", 0);
+  return normalize(d as Partial<PortfolioData>);
+}
+const normalize = (d: Partial<PortfolioData>): PortfolioData => {
+  const n = { ...EMPTY(), ...d, v: 1 as const };
+  n.snapshots = migrateSnapshots(n.snapshots ?? []);
+  // Migração sem apagar o original: versões anteriores usavam adjust para transferência interna.
+  n.events = (n.events ?? []).map((e) => e.kind === "adjust" && e.note?.includes("classificado pelo usuário") ? { ...e, classification: "internal" as const } : e);
+  return n;
+};
 
 /** Carrega do IndexedDB (uma vez). */
 export async function loadPortfolio(): Promise<void> {
   if (ready) return;
-  try { const d = await readRaw(); if (d) data = normalize(d); lastError = null; }
+  try { const d = await readRaw(); if (d) { await preserveOriginal(d); data = normalize(d); } lastError = null; }
   catch (e) { lastError = (e as Error).message; }
   ready = true; notify();
 }
 
 let queue: Promise<void> = Promise.resolve();
+async function preserveOriginal(d: PortfolioData) {
+  const db = await open();
+  await new Promise<void>((res, rej) => { const tx = db.transaction(STORE, "readwrite"), store = tx.objectStore(STORE); const key = "portfolio.pre-audit-2026-11-11"; const q = store.get(key); q.onsuccess = () => { if (!q.result) store.put(d, key); }; tx.oncomplete = () => { db.close(); res(); }; tx.onerror = () => { db.close(); rej(tx.error); }; });
+}
 /** Altera e grava (gravações em fila, na ordem). */
 export function updatePortfolio(fn: (d: PortfolioData) => void) {
+  const previous = data;
   const next = structuredClone(data);
   fn(next);
   data = next;
   notify();
   const snap = structuredClone(next);
-  queue = queue.then(() => writeRaw(snap)).then(() => { lastError = null; }).catch((e) => { lastError = `Não foi possível salvar o portfólio: ${(e as Error).message}`; notify(); });
-  return queue;
+  const operation = queue.then(() => writeRaw(snap)).then(() => { lastError = null; notify(); });
+  queue = operation.catch((e) => { if (data === next) data = previous; lastError = `Não foi possível salvar o portfólio: ${(e as Error).message}`; notify(); });
+  return operation;
 }
 
 /** Para o backup v4. */
 export const exportPortfolio = (): PortfolioData => structuredClone(data);
 export function importPortfolio(d: unknown) {
-  if (!d || typeof d !== "object" || !Array.isArray((d as PortfolioData).accounts)) throw new Error("Backup do portfólio inválido; nada foi alterado.");
-  const n = normalize(d as PortfolioData);
+  const n = validatePortfolio(d);
   return updatePortfolio((x) => { Object.assign(x, n); });
 }
 export const uidP = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);

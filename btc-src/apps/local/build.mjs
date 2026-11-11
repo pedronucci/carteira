@@ -1,4 +1,6 @@
 // Gera dist/: index.html (arquivo único) + manifest, service worker e ícones para o GitHub Pages.
+import { createRequire } from "node:module";
+import { createHash } from "node:crypto";
 import { build } from "esbuild";
 import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -11,7 +13,9 @@ mkdirSync(out, { recursive: true }); mkdirSync(tmp, { recursive: true });
 
 const globals = readFileSync(resolve(here, "src/app/globals.css"), "utf8").replace(/^@import .*$/gm, "");
 writeFileSync(resolve(tmp, "tw.full.css"), readFileSync(resolve(here, "tw.css"), "utf8").replace("./src", "../src") + "\n" + globals);
-execFileSync(resolve(here, "node_modules/.bin/tailwindcss"), ["-i", resolve(tmp, "tw.full.css"), "-o", resolve(tmp, "tw.css"), "--minify"], { stdio: "inherit" });
+const require = createRequire(import.meta.url);
+const twCli = resolve(dirname(require.resolve("@tailwindcss/cli/package.json")), "dist/index.mjs");
+execFileSync(process.execPath, [twCli,"-i", resolve(tmp, "tw.full.css"), "-o", resolve(tmp, "tw.css"), "--minify"], { stdio: "inherit" });
 
 await build({
   entryPoints: { app: resolve(here, "src/entry.tsx"), fonts: resolve(here, "fonts.css") },
@@ -23,10 +27,11 @@ await build({
   logLevel: "warning", legalComments: "none",
 });
 
-const VERSION = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+
 const esc = (s) => s.replace(/<\/script/gi, "<\\/script");
 const css = readFileSync(resolve(tmp, "fonts.css"), "utf8") + readFileSync(resolve(tmp, "tw.css"), "utf8") + (() => { try { return readFileSync(resolve(tmp, "app.css"), "utf8"); } catch { return ""; } })();
 const js = readFileSync(resolve(tmp, "app.js"), "utf8");
+const VERSION = createHash("sha256").update(css).update(js).update(readFileSync(resolve(here, "public/sw.js"))).digest("hex").slice(0, 16);
 const html = `<!DOCTYPE html>
 <html lang="pt-BR" class="dark">
 <head>

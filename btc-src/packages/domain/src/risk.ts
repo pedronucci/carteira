@@ -39,7 +39,7 @@ export function positionMetrics(p: PositionInput) {
   const upnl = mark.minus(entry).mul(size).mul(s);
   const mm = notional.mul(d(p.maintenanceMarginRate));
   const liq = p.liquidationPxOfficial != null ? d(p.liquidationPxOfficial) : null;
-  const distance = liq ? mark.minus(liq).abs().div(mark) : null;
+  const distance = liq && mark.gt(0) ? (p.side === "LONG" ? mark.minus(liq) : liq.minus(mark)).div(mark) : null;
   return { notionalUsd: notional, unrealizedPnlUsd: upnl, maintenanceMarginUsd: mm, liquidationPxUsd: liq, liquidationDistance: distance };
 }
 

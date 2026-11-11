@@ -21,7 +21,8 @@ function AccountRisk({ a, multi }: { a: PerpAccountView; multi: boolean }) {
   const [sh, setSh] = useState<Record<string, string>>({});
   const shocks = useMemo(() => Object.fromEntries(Object.entries(sh).filter(([, x]) => x.trim() !== "" && Number.isFinite(Number(x.replace(",", ".")))).map(([k, x]) => [k, Number(x.replace(",", ".")) / 100])), [sh]);
   const sim = v.sim!;
-  const r = simulate(sim, shocks);
+  const invalid = Object.values(shocks).some((x) => x <= -1);
+  const r = simulate(sim, invalid ? {} : shocks);
   const gross = v.summary.gross || 1;
   const long = v.positions.filter((p) => p.dir === "LONG").reduce((a, p) => a + p.notional, 0);
   const short = v.summary.gross - long;
@@ -35,7 +36,7 @@ function AccountRisk({ a, multi }: { a: PerpAccountView; multi: boolean }) {
         <Kpi label="Exposição bruta" value={f.money(v.summary.gross, { compact: true })} sub={`long ${f.money(long, { compact: true })} · short ${f.money(short, { compact: true })}`} />
         <Kpi label="Alavancagem efetiva" value={v.summary.effLeverage != null ? `${v.summary.effLeverage.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}×` : "—"} sub="bruta ÷ equity da conta" />
         <Kpi label="Margem usada" value={f.money(v.summary.margin, { compact: true })} sub={`equity ${f.money(sim.accountValue, { compact: true })}`} />
-        <Kpi label="Queda uniforme até liquidar" value={be != null ? f.pct(be, false) : "fora do alcance"} sub="todas as posições juntas, estimado" />
+        <Kpi label="Variação até o limite" value={be != null ? f.pct(be, false) : "Dados insuficientes"} sub="exige garantia e manutenção por pool" />
       </KpiGrid>
       <ul className="border-t border-line">
         {v.positions.map((p) => (
@@ -58,17 +59,18 @@ function AccountRisk({ a, multi }: { a: PerpAccountView; multi: boolean }) {
             </label>
           ))}
         </div>
-        {Object.keys(shocks).length > 0 && (
+        {invalid && <Notice tone="loss">A variação precisa ser maior que −100%.</Notice>}
+        {!invalid && Object.keys(shocks).length > 0 && (
           <div className="mt-4 space-y-1.5 text-[13px]">
             <div className="flex justify-between"><span className="text-muted">Impacto nas posições</span><span className={cn("num", toneCls(toneOf(r.pnlDelta)))}>{f.money(r.pnlDelta, { signed: true })}</span></div>
             <div className="flex justify-between"><span className="text-muted">Equity da conta</span><span className="num">{f.money(r.newAccountValue)} {r.accountChangePct != null && <span className="text-muted">({f.pct(r.accountChangePct)})</span>}</span></div>
             {r.newConsolidated != null && <div className="flex justify-between"><span className="text-muted">Patrimônio consolidado</span><span className="num">{f.money(r.newConsolidated)}</span></div>}
-            <div className="flex justify-between"><span className="text-muted">Margem de manutenção (conta toda)</span><span className="num">{f.money(r.maintMarginTotal)}</span></div>
-            <div className="flex justify-between"><span className="text-muted">Folga até liquidação</span><span className={cn("num", r.bufferUsd <= 0 ? "text-loss" : "")}>{f.money(r.bufferUsd, { signed: true })}</span></div>
+            {r.liquidationAvailable && <><div className="flex justify-between"><span className="text-muted">Margem de manutenção</span><span className="num">{f.money(r.maintMarginTotal)}</span></div>
+            <div className="flex justify-between"><span className="text-muted">Folga até liquidação</span><span className={cn("num", r.bufferUsd <= 0 ? "text-loss" : "")}>{f.money(r.bufferUsd, { signed: true })}</span></div></>}
             {r.liquidated ? <Notice tone="loss">Neste cenário a conta atingiria a zona de liquidação (margem cruzada).</Notice> : null}
           </div>
         )}
-        <p className="mt-3 text-[11px] text-muted">{r.note} Conta em margem cruzada: a liquidação depende do conjunto de posições, não de cada uma isolada.</p>
+        <p className="mt-3 text-[12px] text-muted">{r.note}</p>
       </div>
     </Panel>
   );

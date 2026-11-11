@@ -35,7 +35,7 @@ export default function CyclesPage() {
     backupNow("antes de encerrar o ciclo");
     updateStore((x) => {
       const c = x.strategies.find((y) => y.id === active.c.id);
-      if (c) { c.status = "closed"; c.endAt = Date.now(); c.endEquityUsd = eq.toFixed(2); x.view = c.id; }
+      if (c) { c.status = "closed"; c.endAt = Date.now(); c.endEquityUsd = eq.toFixed(2); c.endBtcUsd = active.r!.now.btcUsd.toString(); x.view = c.id; }
     });
     toast("Ciclo encerrado. Para continuar acompanhando, inicie um novo ciclo.", "gain");
   };
@@ -81,7 +81,7 @@ export default function CyclesPage() {
                         <td className={cn("num px-3 py-2.5 text-right", toneCls(toneOf(r.roc)))}>{r.roc != null ? f.pct(r.roc) : "—"}</td>
                         <td className={cn("num px-3 py-2.5 text-right", toneCls(toneOf(r.twr)))}>{r.twr != null ? f.pct(r.twr) : "—"}</td>
                         <td className={cn("num px-3 py-2.5 text-right", toneCls(toneOf(r.vsHodlPct)))}>{r.vsHodlPct != null ? f.pct(r.vsHodlPct) : "—"}</td>
-                        <td className="num px-3 py-2.5 text-right text-loss">{f.pct(-r.maxDD)}</td>
+                        <td className="num px-3 py-2.5 text-right text-loss">{f.pct(r.maxDD == null ? null : -r.maxDD)}</td>
                         <td className="num px-3 py-2.5 text-right text-ink-2">{r.stats.count + (r.current ? 1 : 0)}</td>
                       </>
                     ) : <td colSpan={7} className="px-3 py-2.5 text-[12px] text-muted">{err}</td>}

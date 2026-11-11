@@ -13,7 +13,8 @@ import {
 } from "@bst/domain";
 import { getStore, type Add, type Cycle, type Store } from "./store";
 import { closeUsdAt, prices, usdBrlAt } from "./prices";
-import { hlState, type HlLive } from "./hl";
+import { hlState, readHlAccount, type HlLive } from "./hl";
+import { marketIntel } from "../market/intel";
 import { DAY as DAYS, drawdowns, maxDrawdown, otherAssets, periodRet, replay, twr, windowEvents, type OtherBreakdown, type SEv, type SPoint, type StrategyCycle, type Trip } from "./strategy";
 
 const DAY = DAYS;
@@ -111,10 +112,10 @@ export function manualEvents(s: Store): SEv[] {
 }
 
 export function account(s: Store = getStore()): Account {
-  const hl = hlState();
   const addr = s.settings.hl?.address?.toLowerCase() ?? null;
+  const hl = addr ? readHlAccount(addr) : hlState();
   const includeArb = Boolean(s.settings.hl?.includeArb);
-  if (addr && hl.address === addr && hl.history) {
+  if (addr && hl?.address === addr && hl.history) {
     const h = hl.history;
     const ev: SEv[] = [];
     const other = new Set<string>();
@@ -138,6 +139,7 @@ export function account(s: Store = getStore()): Account {
     const live = hl.live;
     return { kind: "hl", events: ev, firstT: ev[0]?.t ?? null, live, liveFresh: Boolean(live && Date.now() - live.at < 10 * 60e3), includeArb, otherCoins: [...other], truncated: h.truncated, address: addr, others };
   }
+  if (addr) return { kind: "hl", events: [], firstT: null, live: hl?.live ?? null, liveFresh: false, includeArb, otherCoins: [], truncated: true, address: addr, others: [] };
   const ev = manualEvents(s);
   const first = s.initial ? tsOf(s.initial.date) * 1000 : ev[0]?.t ?? null;
   return { kind: "manual", events: ev, firstT: first, live: null, liveFresh: false, includeArb: false, otherCoins: [], truncated: false, address: null, others: [] };
@@ -165,7 +167,7 @@ export function resolveScope(s: Store = getStore(), view: string = s.view): Scop
   return null;
 }
 
-export interface CPointN { ts: number; equity: number; netFlow: number; wFlow: number; contrib: number; hodl: number | null; price: number; inBtc: boolean; btc: number }
+export interface CPointN { ts: number; equity: number; netFlow: number; wFlow: number; contrib: number; hodl: number | null; price: number; inBtc: boolean; btc: number; approx?: boolean }
 
 export class NeedsSetup extends Error {}
 
@@ -174,9 +176,12 @@ const closeAt = (daySec: number) => closeUsdAt(daySec + DAY - 1);
 export function compute(view?: string) {
   const s = getStore();
   const now = nowPrices(s);
-  const acc = account(s);
   const scope = resolveScope(s, view);
   if (!scope) throw new NeedsSetup("Configure o ciclo da estratégia.");
+  const link = scope.kind === "strategy" ? scope.strategy.accounts[0] : null;
+  const scopedStore = link ? { ...s, settings: { ...s.settings, hl: link.kind === "hyperliquid" ? { address: link.address, includeArb: link.includeArb } : undefined } } : s;
+  const acc = account(scopedStore);
+  if (acc.kind === "hl" && acc.address && !readHlAccount(acc.address)?.history) throw new NeedsSetup("Sincronize o histórico do endereço vinculado a este ciclo.");
   const warnings: string[] = [];
   const nowMs = Date.now();
 
@@ -201,7 +206,11 @@ export function compute(view?: string) {
     if (st.snapshot.source === "manual") warnings.push("Patrimônio inicial informado à mão (referência manual).");
   }
   const closed = scope.kind === "strategy" && !scope.active;
-  const pxEnd = closed ? closeAt(Math.floor(endT / 1000 / DAY) * DAY) ?? now.btcUsd.toNumber() : now.btcUsd.toNumber();
+  const savedEndPrice = scope.kind === "strategy" ? Number(scope.strategy.endBtcUsd) : NaN;
+  const pxEnd = closed ? (savedEndPrice > 0 ? savedEndPrice : closeAt(Math.floor(endT / 1000 / DAY) * DAY)) : now.btcUsd.toNumber();
+  if (pxEnd == null || pxEnd <= 0) throw new NoPriceError("Sem preço histórico para encerrar a avaliação deste ciclo.");
+  if (closed && !(savedEndPrice > 0)) warnings.push("Preço final aproximado pelo fechamento diário; o ciclo antigo não registrou cotação de encerramento.");
+  if (eventsNeedEstimate(acc.events, startT, endT)) warnings.push("Retorno modelado: preços dos fluxos usam a última execução conhecida ou fechamento anterior; não são avaliações intradiárias oficiais.");
   const events = windowEvents(acc.events, startT, endT, inclusive);
   const r = replay({ startT, endT, equity0, size0, px0, events, closeAt, pxEnd });
 
@@ -218,10 +227,10 @@ export function compute(view?: string) {
     const snapPos = scope.strategy.snapshot?.positions ?? [];
     breakdown = otherAssets(acc.others, startT, endT, liveNow ? liveNow.positions.map((p) => ({ coin: p.coin, upnl: p.upnl })) : null, snapPos.map((p) => ({ coin: p.coin, upnl: Number(p.upnl ?? 0) })), reconciliation);
   }
-  const isolated = breakdown != null;
+  const isolated = scope.kind === "strategy" && acc.kind === "hl";
   const perfEquity = isolated ? r.equity : equityN;
   const lp = r.points[r.points.length - 1];
-  if (lp && official != null && !isolated) lp.equity = official;
+  // Saldo oficial e reconciliação ficam separados: resíduo nunca é lançado como retorno no último ponto.
   const points: CPointN[] = r.points.map((p: SPoint) => ({ ...p, btc: p.price > 0 ? p.equity / p.price : 0 }));
   const result = perfEquity - r.contrib;
   const accountResult = equityN - r.contrib;
@@ -280,7 +289,7 @@ export function compute(view?: string) {
   const free = acc.kind === "hl" ? live?.withdrawable ?? null : equityN - (manualW ? cycleValue(manualW, pxNow).toNumber() : 0);
 
   return {
-    s, now, acc, scope, label, snapSource, startT, endT, closed, events,
+    s, now, acc, scope, label, snapSource, startT, endT, closed, events, perfEquity,
     equity: d(equityN), equity0, contrib: r.contrib, flowsIn: r.flowsIn, flowsOut: r.flowsOut, result, fees: r.fees, funding: r.funding,
     realized: r.realized, unrealized: r.unrealized, modelEquity: r.equity, official, reconciliation, isolated, breakdown, accountResult,
     twr: twr(r.points), maxDD: maxDrawdown(r.points),
@@ -340,7 +349,8 @@ export function market() {
   let lev: number | null = null, liq: number | null = null;
   try { const snap = compute(); lev = snap.current?.effLeverage ?? null; liq = snap.current?.liqDist?.toNumber() ?? null; } catch { /* sem cotação ou sem ciclo */ }
   const rules = { ...DEFAULT_SCENARIO_RULES, ...(getStore().settings.scenarioRules ?? {}) };
-  const scenario = classifyScenario({ dailyCandles: cd, fearGreed: fng?.value ?? null, fundingRate8h: null, portfolioLeverage: lev, minLiquidationDistance: liq }, rules);
+  const funding = marketIntel()?.funding1h;
+  const scenario = classifyScenario({ dailyCandles: cd, fearGreed: fng?.value ?? null, fundingRate8h: funding && Date.now() - funding.at < 5 * 60e3 ? funding.value * 8 : null, portfolioLeverage: lev, minLiquidationDistance: liq }, rules);
   const high365 = Math.max(...cd.slice(-365).map((k) => k.h));
   return {
     candles: cd.slice(-400), source: prices().source || "Binance", updatedAt: new Date(cd[cd.length - 1]!.t * 1000).toISOString(),
@@ -377,7 +387,7 @@ export function inCcy(points: CPointN[], ccy: Ccy, fxNow: number | null): CPoint
   return points.map((p, i) => {
     const fx = ccy === "BRL" ? usdBrlAt(p.ts) ?? fxNow ?? 1 : 1;
     contrib = i === 0 ? p.contrib * fx : contrib + p.netFlow * fx;
-    return { ...p, equity: p.equity * fx, netFlow: p.netFlow * fx, wFlow: p.wFlow * fx, contrib, hodl: p.hodl != null ? p.hodl * fx : null };
+    return { ...p, approx: ccy === "BRL" && usdBrlAt(p.ts) == null, equity: p.equity * fx, netFlow: p.netFlow * fx, wFlow: p.wFlow * fx, contrib, hodl: p.hodl != null ? p.hodl * fx : null };
   });
 }
 /**
@@ -387,6 +397,7 @@ export function inCcy(points: CPointN[], ccy: Ccy, fxNow: number | null): CPoint
  */
 export function periodReturn(pts: CPointN[], days: number | null, partial = false): { pct: number; money: number; partial: boolean } | null {
   if (pts.length < 2) return null;
+  if (pts.some((p) => p.approx)) return null;
   const end = pts[pts.length - 1]!.ts;
   let i0 = 0, isPartial = false;
   if (days != null) {
@@ -397,12 +408,14 @@ export function periodReturn(pts: CPointN[], days: number | null, partial = fals
   let g = 1, money = 0;
   for (let i = i0 + 1; i < pts.length; i++) {
     const a = pts[i - 1]!, b = pts[i]!;
-    g *= 1 + periodRet(a, b);
+    const ret = periodRet(a, b); if (ret == null) return null;
+    g *= 1 + ret;
     money += b.equity - a.equity - b.netFlow;
   }
   return { pct: g - 1, money, partial: isPartial };
 }
 /** Queda desde o pico da carteira, ponto a ponto (sem o efeito de aportes e retiradas). */
-export const drawdownPoints = (pts: CPointN[]) => drawdowns(pts).map((x) => ({ ts: x.ts, dd: x.dd }));
+export const drawdownPoints = (pts: CPointN[]) => (pts.some(p => p.approx) ? [] : drawdowns(pts)).map((x) => ({ ts: x.ts, dd: x.dd }));
+const eventsNeedEstimate = (events: SEv[], start: number, end: number) => events.some((e) => e.k === "flow" && e.t > start && e.t <= end);
 
 export function usdBrlOn(iso: string) { return usdBrlAt(tsOf(iso)); }

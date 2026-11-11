@@ -8,7 +8,8 @@
 import type { ScenarioRules } from "@bst/domain";
 import type { StrategyCycle } from "./strategy";
 import { zonedToUtc } from "./strategy";
-import { exportPortfolio, importPortfolio } from "../portfolio/db";
+import { exportPortfolio, importPortfolio, validatePortfolio } from "../portfolio/db";
+import { dateValue, finite, nonempty, record, rows, unique } from "../validation";
 
 export interface Initial {
   date: string; // yyyy-mm-dd
@@ -94,6 +95,7 @@ export function getStore(): Store {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
+      if (!localStorage.getItem(KEY + ".pre-audit-2026-11-11")) { try { localStorage.setItem(KEY + ".pre-audit-2026-11-11", raw); } catch { /* o dado original permanece na chave principal */ } }
       const parsed = JSON.parse(raw);
       if (parsed.v !== 3 && !localStorage.getItem(KEY + ".bak")) localStorage.setItem(KEY + ".bak", raw); // cópia intacta antes da migração
       if (parsed.v !== 3) pushAuto(raw, "antes da migração de versão");
@@ -154,8 +156,8 @@ export function updateStore(fn: (s: Store) => void) {
   const s = structuredClone(getStore());
   fn(s);
   s.updatedAt = new Date().toISOString();
+  try { localStorage.setItem(KEY, JSON.stringify(s)); storageOk = true; } catch { storageOk = false; throw new Error("Não foi possível salvar. Exporte um backup e libere espaço no navegador."); }
   current = s;
-  try { localStorage.setItem(KEY, JSON.stringify(s)); storageOk = true; } catch { storageOk = false; }
   subs.forEach((f) => f());
 }
 
@@ -206,7 +208,51 @@ export function exportBackup(): string {
   return JSON.stringify({ app: "bitcoin-strategy-terminal", version: 4, exportedAt: new Date().toISOString(), data: getStore(), portfolio: exportPortfolio(), hlExtra: extraAccountsForBackup() }, null, 2);
 }
 
-export function importBackup(text: string) {
+export function validateStore(value: unknown): Store {
+  const input = record(value, "Estratégia");
+  const cycles = rows(input.cycles, "Operações"); unique(cycles, "id", "Operação");
+  for (const c of cycles) {
+    const open = dateValue(c.openedAt, "Abertura"); finite(c.entryPx, "Preço de entrada", Number.MIN_VALUE); finite(c.capital, "Capital", 0); finite(c.leverage, "Alavancagem", Number.MIN_VALUE);
+    if (c.closedAt && dateValue(c.closedAt, "Encerramento") < open) throw new Error("Encerramento anterior à abertura.");
+    for (const key of ["exitPx", "stopPx", "targetPx", "liqPx"]) if (c[key] != null && c[key] !== "") finite(c[key], key, Number.MIN_VALUE);
+    for (const key of ["feesOpen", "feesClose", "funding"]) if (c[key] != null && c[key] !== "") finite(c[key], key);
+    for (const a of rows(c.adds ?? [], "Aumentos")) { if (dateValue(a.at, "Data do aumento") < open) throw new Error("Aumento anterior à abertura."); finite(a.px, "Preço do aumento", Number.MIN_VALUE); finite(a.capital, "Capital do aumento", 0); finite(a.leverage, "Alavancagem do aumento", Number.MIN_VALUE); }
+  }
+  const flows = rows(input.flows, "Fluxos"); unique(flows, "id", "Fluxo");
+  for (const f of flows) { dateValue(f.date, "Data do fluxo"); finite(f.amount, "Valor do fluxo", 0); if (f.kind !== "IN" && f.kind !== "OUT") throw new Error("Direção de fluxo inválida."); }
+  const strategies = rows(input.strategies ?? [], "Ciclos"); unique(strategies, "id", "Ciclo");
+  if (strategies.filter((s) => s.status === "active").length > 1) throw new Error("Há mais de um ciclo ativo.");
+  const sorted = [...strategies].sort((a, b) => Number(a.startAt) - Number(b.startAt));
+  for (let i = 0; i < sorted.length; i++) {
+    const s = sorted[i]!; const start = finite(s.startAt, "Início do ciclo", 0);
+    if (s.status !== "active" && s.status !== "closed") throw new Error("Estado do ciclo inválido.");
+    if (s.endAt != null && finite(s.endAt, "Fim do ciclo", start) < start) throw new Error("Janela de ciclo inválida.");
+    if (i > 0 && Number(sorted[i - 1]!.endAt ?? Infinity) > start) throw new Error("Ciclos sobrepostos.");
+    new Intl.DateTimeFormat("pt-BR", { timeZone: nonempty(s.tz, "Fuso") });
+    for (const a of rows(s.accounts, "Vínculos")) if (a.kind !== "manual" && (a.kind !== "hyperliquid" || !/^0x[0-9a-f]{40}$/i.test(String(a.address)))) throw new Error("Vínculo de conta inválido.");
+    if (s.snapshot) { const snap = record(s.snapshot, "Retrato inicial"); finite(snap.equityUsd, "Patrimônio inicial", 0); if (snap.btcUsd !== "") finite(snap.btcUsd, "Preço inicial", Number.MIN_VALUE); for (const p of rows(snap.positions, "Posições iniciais")) { finite(p.size, "Tamanho inicial"); finite(p.mark, "Preço da posição", Number.MIN_VALUE); } }
+  }
+  if (input.initial) { const initial = record(input.initial, "Saldo inicial"); dateValue(initial.date, "Data inicial"); finite(initial.usdc, "Saldo inicial", 0); }
+  const settings = record(input.settings ?? {}, "Ajustes");
+  for (const key of ["manualBtcUsd", "manualUsdBrl", "defaultLeverage"]) if (settings[key]) finite(settings[key], key, Number.MIN_VALUE);
+  if (settings.maintenanceRate != null && (finite(settings.maintenanceRate, "Manutenção", 0) >= 1)) throw new Error("Manutenção deve ser inferior a 100%.");
+  return normalize(input as Partial<Store>);
+}
+const RESTORE_JOURNAL = "bst.restore.pending.v1";
+/** Diário persistente: recupera a versão anterior se o navegador fechar entre as duas bases. */
+export async function recoverInterruptedRestore(): Promise<boolean> {
+  const raw = localStorage.getItem(RESTORE_JOURNAL);
+  if (!raw) return false;
+  const journal = JSON.parse(raw);
+  const oldStore = validateStore(journal.data), oldPortfolio = validatePortfolio(journal.portfolio);
+  await importPortfolio(oldPortfolio);
+  updateStore(cur => Object.assign(cur, oldStore));
+  if (journal.extra == null) localStorage.removeItem("bst.hl.extra.v1"); else localStorage.setItem("bst.hl.extra.v1", journal.extra);
+  localStorage.removeItem(RESTORE_JOURNAL);
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("bst:extra-reload"));
+  return true;
+}
+export async function importBackup(text: string) {
   let parsed: unknown;
   try { parsed = JSON.parse(text); } catch { throw new Error("O arquivo não é um JSON válido."); }
   const data = ((parsed as { data?: unknown }).data ?? parsed) as Partial<Store> & V1 & { v?: number };
@@ -215,20 +261,34 @@ export function importBackup(text: string) {
   if ((data.v as number) === 2 || data.v === 3 || Array.isArray(data.cycles)) {
     if (!Array.isArray(data.cycles) || !Array.isArray(data.flows)) throw new Error("Backup incompleto; nada foi alterado.");
     for (const c of data.cycles) if (!c.id || !c.openedAt || !c.entryPx || !c.leverage || !c.capital) throw new Error("Backup com ciclo incompleto; nada foi alterado.");
-    next = normalize(data);
-  } else if (Array.isArray(data.ops)) next = fromV1(data);
+    next = validateStore(data);
+  } else if (Array.isArray(data.ops)) next = validateStore(fromV1(data));
   else throw new Error("Este arquivo não é um backup do Bitcoin Strategy Terminal.");
   const pf = (parsed as { portfolio?: unknown }).portfolio;
-  backupNow("antes de restaurar um backup");
-  updateStore((cur) => Object.assign(cur, next));
-  if (pf) void importPortfolio(pf);
+  const stagedPortfolio = pf ? validatePortfolio(pf) : null;
   const ex = (parsed as { hlExtra?: { id: string; name: string; address: string }[] }).hlExtra;
+  if (ex != null && (!Array.isArray(ex) || ex.some((x) => !x || !/^0x[0-9a-fA-F]{40}$/.test(x.address) || !x.id))) throw new Error("Contas adicionais inválidas; nada foi alterado.");
+  if (ex && new Set(ex.map((x) => x.address.toLowerCase())).size !== ex.length) throw new Error("Contas adicionais repetidas.");
+  backupNow("antes de restaurar um backup");
+  const previous = structuredClone(getStore()), previousPortfolio = exportPortfolio();
+  const previousExtra = localStorage.getItem("bst.hl.extra.v1");
+  // Sem espaço para preservar o original, não iniciar a restauração.
+  localStorage.setItem(RESTORE_JOURNAL, JSON.stringify({ data: previous, portfolio: previousPortfolio, extra: previousExtra }));
+  try {
+  if (stagedPortfolio) await importPortfolio(stagedPortfolio);
+  updateStore((cur) => Object.assign(cur, next));
   if (Array.isArray(ex)) {
     try {
       const keep = ex.filter((x) => x && /^0x[0-9a-fA-F]{40}$/.test(x.address)).map((x) => ({ id: x.id, name: String(x.name), address: x.address.toLowerCase(), live: null, history: null, error: null, syncing: false }));
       localStorage.setItem("bst.hl.extra.v1", JSON.stringify({ v: 1, accounts: keep, storageError: null }));
-      window.dispatchEvent(new Event("bst:extra-reload"));
-    } catch { /* o backup principal já foi restaurado */ }
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("bst:extra-reload"));
+    } catch (e) { throw new Error(`Não foi possível restaurar as contas adicionais: ${(e as Error).message}`); }
+  }
+  localStorage.removeItem(RESTORE_JOURNAL);
+  } catch (e) {
+    try { await recoverInterruptedRestore(); }
+    catch { throw new Error("Restauração interrompida. A cópia anterior está preservada para recuperação ao reabrir; verifique o armazenamento do navegador."); }
+    throw e;
   }
 }
 

@@ -39,7 +39,7 @@ export function useHub(period: EvoPeriod, ccy: EvoCcy) {
   const spot = prices().spot;
   const now = Date.now();
   return useMemo(() => {
-    const snaps = portfolio().snapshots;
+    const snaps = pv?.snapshots ?? [];
     const fb = { usdBrl: spot?.usdBrl ?? null, btcUsd: spot?.btcUsd ?? null };
     const evo = pv ? evolution(snaps, pv.flows, period, ccy, now, fb) : null;
     const evoUsd = pv ? evolution(snaps, pv.flows, period, "USD", now, fb) : null;

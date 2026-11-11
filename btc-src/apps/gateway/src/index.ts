@@ -20,6 +20,7 @@ export interface Env {
   ACCESS_AUD: string;
   OWNER_EMAIL: string;
   SOLANA_RPC_URL?: string;
+  REQUEST_GATE?: DurableObjectNamespace;
 }
 
 const K = { creds: "okx:creds", meta: "okx:meta", last: "okx:last", hist: "okx:history", rl: (k: string) => `rl:${k}` };
@@ -29,10 +30,25 @@ const fail = (status: number, message: string) => json({ ok: false, error: messa
 
 /** Limite simples por rota (KV): no máximo 1 chamada a cada `sec` segundos. */
 async function rateLimit(env: Env, key: string, sec: number): Promise<boolean> {
+  if (env.REQUEST_GATE) { const r = await env.REQUEST_GATE.get(env.REQUEST_GATE.idFromName(key)).fetch(`https://gate.local/?seconds=${sec}`); return r.status === 200; }
   const last = Number((await env.BST.get(K.rl(key))) ?? 0);
   if (Date.now() - last < sec * 1000) return false;
   await env.BST.put(K.rl(key), String(Date.now()), { expirationTtl: Math.max(60, sec * 2) });
   return true;
+}
+
+/** Serializa limites em produção; KV permanece apenas compatibilidade com instalações anteriores. */
+export class RequestGate {
+  constructor(private state: DurableObjectState) {}
+  async fetch(req: Request): Promise<Response> {
+    const sec = Math.max(1, Math.min(3600, Number(new URL(req.url).searchParams.get("seconds")) || 15));
+    const allowed = await this.state.storage.transaction(async (tx) => {
+      const last = await tx.get<number>("last") ?? 0;
+      if (Date.now() - last < sec * 1000) return false;
+      await tx.put("last", Date.now()); return true;
+    });
+    return new Response(null, { status: allowed ? 200 : 429 });
+  }
 }
 
 async function readCreds(env: Env): Promise<OkxCreds | null> {
@@ -51,7 +67,7 @@ export async function handleApi(req: Request, env: Env, f: typeof fetch = fetch)
   try {
     switch (route) {
       case "GET /api/health":
-        return json({ ok: true, gateway: "bst-gateway", features: { okx: true, solanaTokens: Boolean(env.SOLANA_RPC_URL) } });
+        return json({ ok: true, gateway: "bst-gateway", rateLimit: env.REQUEST_GATE ? "atomic" : "legacy-kv", retention: "revogação remove credenciais, snapshot e histórico OKX", lastOkxJob: await env.BST.get("job:okx:last", "json"), features: { okx: true, solanaTokens: Boolean(env.SOLANA_RPC_URL) } });
 
       case "GET /api/okx/status": {
         const meta = await env.BST.get(K.meta, "json");
@@ -62,9 +78,16 @@ export async function handleApi(req: Request, env: Env, f: typeof fetch = fetch)
         if (!(await rateLimit(env, "okx-cred", 5))) return fail(429, "Aguarde alguns segundos antes de tentar de novo.");
         const len = Number(req.headers.get("Content-Length") ?? 0);
         if (len > 4096) return fail(413, "Corpo grande demais.");
-        const b = (await req.json().catch(() => null)) as Partial<OkxCreds> | null;
+        const reader = req.body?.getReader();
+        let bytes = 0, raw = "";
+        const decoder = new TextDecoder();
+        if (reader) for (;;) { const { done, value } = await reader.read(); if (done) break; bytes += value.byteLength; if (bytes > 4096) { await reader.cancel(); return fail(413, "Corpo grande demais."); } raw += decoder.decode(value, { stream: true }); }
+        raw += decoder.decode();
+        let b: Partial<OkxCreds> | null = null;
+        try { b = JSON.parse(raw); } catch { return fail(400, "JSON inválido."); }
         const c = { apiKey: String(b?.apiKey ?? "").trim(), secret: String(b?.secret ?? "").trim(), passphrase: String(b?.passphrase ?? "") };
         if (!c.apiKey || !c.secret || !c.passphrase) return fail(400, "Informe API Key, Secret Key e Passphrase da API.");
+        if (c.apiKey.length > 256 || c.secret.length > 512 || c.passphrase.length > 256) return fail(400, "Credencial longa demais.");
         if (c.passphrase.trim().split(/\s+/).length >= 12) return fail(400, "Isto parece uma frase de recuperação. Use a Passphrase da API (a senha criada junto com a API Key), nunca a frase da carteira.");
         await masterKeyBytes(env.MASTER_KEY); // confere a MASTER_KEY antes de falar com a OKX
         const info = await keyInfo(c, f);
@@ -76,7 +99,7 @@ export async function handleApi(req: Request, env: Env, f: typeof fetch = fetch)
       }
 
       case "DELETE /api/okx/credentials":
-        await Promise.all([env.BST.delete(K.creds), env.BST.delete(K.meta), env.BST.delete(K.last)]);
+        await Promise.all([env.BST.delete(K.creds), env.BST.delete(K.meta), env.BST.delete(K.last), env.BST.delete(K.hist)]);
         return json({ ok: true, revoked: true, note: "Credenciais apagadas do gateway. Apague também a API Key no site da OKX." });
 
       case "GET /api/okx/snapshot": {
@@ -128,6 +151,6 @@ export default {
     return new Response(r.body, { status: r.status, headers: h });
   },
   async scheduled(_e: ScheduledController, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(scheduledSnapshot(env).catch(() => undefined));
+    ctx.waitUntil(scheduledSnapshot(env).then(() => env.BST.put("job:okx:last", JSON.stringify({ at: Date.now(), ok: true }))).catch(() => env.BST.put("job:okx:last", JSON.stringify({ at: Date.now(), ok: false, error: "Falha ao obter snapshot; consulte a integração OKX." }))));
   },
 } satisfies ExportedHandler<Env>;

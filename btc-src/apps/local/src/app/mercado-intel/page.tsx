@@ -82,7 +82,7 @@ function Calendar({ events, now, sources }: { events: CalEvent[]; now: number; s
 }
 function SourceLine({ sources }: { sources: MiState["calSources"] }) {
   if (!sources.length) return null;
-  return <p className="border-t border-line px-4 py-2 text-[11.5px] text-muted">{sources.map((s) => `${s.name}: ${s.ok ? "ok" : `falhou${s.error ? ` (${s.error})` : ""}`}`).join(" · ")}</p>;
+  return <p className="border-t border-line px-4 py-2 text-[11.5px] text-muted">{sources.map((s) => `${s.name}${s.mode === "static" ? " (lista estática)" : ""}${s.coverageUntil ? ` · cobertura até ${new Date(s.coverageUntil).toLocaleDateString("pt-BR")}${s.coverageUntil < Date.now() ? " · EXPIRADA" : ""}` : ""}: ${s.ok ? "ok" : `falhou${s.error ? ` (${s.error})` : ""}`}`).join(" · ")}</p>;
 }
 
 function News({ news, now, read }: { news: Scored[]; now: number; read: string[] }) {

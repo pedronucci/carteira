@@ -35,7 +35,7 @@ export function Hero() {
       { label: "Exposição", tone: liqTone === "loss" ? ("loss" as const) : null, value: lev != null ? `${lev.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}×` : "—", sub: f.money(c.notional, { compact: true }), bar: lev != null ? { pct: lev / levMax, tone: liqTone } : undefined },
       ...(liqD != null && !s.closed ? [{ label: "Distância da liquidação", tone: liqTone, value: f.pct(liqD, false), sub: c.liq ? f.px(c.liq) : undefined, bar: { pct: liqD / 0.6, tone: liqTone } }] : []),
     ] : [{ label: "Estado", value: "100% USDC", sub: s.inUsdcSince ? `desde ${new Date(s.inUsdcSince).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}` : undefined }]),
-    { label: "Maior queda", tone: s.maxDD > 0.001 ? ("loss" as const) : null, value: s.maxDD > 0.001 ? f.pct(-s.maxDD) : "0%", sub: "no ciclo" },
+    { label: "Maior queda", tone: (s.maxDD ?? 0) > 0.001 ? ("loss" as const) : null, value: s.maxDD == null ? "—" : s.maxDD > 0.001 ? f.pct(s.maxDD == null ? null : -s.maxDD) : "0%", sub: "no ciclo" },
   ];
   return (
     <section aria-label="Estratégia BTC/USDC" className="pt-3 pb-5">

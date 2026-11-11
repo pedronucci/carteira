@@ -44,6 +44,7 @@ export interface StrategyCycle {
   accounts: AccountLink[];
   snapshot: StartSnapshot | null;
   endEquityUsd?: string; // patrimônio oficial no encerramento (quando conhecido)
+  endBtcUsd?: string;
   /** ciclo encerrado guardado fora da lista principal (continua disponível para consulta e auditoria) */
   archived?: boolean;
   createdAt: number;
@@ -99,6 +100,7 @@ export interface ReplayInput {
   events: SEv[]; // já filtrados para (startT, endT]
   closeAt: (daySec: number) => number | null; // fechamento diário do BTC (fim do dia, UTC)
   pxEnd: number; // preço no fim (agora: cotação atual)
+  priceAt?: (timeMs: number) => number | null;
 }
 
 export interface ReplayOut {
@@ -113,7 +115,8 @@ export interface ReplayOut {
 }
 
 export function replay(inp: ReplayInput): ReplayOut {
-  const ev = sortEvents(inp.events);
+  if (![inp.startT, inp.endT, inp.equity0, inp.size0, inp.px0, inp.pxEnd].every(Number.isFinite) || inp.px0 <= 0 || inp.pxEnd <= 0 || inp.endT < inp.startT) throw new Error("Parâmetros de avaliação inválidos.");
+  const ev = sortEvents(dedupe(inp.events));
   let col = inp.equity0, size = inp.size0, basis = inp.size0 !== 0 ? inp.px0 : 0;
   let flowsIn = 0, flowsOut = 0, fees = 0, funding = 0, realized = 0, income = 0;
   const shortIgnored = false; // mantido por compatibilidade: vendas a descoberto agora são acompanhadas
@@ -191,11 +194,12 @@ export function replay(inp: ReplayInput): ReplayOut {
   const NEAR = 2 * 3600e3;
   /** Melhor preço conhecido num instante: a execução mais próxima (até 2 h), senão o fechamento do dia. */
   const pxAt = (t: number, fallback: number) => {
+    const official = inp.priceAt?.(t); if (official != null && Number.isFinite(official) && official > 0) return official;
     let best: number | null = null, gap = NEAR;
-    for (const x of tradesPx) { const g = Math.abs(x.t - t); if (g <= gap) { gap = g; best = x.px; } }
+    for (const x of tradesPx) { const g = t - x.t; if (g >= 0 && g <= gap) { gap = g; best = x.px; } }
     if (best != null) return best;
     const day = Math.floor(t / 1000 / DAY) * DAY;
-    return day === Math.floor(inp.endT / 1000 / DAY) * DAY ? inp.pxEnd : inp.closeAt(day) ?? fallback;
+    return inp.closeAt(day - DAY) ?? fallback;
   };
   const points: SPoint[] = [];
   let i = 0, contrib = inp.equity0, lastPx = inp.px0;
@@ -253,8 +257,12 @@ export function positionAt(trades: Extract<SEv, { k: "trade" }>[], t: number, si
   let size = size0, entry = entry0;
   for (const e of sortEvents(trades) as Extract<SEv, { k: "trade" }>[]) {
     if (e.t > t) break;
-    if (e.side === "B") { entry = (size * entry + e.sz * e.px) / (size + e.sz); size += e.sz; }
-    else { size = Math.max(0, size - e.sz); if (size <= 1e-9) { size = 0; entry = 0; } }
+    const delta = e.side === "B" ? e.sz : -e.sz;
+    const next = size + delta;
+    if (size === 0 || Math.sign(size) !== Math.sign(next) && Math.abs(next) > 1e-9) entry = e.px;
+    else if (Math.sign(size) === Math.sign(delta)) entry = (Math.abs(size) * entry + e.sz * e.px) / (Math.abs(size) + e.sz);
+    size = Math.abs(next) <= 1e-9 ? 0 : next;
+    if (size === 0) entry = 0;
   }
   return { size, entry };
 }
@@ -266,29 +274,32 @@ export function positionAt(trades: Extract<SEv, { k: "trade" }>[], t: number, si
  * Um aporte feito no meio do dia entra no denominador na proporção certa, em vez de ser
  * tratado como se tivesse chegado no fim do dia.
  */
-export function periodRet(a: { equity: number }, b: { equity: number; netFlow: number; wFlow: number }): number {
+export function periodRet(a: { equity: number }, b: { equity: number; netFlow: number; wFlow: number }): number | null {
   const base = a.equity + b.wFlow;
-  return base > 1e-9 ? (b.equity - a.equity - b.netFlow) / base : 0;
+  const r = base > 1e-9 ? (b.equity - a.equity - b.netFlow) / base : null;
+  return r != null && Number.isFinite(r) ? r : null;
 }
 /** Retorno ponderado no tempo (encadeia os períodos da série). */
 export type FlowPoint = { ts: number; equity: number; netFlow: number; wFlow: number };
 export function twr(points: FlowPoint[]): number | null {
   if (points.length < 2) return null;
   let g = 1;
-  for (let i = 1; i < points.length; i++) g *= 1 + periodRet(points[i - 1]!, points[i]!);
+  for (let i = 1; i < points.length; i++) { const r = periodRet(points[i - 1]!, points[i]!); if (r == null) return null; g *= 1 + r; }
   return g - 1;
 }
 /** Índice de rentabilidade e queda desde o pico, ponto a ponto. */
 export function drawdowns(points: FlowPoint[]): { ts: number; index: number; dd: number }[] {
+  if (points.length > 1 && twr(points) == null) return [];
   let idx = 1, peak = 1;
   return points.map((p, i) => {
-    if (i > 0) idx *= 1 + periodRet(points[i - 1]!, p);
+    if (i > 0) idx *= 1 + periodRet(points[i - 1]!, p)!;
     peak = Math.max(peak, idx);
     return { ts: p.ts, index: idx, dd: 1 - idx / peak };
   });
 }
-export function maxDrawdown(points: FlowPoint[]): number {
-  return drawdowns(points).reduce((m, x) => Math.max(m, x.dd), 0);
+export function maxDrawdown(points: FlowPoint[]): number | null {
+  const dd = drawdowns(points);
+  return dd.length < 2 ? null : dd.reduce((m, x) => Math.max(m, x.dd), 0);
 }
 /** Duração legível: "45 min", "19 h", "1 d 19 h", "12 d". */
 export function fmtDuration(ms: number): string {

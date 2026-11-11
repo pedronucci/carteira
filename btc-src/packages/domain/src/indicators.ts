@@ -10,6 +10,7 @@ export interface Candle {
   l: number;
   c: number;
   v: number;
+  synthetic?: boolean;
 }
 
 type S = (number | null)[];
@@ -48,12 +49,12 @@ export function rsi(closes: number[], period = 14): S {
     if (ch >= 0) gain += ch; else loss -= ch;
   }
   let avgG = gain / period, avgL = loss / period;
-  out[period] = avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL);
+  out[period] = avgL === 0 ? (avgG === 0 ? 50 : 100) : 100 - 100 / (1 + avgG / avgL);
   for (let i = period + 1; i < closes.length; i++) {
     const ch = closes[i]! - closes[i - 1]!;
     avgG = (avgG * (period - 1) + Math.max(ch, 0)) / period;
     avgL = (avgL * (period - 1) + Math.max(-ch, 0)) / period;
-    out[i] = avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL);
+    out[i] = avgL === 0 ? (avgG === 0 ? 50 : 100) : 100 - 100 / (1 + avgG / avgL);
   }
   return out;
 }
@@ -88,6 +89,7 @@ export function bollinger(closes: number[], period = 20, mult = 2) {
 /** ATR de Wilder. */
 export function atr(c: Candle[], period = 14): S {
   const out: S = new Array(c.length).fill(null);
+  if (c.some((k) => k.synthetic)) return out;
   if (c.length <= period) return out;
   const tr = c.map((k, i) => (i === 0 ? k.h - k.l : Math.max(k.h - k.l, Math.abs(k.h - c[i - 1]!.c), Math.abs(k.l - c[i - 1]!.c))));
   let prev = tr.slice(1, period + 1).reduce((a, b) => a + b, 0) / period;
@@ -137,6 +139,7 @@ export interface Level {
  * agrupados quando distam menos que `tolerance` (fração do preço).
  */
 export function supportResistance(c: Candle[], lookback = 5, tolerance = 0.015, maxLevels = 6): Level[] {
+  if (c.some((k) => k.synthetic)) return [];
   if (c.length < lookback * 2 + 1) return [];
   const pivots: { price: number; t: number }[] = [];
   for (let i = lookback; i < c.length - lookback; i++) {

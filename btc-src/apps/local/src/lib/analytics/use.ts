@@ -13,7 +13,7 @@ export function useAnalytics(kind: RangeKind, custom: Custom, strategyStart: num
   return useMemo(() => {
     const now = Date.now();
     const range = resolveRange(kind, now, custom);
-    const snaps = portfolio().snapshots;
+    const snaps = pv?.snapshots ?? [];
     const flows = pv?.flows ?? [];
     const trades = perps?.trades ?? [], funding = perps?.funding ?? [], positions = perps?.positions ?? [];
     const rows = perfByCoin(trades, funding, positions, range);

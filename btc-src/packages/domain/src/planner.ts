@@ -20,6 +20,7 @@ export interface BuyPlanInput {
   currentAvgCostUsd?: DecimalInput | null;
   portfolioEquityUsd?: DecimalInput | null;
   side?: "LONG" | "SHORT";
+  market?: "SPOT" | "PERP";
 }
 
 export interface BuyPlanResult {
@@ -42,24 +43,29 @@ export function planBuy(i: BuyPlanInput): BuyPlanResult {
   const side = i.side ?? "LONG";
   const dir = side === "LONG" ? 1 : -1;
   const lev = d(i.leverage ?? 1);
+  const spot = i.market ? i.market === "SPOT" : lev.eq(1);
   const fee = d(i.feeRate ?? 0);
   const slip = d(i.slippageRate ?? 0);
   const warnings: string[] = [];
   if (lev.lte(0)) throw new Error("Alavancagem deve ser maior que zero.");
+  if (![d(i.entryPriceUsd), d(i.capitalUsd), lev].every((x) => x.isFinite() && x.gt(0)) || !fee.isFinite() || fee.lt(0) || fee.gte(1) || !slip.isFinite() || slip.lt(0) || slip.gte(1)) throw new Error("Preço, capital, alavancagem ou taxas inválidos.");
+  if (spot && (side === "SHORT" || !lev.eq(1))) throw new Error("Spot requer LONG sem alavancagem.");
   const entry = d(i.entryPriceUsd).mul(d(1).plus(slip.mul(dir)));
   const margin = d(i.capitalUsd);
   const notional = margin.mul(lev);
   const entryFee = notional.mul(fee);
   // quantidade comprada com o nocional líquido da taxa de entrada (spot) ou nocional cheio (perp, taxa paga da margem)
-  const qty = lev.eq(1) ? notional.minus(entryFee).div(entry) : notional.div(entry);
+  const qty = spot ? notional.minus(entryFee).div(entry) : notional.div(entry);
   const days = d(i.holdingDays ?? 0);
-  const estFunding = lev.gt(1) ? notional.mul(d(i.fundingRate8h ?? 0)).mul(days.mul(3)).mul(dir) : ZERO;
+  if (!days.isFinite() || days.lt(0) || !d(i.fundingRate8h ?? 0).isFinite()) throw new Error("Prazo ou funding inválido.");
+  const estFunding = !spot ? notional.mul(d(i.fundingRate8h ?? 0)).mul(days.mul(3)).mul(dir) : ZERO;
 
   const exitFee = (px: Decimal) => qty.mul(px).mul(fee);
   const pnlAt = (px: Decimal) => {
     const exitPx = px.mul(d(1).minus(slip.mul(dir)));
     const gross = exitPx.minus(entry).mul(qty).mul(dir);
-    const net = gross.minus(exitFee(exitPx)).minus(lev.eq(1) ? ZERO : entryFee).minus(estFunding);
+    if (!px.isFinite() || px.lte(0)) throw new Error("Preço de saída inválido.");
+    const net = gross.minus(exitFee(exitPx)).minus(spot ? ZERO : entryFee).minus(estFunding);
     return { gross, net };
   };
 
@@ -68,13 +74,13 @@ export function planBuy(i: BuyPlanInput): BuyPlanResult {
     const stop = d(i.stopPriceUsd);
     if ((side === "LONG" && stop.gte(entry)) || (side === "SHORT" && stop.lte(entry))) warnings.push("Stop do lado errado do preço de entrada.");
     lossAtStop = pnlAt(stop).net.neg();
-    if (lev.eq(1)) lossAtStop = lossAtStop.plus(entryFee); // no spot a taxa de entrada saiu do capital
+    if (spot) lossAtStop = lossAtStop.plus(entryFee); // no spot a taxa de entrada saiu do capital
   }
 
   const targets = (i.targetsUsd ?? []).map((t) => {
     const px = d(t);
     const { gross, net } = pnlAt(px);
-    const netAdj = lev.eq(1) ? net.minus(entryFee) : net;
+    const netAdj = spot ? net.minus(entryFee) : net;
     return {
       priceUsd: px, grossPnlUsd: gross, netPnlUsd: netAdj,
       rr: lossAtStop && lossAtStop.gt(0) ? netAdj.div(lossAtStop) : null,
@@ -85,10 +91,10 @@ export function planBuy(i: BuyPlanInput): BuyPlanResult {
   const curQty = d(i.currentQtyBtc ?? 0);
   const curAvg = i.currentAvgCostUsd != null ? d(i.currentAvgCostUsd) : null;
   let newQty = curQty, newAvg = curAvg;
-  if (side === "LONG" && lev.eq(1)) {
+  if (side === "LONG" && spot) {
     newQty = curQty.plus(qty);
     const curBasis = curAvg ? curAvg.mul(curQty) : ZERO;
-    newAvg = safeDiv(curBasis.plus(margin), newQty);
+    newAvg = curQty.gt(0) && curAvg == null ? null : safeDiv(curBasis.plus(margin), newQty);
   }
 
   const equity = i.portfolioEquityUsd != null ? d(i.portfolioEquityUsd) : null;
@@ -98,7 +104,7 @@ export function planBuy(i: BuyPlanInput): BuyPlanResult {
   return {
     effectiveEntryUsd: entry, qtyBtc: qty, notionalUsd: notional, marginUsd: margin, entryFeeUsd: entryFee,
     estFundingUsd: estFunding, lossAtStopUsd: lossAtStop,
-    lossAtStopPctOfCapital: lossAtStop ? lossAtStop.div(equity ?? margin) : null,
+    lossAtStopPctOfCapital: lossAtStop ? safeDiv(lossAtStop, equity ?? margin) : null,
     targets, newQtyBtc: newQty, newAvgCostUsd: newAvg,
     exposureShareOfEquity: equity && !equity.isZero() ? notional.div(equity) : null,
     warnings,
@@ -117,6 +123,7 @@ export interface SellPlanInput {
 
 export function planSell(i: SellPlanInput) {
   const qty = d(i.positionQtyBtc), avg = d(i.avgCostUsd);
+  if (!qty.isFinite() || qty.lt(0) || !avg.isFinite() || avg.lt(0) || !d(i.exitPriceUsd).isFinite() || d(i.exitPriceUsd).lte(0) || [d(i.feeRate ?? 0), d(i.slippageRate ?? 0)].some((v) => !v.isFinite() || v.lt(0) || v.gte(1))) throw new Error("Valores de venda inválidos.");
   const px = d(i.exitPriceUsd).mul(d(1).minus(d(i.slippageRate ?? 0)));
   const fee = d(i.feeRate ?? 0);
   const other = d(i.otherAssetsUsd ?? 0);

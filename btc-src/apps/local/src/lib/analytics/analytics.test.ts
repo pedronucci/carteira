@@ -119,12 +119,12 @@ describe("byOrigin", () => {
 describe("hodlResult", () => {
   const s = [snap(1 * D, { a: 1000 }, { btcUsd: 100, px: { ETH: 10 } }), snap(2 * D, { a: 1200 }, { btcUsd: 150 }), snap(3 * D, { a: 1500 }, { btcUsd: 200, px: { ETH: 20 } })];
   it("mesmos fluxos: aporte entra ao preço do retrato anterior", () => {
-    const h = hodlResult(s, [{ t: 2.2 * D, accountId: "a", usd: 150 }], "BTC", all)!;
+    const h = hodlResult(s, [{ t: 2.02 * D, accountId: "a", usd: 150 }], "BTC", all)!;
     // 10 BTC + 150/150 = 1 BTC → 11 BTC × 200 = 2200; investido 1150
     expect(h.resultUsd).toBeCloseTo(2200 - 1150); expect(h.pct).toBeCloseTo(2200 / 1150 - 1);
   });
   it("sem preço gravado em todos os pontos → dados insuficientes", () => {
-    expect(hodlResult(s, [{ t: 2.2 * D, accountId: "a", usd: 150 }], "ETH", all)).toBeNull(); // 2º retrato sem ETH
+    expect(hodlResult(s, [{ t: 2.02 * D, accountId: "a", usd: 150 }], "ETH", all)).toBeNull(); // 2º retrato sem ETH
     expect(hodlResult(s, [], "ETH", all)!.pct).toBeCloseTo(1);
     expect(hodlResult(s, [], "SOL", all)).toBeNull();
   });

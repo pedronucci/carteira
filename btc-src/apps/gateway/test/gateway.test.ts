@@ -195,3 +195,15 @@ describe("normalização OKX (campos da documentação)", () => {
     expect(s.events.map((e) => [e.kind, e.qty, e.txid])).toEqual([["deposit", 500, "0xabc"], ["withdraw", 200, "0xdef"]]);
   });
 });
+
+
+describe("regressões de segurança da auditoria", () => {
+  it.each([undefined, "9999999999", null])("recusa exp sem número obrigatório: %s", async exp => {
+    const token = jwt({ aud: [AUD], iss: `https://${TEAM}`, exp, email: OWNER });
+    await expect(verifyAccess(token, { teamDomain: TEAM, aud: AUD, ownerEmail: OWNER }, fakeFetch)).rejects.toThrow();
+  });
+  it("limita bytes efetivos do corpo mesmo sem Content-Length", async () => {
+    const response = await handleApi(req("POST", "/api/okx/credentials", { ...creds, secret: "x".repeat(5000) }), env(), fakeFetch);
+    expect(response.status).toBe(413);
+  });
+});

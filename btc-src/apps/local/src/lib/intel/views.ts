@@ -1,6 +1,7 @@
 /** Visões de risco e desempenho a partir dos dados reais (Estratégia + Portfólio + mercado). */
 import { concentration, dailyStats, exposure, shockScenarios, xirr, type RiskPosition } from "@bst/domain";
 import { compute, drawdownPoints } from "../local/engine";
+import { drawdowns } from "../local/strategy";
 import { getStore } from "../local/store";
 import { portfolio } from "../portfolio/db";
 import { portfolioView } from "../portfolio/engine";
@@ -13,7 +14,7 @@ const SELF_KINDS = new Set(["bitcoin", "evm", "solana"]);
 export function riskView() {
   const pv = portfolioView();
   const px = prices().spot?.btcUsd ?? 0;
-  const positions: RiskPosition[] = pv.positions.map((p) => ({ instrument: p.instrument, dir: p.dir, size: p.size, mark: p.mark, entry: p.entry, liq: p.liq, accountId: p.accountId, notional: p.notional }));
+  const positions: RiskPosition[] = pv.positions.map((p) => ({ instrument: p.instrument, dir: p.dir, size: p.size, sizeUnit: p.sizeUnit, mark: p.mark, entry: p.entry, liq: p.liq, accountId: p.accountId, notional: p.notional }));
   const ex = exposure(positions, pv.c.btcHeld.total, px, pv.c.totalUsd);
   const shocks = px ? shockScenarios({ btcPx: px, spotBtc: pv.c.btcHeld.total, totalUsd: pv.c.totalUsd, positions }) : [];
   const kindOf = new Map(pv.accounts.map((a) => [a.id, a.kind]));
@@ -34,7 +35,7 @@ export function riskView() {
     counterparty: { onExchange, selfCustody, unknown },
     marginUsed: margins, marginAvailable: live?.withdrawable ?? (strat?.acc.kind === "manual" ? strat.free : null),
     strategyDD: { max: strat?.maxDD ?? null, current: sdd.at(-1)?.dd ?? null },
-    portfolioDD: { max: pIdx.length > 1 ? pdd : null },
+    portfolioDD: { max: pIdx.length > 1 && pIdx.every((p) => p.valid) ? pdd : null },
     strat, pv,
   };
 }
@@ -49,7 +50,7 @@ export function alertContext() {
   return {
     now: Math.floor(Date.now() / 1000), price: r.px || null, leverage: s?.current?.effLeverage ?? null,
     minLiqDistance: s?.current?.liqDist?.toNumber() ?? null, drawdown: r.strategyDD.current,
-    equityUsd: s?.equity.toNumber() ?? null, syncFailures, funding: intel?.funding1h?.value ?? null,
+    equityUsd: s?.equity.toNumber() ?? null, syncFailures, funding: intel?.funding1h && Date.now() - intel.funding1h.at < 5 * 60e3 ? intel.funding1h.value : null,
     btcNet: r.exposure.btcNet, divergenceUsd: s?.reconciliation != null ? Math.abs(s.reconciliation) : null,
     btcEquivChange: b?.start && b.equivalent != null ? b.equivalent / b.start - 1 : null,
   };
@@ -61,12 +62,12 @@ export function performanceView() {
   const cycles = s.strategies.map((c) => { try { return { c, r: compute(c.id) }; } catch { return { c, r: null }; } });
   let strat: ReturnType<typeof compute> | null = null;
   try { strat = compute(); } catch { /* sem ciclo */ }
-  const sIndex = strat ? (() => { let idx = 1; return strat.points.map((p, i) => { if (i > 0) { const a = strat!.points[i - 1]!; const base = a.equity + p.wFlow; if (base > 0) idx *= 1 + (p.equity - a.equity - p.netFlow) / base; } return { t: p.ts * 1000, index: idx }; }); })() : [];
+  const sIndex = strat ? drawdowns(strat.points).map(p => ({ t: p.ts * 1000, index: p.index })) : [];
   const sStats = dailyStats(sIndex);
   // TIR da estratégia: patrimônio inicial e aportes como saídas do investidor, retiradas e valor atual como entradas
-  const sMwr = strat ? xirr([{ t: strat.startT, amount: -strat.equity0 }, ...strat.events.filter((e) => e.k === "flow").map((e) => ({ t: e.t, amount: -(e as { usd: number }).usd })), { t: Date.now(), amount: strat.equity.toNumber() }]) : null;
+  const sMwr = strat ? xirr([{ t: strat.startT, amount: -strat.equity0 }, ...strat.events.filter((e) => e.k === "flow").map((e) => ({ t: e.t, amount: -(e as { usd: number }).usd })), { t: strat.endT, amount: strat.perfEquity }]) : null;
   const pv = portfolioView();
-  const pStats = dailyStats(pv.series.map((p) => ({ t: p.t, index: p.index })));
+  const pStats = dailyStats(pv.series.every(p => p.valid) ? pv.series.map((p) => ({ t: p.t, index: p.index })) : []);
   const byAsset = pv.c.assets.filter((a) => a.pnlUsd != null).map((a) => ({ key: a.symbol, pnl: a.pnlUsd!, cost: a.costUsd! }));
-  return { cycles, strat, sStats, sMwr, pv, pStats, byAsset, spanDays: strat ? (Date.now() - strat.startT) / 86400e3 : 0 };
+  return { cycles, strat, sStats, sMwr, pv, pStats, byAsset, spanDays: strat ? (strat.endT - strat.startT) / 86400e3 : 0 };
 }

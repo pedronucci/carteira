@@ -48,7 +48,7 @@ function accountView(o: { id: string; name: string; address: string; primary: bo
     id: o.id, name: o.name, address: o.address, primary: o.primary, live, stale: !live || Date.now() - live.at > STALE_MS, at: live?.at ?? null, error: o.error,
     positions, summary: summarize(positions, live ? live.total : null, minLiq), trades, stats: tradeStats(trades), historyComplete: Boolean(h) && !h!.truncated, recon, funding: h?.funding ?? [],
     spotFills, ledger: h?.ledger ?? [], orderKinds: h?.orders ?? {}, historyAt: h?.at ?? null,
-    sim: live ? { accountValue: live.total, positions: positions.map((p) => ({ coin: p.coin, szi: p.dir === "LONG" ? p.size : -p.size, mark: p.mark ?? 0, upnl: p.upnl, marginUsed: p.margin ?? 0, maintRate: maint, liqPx: p.liq })) } : null,
+    sim: live ? { accountValue: live.total, liquidationAvailable: false, unavailableReason: "Impacto no patrimônio estimado. Liquidação simulada indisponível: faltam faixas de manutenção e garantia elegível por pool cross/isolated. Consulte o preço oficial de liquidação de cada posição.", positions: positions.map((p) => ({ coin: p.coin, szi: p.dir === "LONG" ? p.size : -p.size, mark: p.mark ?? 0, upnl: p.upnl, marginUsed: p.margin ?? 0, maintRate: maint, liqPx: p.liq, marginMode: p.levType })) } : null,
   };
 }
 
@@ -56,8 +56,9 @@ export function perpsView(): PerpsView {
   const hl = hlState();
   const accounts: PerpAccountView[] = [];
   const addr = getStore().settings.hl?.address;
-  if (addr && hl.address) accounts.push(accountView({ id: HL_ACCOUNT_ID, name: "Principal (Estratégia)", address: hl.address, primary: true, live: hl.live, history: hl.history, error: hl.error }));
-  for (const x of extraState().accounts) accounts.push(accountView({ id: x.id, name: x.name, address: x.address, primary: false, live: x.live, history: x.history, error: x.error }));
+  if (addr && hl.address === addr.toLowerCase()) accounts.push(accountView({ id: HL_ACCOUNT_ID, name: "Principal (Estratégia)", address: hl.address, primary: true, live: hl.live, history: hl.history, error: hl.error }));
+  const seen = new Set(accounts.map((a) => a.address.toLowerCase()));
+  for (const x of extraState().accounts) { if (seen.has(x.address.toLowerCase())) continue; seen.add(x.address.toLowerCase()); accounts.push(accountView({ id: x.id, name: x.name, address: x.address, primary: false, live: x.live, history: x.history, error: x.error })); }
   const positions = accounts.flatMap((a) => a.positions);
   const equities = accounts.map((a) => a.live?.total).filter((x): x is number => x != null);
   const trades = accounts.flatMap((a) => a.trades);

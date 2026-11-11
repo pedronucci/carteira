@@ -14,14 +14,15 @@ export interface AccessConfig { teamDomain: string; aud: string; ownerEmail: str
 /** Aceita o domínio da equipe colado com https://, barra no fim, espaços ou maiúsculas. */
 export const normTeamDomain = (d: string) => (d ?? "").trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "").toLowerCase();
 type Jwk = JsonWebKey & { kid: string };
-let jwks: { at: number; keys: Jwk[] } | null = null;
+let jwks: { at: number; team: string; keys: Jwk[] } | null = null;
 
-async function keys(teamDomain: string, f: typeof fetch): Promise<Jwk[]> {
-  if (jwks && Date.now() - jwks.at < 3600e3) return jwks.keys;
-  const r = await f(`https://${teamDomain}/cdn-cgi/access/certs`);
+async function keys(teamDomain: string, f: typeof fetch, force = false): Promise<Jwk[]> {
+  if (!force && jwks?.team === teamDomain && Date.now() - jwks.at < 3600e3) return jwks.keys;
+  const r = await f(`https://${teamDomain}/cdn-cgi/access/certs`, { signal: AbortSignal.timeout(10000) });
   if (!r.ok) throw new Error("Não foi possível obter as chaves do Cloudflare Access.");
   const j = (await r.json()) as { keys: Jwk[] };
-  jwks = { at: Date.now(), keys: j.keys };
+  if (!Array.isArray(j.keys)) throw new AuthError("Chaves de autenticação inválidas.");
+  jwks = { at: Date.now(), team: teamDomain, keys: j.keys };
   return j.keys;
 }
 export const resetJwksCache = () => { jwks = null; };
@@ -41,13 +42,16 @@ export async function verifyAccess(token: string | null, cfg: AccessConfig, f: t
   const [h, p, s] = parts as [string, string, string];
   const header = JSON.parse(dec.decode(unb64url(h))) as { alg: string; kid: string };
   if (header.alg !== "RS256") throw new AuthError("Algoritmo de assinatura não aceito.");
-  const jwk = (await keys(team, f)).find((k) => k.kid === header.kid);
+  if (!/^[a-z0-9-]+\.cloudflareaccess\.com$/.test(team)) throw new AuthError("Domínio Cloudflare Access inválido.");
+  let jwk = (await keys(team, f)).find((k) => k.kid === header.kid);
+  if (!jwk) jwk = (await keys(team, f, true)).find((k) => k.kid === header.kid);
   if (!jwk) throw new AuthError("Chave de assinatura desconhecida.");
   const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
   const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, unb64url(s), enc.encode(`${h}.${p}`));
   if (!ok) throw new AuthError("Assinatura inválida.");
   const c = JSON.parse(dec.decode(unb64url(p))) as { aud: string | string[]; iss: string; exp: number; nbf?: number; email?: string };
   const now = Math.floor(Date.now() / 1000);
+  if (typeof c.iss !== "string" || typeof c.exp !== "number" || !Number.isFinite(c.exp) || c.nbf != null && (typeof c.nbf !== "number" || !Number.isFinite(c.nbf)) || typeof c.email !== "string") throw new AuthError("Claims obrigatórios inválidos.");
   if (normTeamDomain(c.iss) !== team) throw new AuthError(`Emissor inválido: o token é de "${normTeamDomain(c.iss)}", mas ACCESS_TEAM_DOMAIN é "${team}".`);
   if (!(Array.isArray(c.aud) ? c.aud : [c.aud]).includes(cfg.aud.trim())) throw new AuthError("Audiência inválida (confira ACCESS_AUD).");
   if (c.exp <= now || (c.nbf && c.nbf > now + 60)) throw new AuthError("Token expirado.");

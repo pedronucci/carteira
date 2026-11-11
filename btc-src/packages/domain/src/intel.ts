@@ -2,7 +2,7 @@
  * Risco e desempenho (puro). Estimativas são marcadas como tal; métricas estatísticas só saem com amostra mínima.
  */
 
-export interface RiskPosition { instrument: string; dir: "LONG" | "SHORT"; size: number; mark: number | null; entry: number | null; liq: number | null; accountId: string; notional: number | null }
+export interface RiskPosition { instrument: string; dir: "LONG" | "SHORT"; size: number; mark: number | null; entry: number | null; liq: number | null; accountId: string; notional: number | null; sizeUnit?: "base" | "contracts" }
 
 /** O ativo-base de um instrumento (BTC-PERP, BTC-USDT-SWAP → BTC). */
 export const baseOf = (instrument: string) => instrument.toUpperCase().split(/[-_/]/)[0]!.replace(/^U(?=BTC|ETH|SOL)/, "");
@@ -17,9 +17,9 @@ export function exposure(positions: RiskPosition[], spotBtc: number, btcPx: numb
   let longUsd = 0, shortUsd = 0, syn = 0, minLiq: number | null = null;
   for (const p of positions) {
     const px = p.mark ?? btcPx;
-    const n = p.notional ?? p.size * px;
+    const n = p.notional ?? (p.sizeUnit === "contracts" ? 0 : p.size * px);
     if (p.dir === "LONG") longUsd += n; else shortUsd += n;
-    if (baseOf(p.instrument) === "BTC") syn += p.dir === "LONG" ? p.size : -p.size;
+    if (baseOf(p.instrument) === "BTC" && p.sizeUnit !== "contracts") syn += p.dir === "LONG" ? p.size : -p.size;
     if (p.liq && px) { const d = p.dir === "LONG" ? (px - p.liq) / px : (p.liq - px) / px; minLiq = minLiq == null ? d : Math.min(minLiq, d); }
   }
   const gross = longUsd + shortUsd;
@@ -38,7 +38,7 @@ export interface ShockRow {
  * o resultado dela é limitado à perda até o preço de liquidação).
  */
 export function shockScenarios(a: { btcPx: number; spotBtc: number; totalUsd: number; positions: RiskPosition[] }, shocks = [-0.2, -0.15, -0.1, -0.05, 0.05, 0.1, 0.2]): ShockRow[] {
-  const btcPos = a.positions.filter((p) => baseOf(p.instrument) === "BTC");
+  const btcPos = a.positions.filter((p) => baseOf(p.instrument) === "BTC" && p.sizeUnit !== "contracts");
   return shocks.map((s) => {
     const px = a.btcPx * (1 + s);
     const spotUsd = a.spotBtc * (px - a.btcPx);
@@ -74,7 +74,9 @@ export function dailyStats(points: { t: number; index: number }[], opts: { minVo
   const minVol = opts.minVolDays ?? 14, minSh = opts.minSharpeDays ?? 30;
   const byDay = new Map<number, number>();
   for (const p of [...points].sort((a, b) => a.t - b.t)) byDay.set(Math.floor(p.t / 86400e3), p.index);
-  const idx = [...byDay.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v);
+  const days = [...byDay.entries()].sort((a, b) => a[0] - b[0]);
+  if (days.some(([day, value], i) => !Number.isFinite(value) || value <= 0 || i > 0 && day !== days[i - 1]![0] + 1)) return { days: 0, volAnnual: null, sharpe: null };
+  const idx = days.map(([, v]) => v);
   const r: number[] = [];
   for (let i = 1; i < idx.length; i++) if (idx[i - 1]! > 0) r.push(idx[i]! / idx[i - 1]! - 1);
   const n = r.length;

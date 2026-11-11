@@ -3,14 +3,14 @@ import { useEffect, type ReactNode } from "react";
 import { AppStateProvider } from "@/lib/state";
 import { Toaster, toast } from "@/components/toaster";
 import { ensureHistory, refreshSpot } from "@/lib/local/prices";
-import { getStore, subscribeStore } from "@/lib/local/store";
+import { getStore, subscribeStore, recoverInterruptedRestore } from "@/lib/local/store";
 import { hlState, refreshHistory, refreshLive } from "@/lib/local/hl";
 import { tsOf } from "@/lib/local/engine";
 import { setPricesLoading } from "@/lib/api";
-import { loadPortfolio, portfolioReady } from "@/lib/portfolio/db";
+import { loadPortfolio, portfolioReady, subscribePortfolio } from "@/lib/portfolio/db";
 import { perpsView } from "@/lib/perps/view";
 import { refreshAllOrders } from "@/lib/perps/orders-store";
-import { extraState, refreshAllExtras } from "@/lib/local/hl-extra";
+import { extraState, refreshAllExtras, subscribeExtra } from "@/lib/local/hl-extra";
 import { migrateWallets } from "@/lib/wallets";
 import { recordSnapshot, refreshPortfolioPrices } from "@/lib/portfolio/engine";
 import { syncAllAccounts } from "@/lib/connectors";
@@ -85,11 +85,11 @@ function HlLoop() {
 function PortfolioLoop() {
   useEffect(() => {
     let alive = true;
-    const tick = async () => { await refreshPortfolioPrices(); if (alive) recordSnapshot(); };
+    const tick = async () => { await refreshPortfolioPrices(); };
     let lastSync = 0;
-    const syncTick = async () => { if (document.visibilityState !== "visible" || Date.now() - lastSync < 10 * 60e3) return; lastSync = Date.now(); await syncAllAccounts(); await syncOkx(); if (alive) recordSnapshot(); };
-    loadPortfolio().then(async () => { try { migrateWallets(); } catch { /* só acrescenta campos */ } await detectGateway(); await tick(); await syncTick(); });
-    const id = setInterval(() => { void tick(); void syncTick(); }, 5 * 60e3);
+    const syncTick = async () => { if (document.visibilityState !== "visible" || Date.now() - lastSync < 10 * 60e3) return; lastSync = Date.now(); await syncAllAccounts(); await syncOkx(); await syncHlNow(false); await refreshAllExtras(false); if (alive) recordSnapshot(true); };
+    loadPortfolio().then(async () => { await recoverInterruptedRestore(); try { migrateWallets(); } catch { /* só acrescenta campos */ } await detectGateway(); await tick(); await syncTick(); }).catch(e => toast(`Não foi possível concluir a atualização: ${(e as Error).message}`, "loss"));
+    const id = setInterval(() => { void tick().catch(e => toast((e as Error).message, "loss")); void syncTick().catch(e => toast((e as Error).message, "loss")); }, 5 * 60e3);
     return () => { alive = false; clearInterval(id); };
   }, []);
   return null;
@@ -108,7 +108,7 @@ function IntelLoop() {
         });
       } catch { /* dados ainda carregando */ }
     };
-    const un = [subscribeStore(run), subscribePrices(run), subscribeHl(run), subscribeIntel(run)];
+    const un = [subscribeStore(run), subscribePrices(run), subscribeHl(run), subscribeIntel(run), subscribeExtra(run), subscribePortfolio(run)];
     return () => { clearInterval(id); un.forEach((u) => u()); };
   }, []);
   return null;

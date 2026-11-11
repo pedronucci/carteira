@@ -49,11 +49,13 @@ export default function PortfolioPage() {
         </div>
       </div>
       {portfolioError() && <div className="mb-3"><Notice tone="loss">{portfolioError()}</Notice></div>}
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-[12px]" role="status"><Pill>{v.quality === "complete" ? "Avaliação completa" : v.quality === "partial" ? "Total parcial" : "Dados desatualizados"}</Pill><span className="text-muted">{v.accounts.length} {v.accounts.length === 1 ? "conta" : "contas"} · valores conhecidos em {f.ccy}</span></div>
+      {v.warnings.length > 0 && <div className="mb-3 space-y-2">{v.warnings.map(w => <Notice key={w}>{w}</Notice>)}</div>}
       {pi.error && <div className="mb-3"><Notice>Cotações dos demais ativos indisponíveis agora ({pi.error}). Ativos sem preço ficam fora do total.</Notice></div>}
       {v.pending.length > 0 && <div className="mb-3"><Notice>{v.pending.length} movimentação(ões) sem classificação. Confira em Movimentações.</Notice></div>}
 
       <KpiGrid className="mb-4 grid-cols-2 lg:grid-cols-5">
-        <Kpi big label="Patrimônio total" value={f.money(c.totalUsd)} sub={f.ccy === "BRL" ? f.usd(c.totalUsd) : undefined} />
+        <Kpi big label={v.quality === "complete" ? "Patrimônio total" : "Patrimônio conhecido"} value={f.money(c.totalUsd)} sub={f.ccy === "BRL" ? f.usd(c.totalUsd) : undefined} />
         <Kpi label="BTC equivalente" value={c.btcEquivalent != null ? f.btc(c.btcEquivalent, 6) : "—"} sub={`BTC possuído ${f.btc(c.btcHeld.total, 6)}`} />
         <Kpi label="24 h" tone={toneOf(r24?.pct)} value={r24 ? f.pct(r24.pct) : "—"} sub={r24 ? f.money(r24.resultUsd, { signed: true }) : "sem histórico"} />
         <Kpi label="30 dias" tone={toneOf(r30?.pct)} value={r30 ? f.pct(r30.pct) : "—"} sub={r30 ? f.money(r30.resultUsd, { signed: true }) : "sem histórico"} />
@@ -291,7 +293,7 @@ const PERIOD_ROWS: { p: EvoPeriod; label: string }[] = [{ p: "1", label: "24 h" 
 /** Rentabilidade por período: variação bruta × fluxos × resultado, comparada ao BTC parado. Períodos sem histórico ficam marcados. */
 function PeriodTable({ v }: { v: View }) {
   const f = useFmt();
-  const snaps = portfolio().snapshots;
+  const snaps = v.snapshots;
   const now = Date.now();
   const rows = PERIOD_ROWS.map((r) => ({ ...r, e: evolution(snaps, v.flows, r.p, "USD", now) }));
   return (

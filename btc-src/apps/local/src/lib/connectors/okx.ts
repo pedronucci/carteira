@@ -47,7 +47,7 @@ export async function okxRevoke() {
   });
 }
 
-type Snap = { at: number; holdings: PHolding[]; positions: PPosition[]; events: PEvent[]; accounts: { id: string; name: string }[]; warnings: string[] };
+type Snap = { at: number; holdings: PHolding[]; positions: PPosition[]; events: PEvent[]; accounts: { id: string; name: string }[]; warnings: string[]; sources?: Record<string, boolean>; positionsOk?: boolean; historyComplete?: boolean };
 const STABLE = new Set(["USDC", "USDT", "DAI"]);
 
 export async function syncOkx(): Promise<void> {
@@ -58,14 +58,17 @@ export async function syncOkx(): Promise<void> {
     const { snapshot: s } = await api<{ snapshot: Snap; cached: boolean }>("/api/okx/snapshot");
     await updatePortfolio((d) => {
       for (const a of s.accounts) if (!d.accounts.some((x) => x.id === a.id)) d.accounts.push({ id: a.id, kind: "okx", name: a.name, institution: "OKX", network: "OKX", createdAt: Date.now() });
-      d.synced = [...d.synced.filter((h) => !ids.includes(h.accountId)), ...s.holdings];
-      d.positions = [...d.positions.filter((p) => !ids.includes(p.accountId)), ...s.positions];
+      const successful = new Set(ids.filter((id) => s.sources?.[id] === true));
+      // Gateway anterior sem contrato de cobertura não pode apagar o último saldo conhecido.
+      if (!s.sources) for (const h of s.holdings) successful.add(h.accountId);
+      d.synced = [...d.synced.filter((h) => !successful.has(h.accountId)), ...s.holdings.filter((h) => successful.has(h.accountId))];
+      if (s.positionsOk !== false) d.positions = [...d.positions.filter((p) => !ids.includes(p.accountId)), ...s.positions];
       const m = new Map(d.events.map((e) => [e.id, e]));
       // valor em USD do depósito/saque no dia: estáveis = 1; BTC pelo fechamento diário; outros ficam sem valor
-      for (const e of s.events) if (!m.has(e.id)) m.set(e.id, { ...e, usd: STABLE.has(e.econ) ? e.qty : e.econ === "BTC" ? (closeUsdAt(Math.floor(e.t / 1000)) ?? 0) * e.qty || null : null });
+      for (const e of s.events) { const previous = m.get(e.id); const usd = e.usd ?? (STABLE.has(e.econ) ? e.qty : e.econ === "BTC" ? (closeUsdAt(Math.floor(e.t / 1000)) ?? 0) * e.qty || null : null); m.set(e.id, { ...e, usd, ...(previous?.classification ? { classification: previous.classification, kind: previous.kind, note: previous.note } : {}) }); }
       d.events = [...m.values()];
       const info = s.warnings.length ? s.warnings.join(" · ") : "somente leitura";
-      for (const id of ids) d.sync[id] = { state: "ok", at: s.at, info };
+      for (const id of ids) d.sync[id] = { state: successful.has(id) && s.positionsOk !== false ? "ok" : "partial", at: successful.has(id) ? s.at : d.sync[id]?.at ?? 0, info, historyComplete: s.historyComplete === true };
     });
     void refreshPortfolioPrices();
   } catch (e) {

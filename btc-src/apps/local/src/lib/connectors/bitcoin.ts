@@ -58,7 +58,7 @@ type AddrStats = { chain_stats: { funded_txo_sum: number; spent_txo_sum: number;
 type Tx = { txid: string; status: { confirmed: boolean; block_time?: number }; vin: { prevout: { scriptpubkey_address?: string; value: number } | null }[]; vout: { scriptpubkey_address?: string; value: number }[]; fee: number };
 
 async function get<T>(path: string, f: typeof fetch = fetch): Promise<T> {
-  const r = await f(`${API}${path}`);
+  const r = await f(`${API}${path}`, { signal: AbortSignal.timeout(15000) });
   if (r.status === 429) throw new Error("A mempool.space limitou as consultas. Tente de novo em alguns minutos.");
   if (!r.ok) throw new Error(`mempool.space respondeu ${r.status}.`);
   return (await r.json()) as T;
@@ -107,7 +107,7 @@ export async function syncBitcoin(input: { addresses: string[]; xkeys: XKey[] },
     const outOwn = x.vout.reduce((s, o) => s + (o.scriptpubkey_address && own.has(o.scriptpubkey_address) ? o.value : 0), 0);
     const net = outOwn - inOwn;
     const other = net > 0 ? x.vin.find((i) => i.prevout?.scriptpubkey_address && !own.has(i.prevout.scriptpubkey_address))?.prevout?.scriptpubkey_address : x.vout.find((o) => o.scriptpubkey_address && !own.has(o.scriptpubkey_address))?.scriptpubkey_address;
-    return { txid: x.txid, t: (x.status.block_time ?? Math.floor(Date.now() / 1000)) * 1000, netSats: net, confirmed: x.status.confirmed, counterparty: other ?? null, feeSats: inOwn > 0 ? x.fee : 0 };
+    return { txid: x.txid, t: (x.status.block_time ?? Math.floor(Date.now() / 1000)) * 1000, netSats: net, confirmed: x.status.confirmed, counterparty: other ?? null, feeSats: inOwn > 0 && x.vin.every(i => i.prevout?.scriptpubkey_address && own.has(i.prevout.scriptpubkey_address)) ? x.fee : 0 };
   }).sort((a, b) => b.t - a.t);
   const all = [...seen.entries()];
   return {

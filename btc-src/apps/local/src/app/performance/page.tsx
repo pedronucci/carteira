@@ -37,7 +37,7 @@ export default function PerformancePage() {
   const gain = value - invested;
   const hodlRet = s.hodlRet;
   const st = s.stats;
-  const maxDD = dd.reduce((m, x) => Math.max(m, x.dd), 0);
+  const maxDD = dd.length > 1 ? dd.reduce((m, x) => Math.max(m, x.dd), 0) : null;
 
   const legend = (
     <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink-2">
@@ -50,10 +50,11 @@ export default function PerformancePage() {
   return (
     <div>
       <Hero />
+      {pts.some(p => p.approx) && <Notice>Câmbio histórico incompleto: valores em BRL são aproximados; retorno e drawdown em BRL indisponíveis. Consulte USD.</Notice>}
       <KpiGrid className="mb-4 grid-cols-2 sm:grid-cols-4">
         <PeriodKpi label="7 dias" r={periodReturn(pts, 7)} />
         <PeriodKpi label="30 dias" r={periodReturn(pts, 30)} />
-        <Kpi label="Queda máxima" tone={maxDD > 0 ? "loss" : null} value={f.pct(-maxDD)} sub="desde o pico" />
+        <Kpi label="Queda máxima" tone={(maxDD ?? 0) > 0 ? "loss" : null} value={f.pct(maxDD == null ? null : -maxDD)} sub="desde o pico" />
         <Kpi label="vs. só BTC" tone={toneOf(s.vsHodlPct)} value={s.vsHodlPct != null ? f.pct(s.vsHodlPct) : "—"} sub={hodlRet != null ? `BTC ${f.pct(hodlRet)} no período` : undefined} />
       </KpiGrid>
 
@@ -75,7 +76,7 @@ export default function PerformancePage() {
               <div className="px-1 pt-2 pb-3">{pts.length >= 2 ? <BtcChart points={pts.map((p) => ({ ts: p.ts, btc: p.btc }))} height={170} /> : null}</div>
             </Panel>
             <Panel className="overflow-hidden">
-              <PanelHead title="Queda desde o pico" right={<span className="num text-loss">máx. {f.pct(-maxDD)}</span>} />
+              <PanelHead title="Queda desde o pico" right={<span className="num text-loss">máx. {f.pct(maxDD == null ? null : -maxDD)}</span>} />
               <p className="px-4 pt-3 text-[12px] leading-relaxed text-muted">Distância do melhor momento da carteira, sem o efeito de aportes e retiradas.</p>
               <div className="px-1 pt-2 pb-3">{dd.length >= 2 ? <DrawdownChart points={dd} height={170} /> : null}</div>
             </Panel>

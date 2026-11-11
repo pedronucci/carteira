@@ -1,3 +1,15 @@
+# Código canônico do Bitcoin Strategy Terminal
+
+Pacotes ativos: `apps/local`, `apps/gateway`, `apps/market-proxy`, `packages/domain`.
+
+Execute `pnpm install --frozen-lockfile`, `pnpm -r typecheck`, `pnpm -r test` e `pnpm build`. O build funciona no Windows usando Node para invocar o Tailwind. A versão do cache deriva do conteúdo do bundle e do service worker.
+
+Revisão e limites: `../../auditoria/CORRECOES-2026-11-11.md`. Backup original: `../../backups/antes-correcoes-2026-11-11/`.
+
+---
+
+## Documentação histórica da arquitetura anterior (não usar para iniciar o app atual)
+
 # Bitcoin Strategy Terminal — código-fonte
 
 Gera o app publicado em `btc/` (arquivo único `index.html` + PWA).

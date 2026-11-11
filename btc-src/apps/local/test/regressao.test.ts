@@ -61,7 +61,7 @@ async function boot(state: unknown = userState()) {
   return { store, engine };
 }
 
-beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(NOW); });
+beforeEach(() => { vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(NOW); });
 afterEach(() => { vi.useRealTimers(); });
 
 describe("regressão: ciclo de 05/11/2026 21:13 (app inteiro)", () => {
@@ -73,7 +73,7 @@ describe("regressão: ciclo de 05/11/2026 21:13 (app inteiro)", () => {
     expect(s.contrib).toBeCloseTo(13109.58, 2);
     expect(s.result).toBeCloseTo(-211.93, 0);
     expect(s.roc!).toBeCloseTo(-0.01617, 4);
-    expect(s.twr!).toBeCloseTo(-0.0292, 3);
+    expect(s.twr!).toBeCloseTo(-0.0182601183, 6);
     expect(s.fees).toBeCloseTo(38.57, 2);
     expect(s.funding).toBe(0);
     expect(s.state).toBe("BTC");
@@ -106,8 +106,8 @@ describe("regressão: ciclo de 05/11/2026 21:13 (app inteiro)", () => {
   it("Buy & Hold usa o patrimônio inicial e o aporte", async () => {
     const { engine } = await boot();
     const s = engine.compute();
-    // 8.006 / 76.150 + 5.103,58 / preço no aporte (execução mais próxima: 75.622,6)
-    const units = 8006 / 76150 + 5103.58 / (10534.98 / 0.1393092);
+    // 8.006 / 76.150 + 5.103,58 / último fechamento disponível (sem execução futura: 75.622,6)
+    const units = 8006 / 76150 + 5103.58 / 76090;
     expect(s.hodl!).toBeCloseTo(units * PX_NOW, 0);
   });
 });
@@ -137,7 +137,7 @@ describe("regressão: dados e backup", () => {
     const text = store.exportBackup();
     store.resetStore();
     expect(store.getStore().cycles).toHaveLength(0);
-    store.importBackup(text);
+    await store.importBackup(text);
     const after = store.getStore();
     expect(after.cycles).toEqual(before.cycles);
     expect(after.flows).toEqual(before.flows);
@@ -155,8 +155,8 @@ describe("regressão: dados e backup", () => {
   it("backup inválido não altera nada", async () => {
     const { store } = await boot();
     const before = ls.getItem("bst.local.v2");
-    expect(() => store.importBackup("{ isto não é json")).toThrow();
-    expect(() => store.importBackup(JSON.stringify({ data: { v: 3, cycles: [{ id: "x" }], flows: [] } }))).toThrow();
+    await expect(store.importBackup("{ isto não é json")).rejects.toThrow();
+    await expect(store.importBackup(JSON.stringify({ data: { v: 3, cycles: [{ id: "x" }], flows: [] } }))).rejects.toThrow();
     expect(ls.getItem("bst.local.v2")).toBe(before);
   });
 });

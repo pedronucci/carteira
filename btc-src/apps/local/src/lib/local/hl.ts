@@ -28,8 +28,23 @@ export interface HlState { address: string | null; live: HlLive | null; history:
 let state: HlState = load();
 const subs = new Set<() => void>();
 export const hlState = () => state;
+/** Histórico por endereço: mudar a conta principal não muda ciclos antigos. */
+export function readHlAccount(address: string): HlState | null {
+  const addr = address.toLowerCase();
+  if (state.address === addr) return state;
+  try {
+    const saved = JSON.parse(localStorage.getItem(`${KEY}.account.${addr}`) ?? "null") as HlState | null;
+    if (saved?.address === addr) return saved;
+    const extras = JSON.parse(localStorage.getItem("bst.hl.extra.v1") ?? "null") as { accounts?: (HlState & { address: string })[] } | null;
+    return extras?.accounts?.find((a) => a.address === addr) ?? null;
+  } catch { return null; }
+}
 export const subscribeHl = (f: () => void) => { subs.add(f); return () => { subs.delete(f); }; };
 function set(p: Partial<HlState>) {
+  if (p.address && state.address && p.address !== state.address) {
+    try { localStorage.setItem(`${KEY}.account.${state.address}`, JSON.stringify(state)); } catch { /* histórico atual continua intacto */ }
+    state = { address: p.address, live: null, history: null, error: null, syncing: false };
+  }
   state = { ...state, ...p };
   try { localStorage.setItem(KEY, JSON.stringify({ ...state, syncing: false, storageError: null })); state.storageError = null; }
   catch { state.storageError = "O armazenamento do navegador está cheio: o histórico da Hyperliquid não pôde ser salvo neste aparelho (os números de agora continuam certos)."; }
@@ -44,7 +59,7 @@ export function clearHl() { set({ address: null, live: null, history: null, erro
 async function info<T>(body: Record<string, unknown>): Promise<T> {
   let r: Response;
   try {
-    r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(15000) });
   } catch {
     throw new Error("Sem conexão com a Hyperliquid.");
   }
@@ -143,10 +158,13 @@ export async function fetchLive(address: string, opts: { includeArb?: boolean; b
 
 export async function refreshLive(address: string, opts: { includeArb?: boolean; btcUsd?: number | null } = {}) {
   const user = address.trim().toLowerCase();
+  set({ address: user });
   try {
-    set({ address: user, live: await fetchLive(user, opts), error: null });
+    const live = await fetchLive(user, opts);
+    if (state.address !== user) return;
+    set({ live, error: null });
   } catch (e) {
-    set({ error: (e as Error).message });
+    if (state.address === user) set({ error: (e as Error).message });
   }
 }
 
@@ -251,13 +269,15 @@ export async function fetchHistory(address: string, prev: HlHistory | null): Pro
 /** Sincronização incremental: busca a partir do último registro (com 1 h de folga) e junta sem duplicar. */
 export async function refreshHistory(address: string, _opts: { includeArb?: boolean } = {}) {
   const user = address.trim().toLowerCase();
-  set({ syncing: true });
+  set({ address: user, syncing: true });
   try {
     // histórico de versões anteriores (execuções agregadas) é buscado de novo do zero: a Hyperliquid guarda tudo
     const prev = state.address === user && state.history?.v === 2 ? state.history : null;
-    set({ address: user, error: null, syncing: false, history: await fetchHistory(user, prev) });
+    const history = await fetchHistory(user, prev);
+    if (state.address !== user) return;
+    set({ error: null, syncing: false, history });
   } catch (e) {
-    set({ error: (e as Error).message, syncing: false });
+    if (state.address === user) set({ error: (e as Error).message, syncing: false });
   }
 }
 
