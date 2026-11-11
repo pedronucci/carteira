@@ -238,6 +238,8 @@ export interface PSnapshot {
   perps?: PSnapPerps; recon?: string; src?: string;
   /** preços USD de referência (ETH, SOL, HYPE…) para benchmarks; BTC fica em `btcUsd` */
   px?: Record<string, number>;
+  /** 1 = conta unificada da Hyperliquid já sem a dupla contagem do P&L aberto (retratos antigos são corrigidos uma vez) */
+  uf?: 1;
 }
 export interface PSnapPerps { upnl: number; notional: number; margin: number; count: number; positions: { id: string; coin: string; dir: "LONG" | "SHORT"; upnl: number; notional: number }[] }
 

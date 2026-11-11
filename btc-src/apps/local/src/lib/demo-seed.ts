@@ -48,7 +48,7 @@ if (process.env.BST_DEMO === "1") {
   const H = 3600e3, fl = (t: number, coin: string, side: "B" | "A", sz: number, px: number, sp: number, pnl = 0, fee = 0) => ({ key: `d${t}${coin}`, time: t, coin, px, sz, side, dir: "", fee, closedPnl: pnl, startPosition: sp });
   try {
     localStorage.setItem("bst.hl.v2", JSON.stringify({ address: "0x000000000000000000000000000000000000dead", error: null, syncing: false,
-      live: { at: now, mode: "unifiedAccount", perpValue: 0, withdrawable: 900, total: 12690, arbTotal: null,
+      live: { at: now, mode: "unifiedAccount", perpValue: 0, withdrawable: 900, total: 11700, arbTotal: null,
         balances: [{ coin: "USDC", total: 11700, usd: 11700, where: "spot" }],
         positions: [
           { coin: "BTC", szi: 0.77547, entryPx: 76021.6, leverage: 6, levType: "cross", liqPx: 59840, upnl: -83, marginUsed: 9800, posValue: 58800, fundingSinceOpen: -33.1 },

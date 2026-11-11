@@ -53,3 +53,10 @@ Base auditada: `btc/index.html`, commit `d92791c` (bundle compilado; o código-f
 | 12, 13, 14. Livro-razão, deduplicação, quota | pendente (Hyperliquid) |
 | 15. Restaurar ou zerar sem backup | corrigido (cópias automáticas + restauração em Ajustes) |
 | Schema v4 | não foi necessário: esta versão não muda o formato dos dados |
+
+## 2026-11-10 — Patrimônio da Hyperliquid em conta unificada (dupla contagem do P&L aberto)
+- **Sintoma:** o Portfólio mostrava US$ 13.644,87 para as duas contas Hyperliquid; a carteira (Rabby) mostrava ~US$ 16.082.
+- **Causa:** em conta unificada / portfolio margin, o app calculava `patrimônio = saldo spot + P&L aberto`. O saldo USDC de `spotClearinghouseState` já é o patrimônio inteiro (ele acompanha o P&L aberto), então o P&L era contado duas vezes (−1.831,39 e −665,92 = −2.497,31 a menos).
+- **Evidência:** em 4 contas unificadas públicas com posição aberta, o último ponto de `portfolio.accountValueHistory` (valor oficial) foi igual à soma dos saldos spot a mercado, sem somar o P&L (ex.: USDC 22.451,27, P&L aberto +4.091,95, valor oficial 22.451,27).
+- **Correção:** `hlEquity()` em `lib/local/hl.ts` (unificada = saldos spot; padrão = perp + spot); a linha "P&L aberto" saiu do Portfólio; retratos antigos são corrigidos uma vez (`lib/portfolio/unified-fix.ts`, campo `uf: 1`).
+- **Não corrigido automaticamente:** o capital inicial gravado de um ciclo da Estratégia iniciado com posição já aberta pode ter herdado a diferença daquele momento.

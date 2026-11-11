@@ -171,14 +171,10 @@ export default function AllocationPage() {
                 <BarRow color={C.accent} title="USDC livre" right={pctOf(Math.max(0, s.free ?? 0))} value={f.money(Math.max(0, s.free ?? 0))} />
               )}
               {live && live.balances.length === 0 && <p className="px-4 py-5 text-[14px] text-muted">Nenhum saldo na conta.</p>}
-              {live && (live.mode === "unifiedAccount" || live.mode === "portfolioMargin") && live.positions.length > 0 && (
-                <BarRow color={C.accent} title="P&L aberto das posições" right={undefined}
-                  value={f.money(live.positions.reduce((a, p) => a + p.upnl, 0), { signed: true })} />
-              )}
               {live && (
                 <div className="border-t border-line px-4 py-3 text-[12px] text-muted">
                   <div className="flex items-center justify-between text-[13px] text-ink-2"><span>Total (= patrimônio da estratégia)</span><span className="num">{f.money(live.total)}</span></div>
-                  <p className="mt-1.5">Na conta unificada o saldo spot não inclui o P&L aberto; o patrimônio soma os dois.{live.balances.some((b) => b.where === "spot" && b.usd == null) ? " Moedas sem cotação (ex.: HYPE) aparecem em quantidade e ficam fora deste total." : ""}</p>
+                  <p className="mt-1.5">{live.mode === "unifiedAccount" || live.mode === "portfolioMargin" ? `Conta unificada: o saldo spot já inclui o P&L aberto das posições (${f.money(live.positions.reduce((a, p) => a + p.upnl, 0), { signed: true })} agora); ele não é somado de novo.` : "Conta padrão: patrimônio da conta perp mais os saldos spot."}{live.balances.some((b) => b.where === "spot" && b.usd == null) ? " Moedas sem cotação (ex.: HYPE) aparecem em quantidade e ficam fora deste total." : ""}</p>
                 </div>
               )}
             </Panel>

@@ -97,6 +97,17 @@ async function arbBalance(addr: string): Promise<number | null> {
   return null;
 }
 
+export const isUnifiedMode = (mode: string) => mode === "unifiedAccount" || mode === "portfolioMargin";
+/**
+ * Patrimônio oficial de uma conta Hyperliquid.
+ * Conta unificada / portfolio margin: o saldo spot (spotClearinghouseState) JÁ é o patrimônio inteiro — o USDC spot
+ * sobe e desce com o P&L aberto das posições. Somar o P&L de novo conta duas vezes (auditado contra o endpoint
+ * `portfolio`, que é o valor que a Hyperliquid e as carteiras mostram). Conta padrão: perp (accountValue) + spot.
+ */
+export function hlEquity(mode: string, perpValue: number, spotUsd: number): number {
+  return isUnifiedMode(mode) ? spotUsd : perpValue + spotUsd;
+}
+
 /** Lê o estado ao vivo de UMA conta (sem tocar no estado global). Usada pela conta principal e pelas adicionais. */
 export async function fetchLive(address: string, opts: { includeArb?: boolean; btcUsd?: number | null } = {}): Promise<HlLive> {
   const user = address.trim().toLowerCase();
@@ -112,7 +123,7 @@ export async function fetchLive(address: string, opts: { includeArb?: boolean; b
     liqPx: p.liquidationPx ? Number(p.liquidationPx) : null, upnl: Number(p.unrealizedPnl), marginUsed: Number(p.marginUsed),
     posValue: Number(p.positionValue), fundingSinceOpen: -Number(p.cumFunding?.sinceOpen ?? 0),
   })).filter((p) => p.szi !== 0);
-  const unified = mode === "unifiedAccount" || mode === "portfolioMargin";
+  const unified = isUnifiedMode(mode);
   const perpValue = Number(ch.marginSummary?.accountValue ?? 0);
   const balances: HlBalance[] = [];
   if (!unified && perpValue) balances.push({ coin: "USDC", total: perpValue, usd: perpValue, where: "perp" });
@@ -125,9 +136,7 @@ export async function fetchLive(address: string, opts: { includeArb?: boolean; b
     balances.push({ coin: b.coin, total: t, usd, where: "spot" });
   }
   const spotUsd = balances.filter((b) => b.where === "spot").reduce((a, b) => a + (b.usd ?? 0), 0);
-  const upnl = positions.reduce((a, p) => a + p.upnl, 0);
-  // Conta unificada: todo o colateral aparece no spot; o PnL aberto vem das posições.
-  const total = unified ? spotUsd + upnl : perpValue + spotUsd;
+  const total = hlEquity(mode, perpValue, spotUsd);
   if (arb != null && arb > 0.005) balances.push({ coin: "USDC", total: arb, usd: arb, where: "arb" });
   return { at: Date.now(), mode, perpValue, withdrawable: Number(ch.withdrawable ?? 0), balances, positions, total, arbTotal: arb };
 }

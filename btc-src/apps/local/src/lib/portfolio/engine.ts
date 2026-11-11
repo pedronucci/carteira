@@ -11,6 +11,8 @@ import { extraState } from "../local/hl-extra";
 import { perpsView } from "../perps/view";
 import { prices as btcPrices } from "../local/prices";
 import { portfolio, updatePortfolio, uidP } from "./db";
+import { fixUnifiedSnapshots, type UnifiedAccountRef } from "./unified-fix";
+import { isUnifiedMode } from "../local/hl";
 
 /** Ids CoinGecko dos ativos econômicos conhecidos. Outros ativos: id informado pelo usuário ou preço manual. */
 export const CG_IDS: Record<string, string> = {
@@ -58,7 +60,7 @@ export function priceBook(): PriceBook {
 
 const STRATEGY_ID = "strategy";
 
-/** Conta Hyperliquid ao vivo como fonte do portfólio (saldos spot + equity perp/P&L aberto), sem duplicar. */
+/** Conta Hyperliquid ao vivo como fonte do portfólio (conta padrão: saldos spot + equity perp; unificada: só os saldos spot), sem duplicar. */
 function liveSource(id: string, name: string, address: string, live: NonNullable<ReturnType<typeof hlState>["live"]>): { account: PAccount; holdings: PHolding[]; positions: PPosition[] } {
   const account: PAccount = { id: id, kind: "hyperliquid", name, institution: "Hyperliquid", network: "hyperliquid", addresses: [address], createdAt: 0 };
   const holdings: PHolding[] = live.balances.filter((b) => b.where !== "arb").map((b) => {
@@ -70,11 +72,7 @@ function liveSource(id: string, name: string, address: string, live: NonNullable
       valueUsd: isPerp ? b.usd : null, kind: isPerp ? "equity" : "spot", source: "sync", wrapped: !isPerp && ex.wrapped, at: live.at,
     };
   });
-  // conta unificada: o colateral está no saldo spot e o P&L aberto das posições fica à parte (a Hyperliquid soma os dois)
-  if (live.mode === "unifiedAccount" || live.mode === "portfolioMargin") {
-    const upnl = live.positions.reduce((x, p) => x + p.upnl, 0);
-    if (upnl) holdings.push({ accountId: id, assetKey: "hl:upnl", econ: "USDC", symbol: "USDC", name: "P&L aberto das posições (conta unificada)", network: "hyperliquid", qty: String(upnl), valueUsd: upnl, kind: "equity", source: "sync", at: live.at });
-  }
+  // conta unificada: o saldo spot JÁ inclui o P&L aberto das posições (é o patrimônio inteiro); nada a somar aqui
   const positions: PPosition[] = live.positions.map((p) => ({
     accountId: id, instrument: `${p.coin}-PERP`, dir: p.szi > 0 ? "LONG" : "SHORT", size: Math.abs(p.szi), entry: p.entryPx, mark: p.posValue && p.szi ? Math.abs(p.posValue / p.szi) : null,
     notional: Math.abs(p.posValue), margin: p.marginUsed, upnl: p.upnl, liq: p.liqPx, leverage: p.leverage, funding: p.fundingSinceOpen, at: live.at,
@@ -138,11 +136,28 @@ export function buildSnapshot(v: ReturnType<typeof portfolioView>, now = Date.no
     }
   } catch { /* sem perpétuos */ }
   const spot = btcPrices().spot;
-  return { t: now, v: 2, byAccount, total: r2(v.c.totalUsd), byAsset, btcUsd: spot?.btcUsd ?? v.prices.BTC?.usd ?? null, usdBrl: spot?.usdBrl ?? null, btcEq: v.c.btcEquivalent ?? null, perps, recon, src: "app", px: refPx(v.prices) };
+  return { t: now, v: 2, byAccount, total: r2(v.c.totalUsd), byAsset, btcUsd: spot?.btcUsd ?? v.prices.BTC?.usd ?? null, usdBrl: spot?.usdBrl ?? null, btcEq: v.c.btcEquivalent ?? null, perps, recon, src: "app", px: refPx(v.prices), uf: 1 };
+}
+
+/**
+ * Corrige uma vez os retratos gravados com a dupla contagem do P&L aberto (contas unificadas). Só roda quando o modo
+ * de TODAS as contas Hyperliquid configuradas já é conhecido (leitura ao vivo feita); devolve true quando terminou.
+ */
+export function repairUnifiedSnapshots(): boolean {
+  const p = portfolio();
+  if (!p.snapshots.some((s) => s.uf !== 1)) return true;
+  const refs: UnifiedAccountRef[] = [];
+  const hl = hlState();
+  if (getStore().settings.hl?.address) { if (!hl.live) return false; refs.push({ portfolioId: STRATEGY_ID, perpAccountId: "hl-principal", unified: isUnifiedMode(hl.live.mode) }); }
+  for (const x of extraState().accounts) { if (!x.live) return false; refs.push({ portfolioId: x.id, perpAccountId: x.id, unified: isUnifiedMode(x.live.mode) }); }
+  const r = fixUnifiedSnapshots(p.snapshots, refs);
+  if (r.changed) void updatePortfolio((d) => { d.snapshots = fixUnifiedSnapshots(d.snapshots, refs).snapshots; });
+  return true;
 }
 
 /** Grava um retrato (no máximo um por hora, sem duplicar) para a evolução patrimonial. */
 export function recordSnapshot(force = false) {
+  if (!repairUnifiedSnapshots()) return; // espera a leitura ao vivo para não misturar retratos antigos e novos
   const p = portfolio();
   const v = portfolioView();
   if (!v.c.byAccount.length) return;
