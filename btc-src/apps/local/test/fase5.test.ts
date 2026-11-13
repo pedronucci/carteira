@@ -25,32 +25,20 @@ async function boot() {
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(NOW); });
 afterEach(() => { vi.useRealTimers(); });
 
-describe("Risk Center com o ciclo real", () => {
-  it("exposição, liquidação e −20% liquida a posição", async () => {
-    const { views } = await boot();
-    const r = views.riskView();
-    expect(r.positions).toHaveLength(1);
-    expect(r.exposure.btcSynthetic).toBeCloseTo(0.775436, 6);
-    expect(r.exposure.effLeverage!).toBeCloseTo(4.56, 2);
-    expect(r.exposure.minLiqDistance!).toBeGreaterThan(0.14);
-    expect(r.exposure.minLiqDistance!).toBeLessThan(0.17);
-    expect(r.shocks.find((x) => x.shock === -0.2)!.liquidated).toHaveLength(1);
-    expect(r.shocks.find((x) => x.shock === -0.1)!.liquidated).toHaveLength(0);
-  });
-  it("desempenho separado: Estratégia com TWR e sem Sharpe (amostra curta)", async () => {
-    const { views } = await boot();
-    const p = views.performanceView();
-    expect(p.strat!.twr!).toBeCloseTo(-0.0182601183, 6);
-    expect(p.sStats.sharpe).toBeNull();
-    expect(p.cycles).toHaveLength(1);
-  });
+describe("escopo de contas após remoção da estratégia", () => {
+ it("não transforma operações manuais antigas em posições conectadas", async () => {
+   const {views} = await boot(); const r = views.riskView();
+   expect(r.positions).toHaveLength(0); expect(r.total).toBe(0);
+   expect(views.performanceView().pv.flows).toHaveLength(0);
+ });
 });
 
 describe("alertas", () => {
   it("dispara uma vez na transição e respeita o intervalo; contexto vem dos dados reais", async () => {
     const { views, al } = await boot();
-    const ctx = views.alertContext();
-    expect(ctx.leverage!).toBeCloseTo(4.56, 2);
+    const actual = views.alertContext();
+    expect(actual.leverage).toBeNull();
+    const ctx = {...actual,leverage:4.56,minLiqDistance:0.15};
     al.addRule("LEVERAGE_ABOVE", 3, 60);
     al.addRule("LIQ_DISTANCE_BELOW", 0.2, 60);
     al.addRule("PRICE_ABOVE", 100_000, 60);

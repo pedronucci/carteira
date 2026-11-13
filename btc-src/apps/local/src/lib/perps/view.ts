@@ -75,7 +75,7 @@ export function perpsView(): PerpsView {
   const hl = hlState();
   const accounts: PerpAccountView[] = [];
   const addr = getStore().settings.hl?.address;
-  if (addr && hl.address === addr.toLowerCase()) accounts.push(accountView({ id: HL_ACCOUNT_ID, name: "Principal (Estratégia)", address: hl.address, primary: true, live: hl.live, history: hl.history, error: hl.error }));
+  if (addr && hl.address === addr.toLowerCase()) accounts.push(accountView({ id: HL_ACCOUNT_ID, name: "Principal", address: hl.address, primary: true, live: hl.live, history: hl.history, error: hl.error }));
   const seen = new Set(accounts.map((a) => a.address.toLowerCase()));
   for (const x of extraState().accounts) { if (seen.has(x.address.toLowerCase())) continue; seen.add(x.address.toLowerCase()); accounts.push(accountView({ id: x.id, name: x.name, address: x.address, primary: false, live: x.live, history: x.history, error: x.error })); }
   const positions = accounts.flatMap((a) => a.positions);

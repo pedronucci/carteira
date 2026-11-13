@@ -41,7 +41,7 @@ export default function PortfolioPage() {
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[20px] font-semibold tracking-tight">Portfólio Consolidado</h1>
-          <p className="text-[12px] text-muted">Todas as contas, sem contagem dupla · separado da Estratégia BTC/USDC</p>
+          <p className="text-[12px] text-muted">Hyperliquid, OKX e contas acompanhadas · aportes separados do resultado</p>
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="ghost" onClick={() => setSheet({ k: "csv" })}><Upload className="size-4" />CSV</Button>
@@ -76,7 +76,7 @@ export default function PortfolioPage() {
       {c.unpriced.length > 0 && tab === "assets" && (
         <p className="mt-3 text-[11px] leading-relaxed text-muted">Sem preço (fora do total): {c.unpriced.map((u) => `${u.symbol} em ${u.institution}`).join(", ")}. Informe um id da CoinGecko ou um preço manual ao editar o ativo.</p>
       )}
-      <p className="mt-3 text-[11px] leading-relaxed text-muted">Cotações: CoinGecko{pi.at ? ` · ${new Date(pi.at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : ""}; BTC igual ao da Estratégia. Contas com derivativos entram pelo patrimônio líquido (margem e P&L aberto já incluídos); o valor nocional nunca é somado. Cadastrar ou alterar um saldo é ajuste, não lucro.</p>
+      <p className="mt-3 text-[11px] leading-relaxed text-muted">Cotações: CoinGecko{pi.at ? ` · ${new Date(pi.at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : ""}; BTC pela cotação de referência do terminal. Contas com derivativos entram pelo patrimônio líquido (margem e P&L aberto já incluídos); o valor nocional nunca é somado. Cadastrar ou alterar um saldo é ajuste, não lucro.</p>
 
       {sheet?.k === "add" && <HoldingSheet edit={sheet.edit} onClose={() => setSheet(null)} />}
       {sheet?.k === "csv" && <CsvSheet onClose={() => setSheet(null)} />}

@@ -2,7 +2,7 @@
 /** Dados compartilhados do Trading Journal e do Portfolio Attribution: UMA montagem das operações e do registro financeiro. */
 import { useEffect, useMemo } from "react";
 import { usePerps, useDataVersion } from "@/lib/api";
-import { compute } from "@/lib/local/engine";
+
 import { getStore } from "@/lib/local/store";
 import { portfolio } from "@/lib/portfolio/db";
 import { buildJournalTrades, type JTrade } from "./trades";
@@ -21,7 +21,7 @@ export function useAttrData(): { data: AttrData | null; loading: boolean; error:
   const data = useMemo<AttrData | null>(() => {
     if (!v) return null;
     let strategyStart: number | null = null;
-    try { strategyStart = compute().startT ?? null; } catch { strategyStart = null; }
+
     const notes = portfolio().tradeNotes ?? {};
     const own = new Set<string>();
     for (const a of v.accounts) if (a.address) own.add(a.address.toLowerCase());

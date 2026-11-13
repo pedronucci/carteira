@@ -22,7 +22,7 @@ export function HlConnect() {
     const v = a.trim();
     if (!isAddress(v)) return toast("Endereço inválido. Ele começa com 0x e tem 42 caracteres.", "loss");
     setBusy(true);
-    updateStore((s) => { s.settings.hl = { address: v.toLowerCase(), includeArb: arb }; });
+    updateStore((s) => { s.settings.hl = { address: v.toLowerCase(), includeArb: false }; });
     await syncHlNow(true);
     setBusy(false);
     const st = hlState();
@@ -58,11 +58,7 @@ export function HlConnect() {
           </div>
         </div>
         {hl.error && <Notice tone="loss">{hl.error}</Notice>}
-        {hl.history?.truncated && <Notice>A conta tem mais histórico do que a API devolve de uma vez. Os ciclos mais antigos podem faltar.</Notice>}
-        <label className="flex items-start gap-3 text-[14px] leading-relaxed text-ink-2">
-          <input type="checkbox" checked={arb} onChange={(e) => toggleArb(e.target.checked)} className="mt-1 size-5 accent-accent" />
-          <span>Somar o USDC/USDT parado na carteira na Arbitrum. Com a posição inicial definida, sacar da Hyperliquid para a carteira não conta como retirada.</span>
-        </label>
+        {hl.history?.truncated && <Notice>A conta tem mais histórico do que a API devolve de uma vez. As operações mais antigas podem faltar.</Notice>}
         <div className="grid grid-cols-2 gap-2">
           <Button onClick={async () => { setBusy(true); await syncHlNow(true); setBusy(false); }} loading={busy}><RefreshCw className="size-4" />Sincronizar</Button>
           <Button variant="ghost" className="text-loss" onClick={disconnect}><Unplug className="size-4" />Desconectar</Button>
@@ -75,10 +71,6 @@ export function HlConnect() {
       <p className="text-[14px] leading-relaxed text-ink-2">Use o endereço público da carteira (o mesmo da Rabby na Hyperliquid). O app só lê saldo, posição e histórico: não pede chave, assinatura nem permissão para operar.</p>
       {hasInjectedWallet() && <Button className="w-full" size="lg" onClick={fromWallet} loading={busy}><Wallet className="size-5" />Usar endereço da Rabby</Button>}
       <Field label="Endereço da carteira" placeholder="0x…" autoCapitalize="off" autoCorrect="off" spellCheck={false} value={addr} onChange={(e) => setAddr(e.target.value)} hint="Na Rabby: toque no nome da conta e copie o endereço." />
-      <label className="flex items-start gap-3 text-[14px] leading-relaxed text-ink-2">
-        <input type="checkbox" checked={arb} onChange={(e) => setArb(e.target.checked)} className="mt-1 size-5 accent-accent" />
-        <span>Somar também o USDC/USDT da carteira na Arbitrum</span>
-      </label>
       <Button variant="primary" size="lg" className="w-full" onClick={() => connect()} loading={busy}><Link2 className="size-5" />Conectar</Button>
     </div>
   );

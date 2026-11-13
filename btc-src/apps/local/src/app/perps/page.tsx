@@ -1,5 +1,5 @@
 "use client";
-/** Posições Perpétuas: todas as posições abertas da Hyperliquid, de qualquer ativo. Separado da Estratégia BTC/USDC. */
+/** Posições Perpétuas: todas as posições abertas da Hyperliquid, de qualquer ativo. */
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDownRight, ArrowUpRight, RefreshCw } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -54,7 +54,7 @@ export default function PerpsPage() {
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[20px] font-semibold tracking-tight">Posições Perpétuas</h1>
-          <p className="mt-1 text-[13px] text-muted">Hyperliquid · {v.accounts.length > 1 ? `${v.accounts.length} contas` : "todos os ativos"}, descobertos automaticamente · somente leitura. Resultados separados da Estratégia BTC/USDC.</p>
+          <p className="mt-1 text-[13px] text-muted">Hyperliquid · {v.accounts.length > 1 ? `${v.accounts.length} contas` : "todos os ativos"}, descobertos automaticamente · somente leitura. Aportes separados do resultado.</p>
         </div>
         <div className="flex gap-2"><Button size="sm" variant="ghost" onClick={() => setAddOpen(true)}>Contas</Button><Button size="sm" onClick={refresh} loading={busy}><RefreshCw className="size-3.5" />Atualizar</Button></div>
       </div>
@@ -98,7 +98,7 @@ function PositionCard({ p, minLiq, account, onOpen }: { p: PerpPosition; minLiq:
           <div className="flex items-center gap-2.5">
             <CoinLogo symbol={p.coin} size={28} />
             <div><p className="text-[15px] font-semibold">{p.coin} / USD <span className="text-[11px] font-normal text-muted">PERPÉTUO · Hyperliquid</span></p>
-              <p className="mt-0.5 flex flex-wrap items-center gap-1.5"><DirBadge dir={p.dir} /><Pill>{p.leverage}× {p.levType === "isolated" ? "isolada" : "cruzada"}</Pill>{account && <Pill tone="accent">{account}</Pill>}{p.linkedStrategy && p.accountId === "hl-principal" && <Pill tone="gold">Vinculada à Estratégia BTC/USDC</Pill>}</p></div>
+              <p className="mt-0.5 flex flex-wrap items-center gap-1.5"><DirBadge dir={p.dir} /><Pill>{p.leverage}× {p.levType === "isolated" ? "isolada" : "cruzada"}</Pill>{account && <Pill tone="accent">{account}</Pill>}</p></div>
           </div>
           <Pill tone={RISK_TONE[risk]}>{RISK_TXT[risk]}</Pill>
         </div>

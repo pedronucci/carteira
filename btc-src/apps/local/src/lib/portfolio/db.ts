@@ -107,15 +107,15 @@ const normalize = (d: Partial<PortfolioData>): PortfolioData => {
 /** Carrega do IndexedDB (uma vez). */
 export async function loadPortfolio(): Promise<void> {
   if (ready) return;
-  try { const d = await readRaw(); if (d) { await preserveOriginal(d); data = normalize(d); } lastError = null; }
+  try { const d = await readRaw(); if (d) { await preserveOriginal(d); await preserveOriginal(d, "portfolio.before-accounts-v1"); data = normalize(d); } lastError = null; }
   catch (e) { lastError = (e as Error).message; }
   ready = true; notify();
 }
 
 let queue: Promise<void> = Promise.resolve();
-async function preserveOriginal(d: PortfolioData) {
+async function preserveOriginal(d: PortfolioData, key = "portfolio.pre-audit-2026-11-11") {
   const db = await open();
-  await new Promise<void>((res, rej) => { const tx = db.transaction(STORE, "readwrite"), store = tx.objectStore(STORE); const key = "portfolio.pre-audit-2026-11-11"; const q = store.get(key); q.onsuccess = () => { if (!q.result) store.put(d, key); }; tx.oncomplete = () => { db.close(); res(); }; tx.onerror = () => { db.close(); rej(tx.error); }; });
+  await new Promise<void>((res, rej) => { const tx = db.transaction(STORE, "readwrite"), store = tx.objectStore(STORE); const q = store.get(key); q.onsuccess = () => { if (!q.result) store.put(d, key); }; tx.oncomplete = () => { db.close(); res(); }; tx.onerror = () => { db.close(); rej(tx.error); }; });
 }
 /** Altera e grava (gravações em fila, na ordem). */
 export function updatePortfolio(fn: (d: PortfolioData) => void) {

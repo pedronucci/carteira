@@ -96,11 +96,11 @@ describe("regressões contábeis e persistência da auditoria", () => {
     expect(db.portfolio().events.at(-1)!.usd).toBe(-50000);
     expect(pe.portfolioView().flows.at(-1)!.usd).toBe(-50000);
   });
-  it("classificar transferência interna retira o fluxo de capital", async () => {
+  it("transferência interna conserva a saída por conta para neutralizar a variação do saldo", async () => {
     const { pe, db } = await boot();
     await db.updatePortfolio(d => { d.events.push({ id: "out", accountId: "a", t: 1, kind: "withdraw", econ: "USDC", qty: 100, usd: 100 }); });
     await pe.resolvePending("out", "internal");
-    expect(pe.portfolioView().flows).toHaveLength(0);
+    expect(pe.portfolioView().flows).toEqual([{t:1,accountId:"a",usd:-100}]);
   });
   it("backup inválido em outra seção não altera a estratégia", async () => {
     const { store } = await boot();

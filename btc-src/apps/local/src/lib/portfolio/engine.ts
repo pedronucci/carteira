@@ -4,7 +4,7 @@
  */
 import { effectiveHoldings } from "../wallets";
 import { classifyFlows, consolidate, exchangeEcon, nextSnapshots, portfolioReturns, type PSnapshot, type PAccount, type PHolding, type PPosition, type PriceBook } from "@bst/domain";
-import { compute } from "../local/engine";
+import { hlCapitalEvents, capitalFlows } from "./capital-flows";
 import { getStore } from "../local/store";
 import { hlState } from "../local/hl";
 import { extraState } from "../local/hl-extra";
@@ -29,7 +29,7 @@ const subs = new Set<() => void>();
 export const subscribePortfolioPrices = (f: () => void) => { subs.add(f); return () => { subs.delete(f); }; };
 export const priceBookInfo = () => ({ at: bookAt, error: bookError });
 
-/** Cotações em USD (CoinGecko, com variação de 24 h). O BTC usa a mesma cotação da Estratégia. */
+/** Cotações em USD (CoinGecko, com variação de 24 h). O BTC usa a cotação de referência do terminal. */
 export async function refreshPortfolioPrices(): Promise<void> {
   const p = portfolio();
   const econs = new Set<string>(["BTC", "USDC", "USDT", "ETH", "SOL", "HYPE"]);
@@ -50,7 +50,7 @@ export async function refreshPortfolioPrices(): Promise<void> {
   subs.forEach((f) => f());
 }
 
-/** Livro de preços efetivo: CoinGecko + BTC da Estratégia + preços manuais (marcados como manuais). */
+/** Livro de preços efetivo: CoinGecko + BTC de referência + preços manuais (marcados como manuais). */
 export function priceBook(): PriceBook {
   const p = portfolio();
   const out: PriceBook = Object.fromEntries(Object.entries(book).filter(([, p]) => p && (!p.at || Date.now() - p.at <= 15 * 60e3)));
@@ -60,7 +60,7 @@ export function priceBook(): PriceBook {
   return out;
 }
 
-const STRATEGY_ID = "strategy";
+const PRIMARY_PORTFOLIO_ID = "strategy";
 
 /** Conta Hyperliquid ao vivo como fonte do portfólio (conta padrão: saldos spot + equity perp; unificada: só os saldos spot), sem duplicar. */
 function liveSource(id: string, name: string, address: string, live: NonNullable<ReturnType<typeof hlState>["live"]>): { account: PAccount; holdings: PHolding[]; positions: PPosition[] } {
@@ -82,27 +82,19 @@ function liveSource(id: string, name: string, address: string, live: NonNullable
   return { account, holdings, positions };
 }
 
-/** Conta da Estratégia BTC/USDC no portfólio: o patrimônio real dela agora (não o resultado do ciclo). */
-function strategySource(): { account: PAccount; holdings: PHolding[]; positions: PPosition[] } | null {
+/** Conta principal Hyperliquid. O identificador histórico "strategy" permanece apenas para compatibilidade. */
+function primarySource(): { account: PAccount; holdings: PHolding[]; positions: PPosition[] } | null {
   const s = getStore();
   const hl = hlState();
   const addr = s.settings.hl?.address?.toLowerCase();
-  const now = Date.now();
-  if (addr && hl.live && hl.address === addr) return liveSource(STRATEGY_ID, "Hyperliquid (Estratégia BTC/USDC)", addr, hl.live);
-  // lançamento manual: o modelo da conta (todos os lançamentos) dá o patrimônio atual
-  try {
-    const r = compute("account");
-    const account: PAccount = { id: STRATEGY_ID, kind: "strategy", name: "Estratégia BTC/USDC (lançamento manual)", institution: "Estratégia BTC/USDC", network: "hyperliquid", createdAt: 0 };
-    const holdings: PHolding[] = [{ accountId: STRATEGY_ID, assetKey: "strategy:equity", econ: "USDC", symbol: "USDC", name: "Patrimônio da estratégia (margem + P&L aberto)", network: "hyperliquid", qty: r.equity.toFixed(2), valueUsd: r.equity.toNumber(), kind: "equity", source: "manual", at: now }];
-    const positions: PPosition[] = r.current ? [{ accountId: STRATEGY_ID, instrument: "BTC-PERP", dir: r.current.dir, size: Math.abs(r.current.sizeBtc.toNumber()), entry: r.current.officialEntry, mark: r.now.btcUsd.toNumber(), notional: r.current.notional, margin: r.current.cycle ? Number(r.current.cycle.capital) : null, upnl: r.unrealized, liq: r.current.liq?.toNumber() ?? null, leverage: r.current.effLeverage, funding: r.current.funding, at: now }] : [];
-    return { account, holdings, positions };
-  } catch { return null; }
+  if (addr && hl.live && hl.address === addr) return liveSource(PRIMARY_PORTFOLIO_ID, "Hyperliquid · Principal", addr, hl.live);
+  return null;
 }
 
 /** Fotografia completa do portfólio para as telas. */
 export function portfolioView() {
   const p = portfolio();
-  const strat = strategySource();
+  const strat = primarySource();
   const configuredPrimary = getStore().settings.hl?.address?.toLowerCase();
   const missingSources = [
     ...(configuredPrimary && (!hlState().live || hlState().address !== configuredPrimary) ? ["Hyperliquid principal: saldo indisponível"] : []),
@@ -115,25 +107,24 @@ export function portfolioView() {
   const positions = [...(strat?.positions ?? []), ...extras.flatMap((e) => e.positions), ...p.positions];
   const prices = priceBook();
   const c = consolidate(accounts, holdings, prices);
-  // movimentações: as do portfólio + aportes/retiradas da Estratégia (para a rentabilidade da conta dela)
-  let stratFlows: { t: number; accountId: string; usd: number }[] = [];
-  try { stratFlows = compute("account").events.filter((e) => e.k === "flow").map((e) => ({ t: e.t, accountId: STRATEGY_ID, usd: (e as { usd: number }).usd })); } catch { /* sem estratégia */ }
-  const classified = classifyFlows(p.events, accounts);
-  const flows = [
-    ...stratFlows,
-    // pendentes contam como aporte/retirada até o usuário classificar: entrada não classificada nunca vira lucro
-    ...classified.filter((e) => (e.cls === "external" || e.cls === "pending" || e.kind === "adjust" && e.classification !== "internal") && e.usd != null).map((e) => ({ t: e.t, accountId: e.accountId, usd: e.kind === "adjust" ? e.usd! : (e.kind === "withdraw" || e.kind === "transfer_out" ? -1 : 1) * Math.abs(e.usd!) })),
+  const historyAccounts = [
+    ...(configuredPrimary && hlState().address === configuredPrimary ? [{id:PRIMARY_PORTFOLIO_ID,history:hlState().history}] : []),
+    ...extraState().accounts.filter(x => extras.some(e => e.account.id === x.id)).map(x => ({id:x.id,history:x.history})),
   ];
+  const hlEvents = hlCapitalEvents(historyAccounts);
+  const classified = classifyFlows([...p.events, ...hlEvents], accounts);
+  const flows = capitalFlows(classified);
   const unresolved = classified.some((e) => (e.cls === "external" || e.cls === "pending" || e.kind === "adjust" && e.classification !== "internal") && e.usd == null);
-  const incompleteHistory = accounts.some((a) => ["okx", "bitcoin"].includes(a.kind) && p.sync[a.id]?.historyComplete !== true) || classified.some(e => e.status === "pending");
+  const incompleteHistory = historyAccounts.some(a => !a.history || a.history.truncated) || accounts.some((a) => ["okx", "bitcoin"].includes(a.kind) && p.sync[a.id]?.historyComplete !== true) || classified.some(e => e.status === "pending");
   const warnings = [
     ...missingSources,
+    ...(p.snapshots.some(s => s.src !== "accounts-v1") ? ["Retratos anteriores à remoção da estratégia foram preservados no backup; a série de contas reinicia para evitar misturar capital e resultado legado."] : []),
     ...c.unpriced.map((h) => `${h.symbol} em ${h.account}: sem preço; total parcial.`),
     ...Object.entries(p.sync).filter(([, s]) => s.state === "error" || s.state === "partial").map(([id, s]) => `${accounts.find((a) => a.id === id)?.name ?? id}: ${s.error ?? s.info ?? "sincronização parcial"}`),
     ...(unresolved ? ["Há movimentações sem preço histórico: rentabilidade indisponível até completar os valores."] : []),
     ...(incompleteHistory ? ["Cobertura histórica de transferências por conta incompleta ou confirmações pendentes; rentabilidade indisponível."] : []),
   ];
-  const snapshots = p.snapshots.map((s) => unresolved || incompleteHistory ? { ...s, quality: "partial" as const } : s);
+  const snapshots = p.snapshots.filter(s => s.src === "accounts-v1").map((s) => unresolved || incompleteHistory ? { ...s, quality: "partial" as const } : s);
   const series = portfolioReturns(snapshots, flows);
   const quality = missingSources.length || c.unpriced.length || Object.values(p.sync).some((s) => s.state === "error" || s.state === "partial") ? "partial" as const : holdings.some((h) => h.source === "sync" && Date.now() - h.at > 15 * 60e3) ? "stale" as const : "complete" as const;
   return { accounts, holdings, positions, prices, c, classified, series, flows, snapshots, pending: classified.filter((e) => e.cls === "pending"), quality, warnings };
@@ -155,7 +146,7 @@ export function buildSnapshot(v: ReturnType<typeof portfolioView>, now = Date.no
     }
   } catch { /* sem perpétuos */ }
   const spot = btcPrices().spot;
-  return { t: now, v: 2, quality: v.quality, byAccount, total: r2(v.c.totalUsd), byAsset, btcUsd: spot?.btcUsd ?? v.prices.BTC?.usd ?? null, usdBrl: spot?.usdBrl ?? null, btcEq: v.c.btcEquivalent ?? null, perps, recon, src: "app", px: refPx(v.prices), uf: 1 };
+  return { t: now, v: 2, quality: v.quality, byAccount, total: r2(v.c.totalUsd), byAsset, btcUsd: spot?.btcUsd ?? v.prices.BTC?.usd ?? null, usdBrl: spot?.usdBrl ?? null, btcEq: v.c.btcEquivalent ?? null, perps, recon, src: "accounts-v1", px: refPx(v.prices), uf: 1 };
 }
 
 /**
@@ -167,7 +158,7 @@ export function repairUnifiedSnapshots(): boolean {
   if (!p.snapshots.some((s) => s.uf !== 1)) return true;
   const refs: UnifiedAccountRef[] = [];
   const hl = hlState();
-  if (getStore().settings.hl?.address) { if (!hl.live || hl.address !== getStore().settings.hl!.address.toLowerCase()) return false; refs.push({ portfolioId: STRATEGY_ID, perpAccountId: "hl-principal", unified: isUnifiedMode(hl.live.mode) }); }
+  if (getStore().settings.hl?.address) { if (!hl.live || hl.address !== getStore().settings.hl!.address.toLowerCase()) return false; refs.push({ portfolioId: PRIMARY_PORTFOLIO_ID, perpAccountId: "hl-principal", unified: isUnifiedMode(hl.live.mode) }); }
   for (const x of extraState().accounts) { if (!x.live) return false; refs.push({ portfolioId: x.id, perpAccountId: x.id, unified: isUnifiedMode(x.live.mode) }); }
   const r = fixUnifiedSnapshots(p.snapshots, refs);
   if (r.changed) void updatePortfolio((d) => { d.snapshots = fixUnifiedSnapshots(d.snapshots, refs).snapshots; }).catch(() => undefined);

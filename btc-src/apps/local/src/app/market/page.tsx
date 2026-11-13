@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { d, sma, SCENARIO_LABEL } from "@bst/domain";
 import { marketIntel } from "@/lib/market/intel";
 import { useDataVersion } from "@/lib/api";
-import { useMarket, useSnapshot } from "@/lib/api";
+import { useMarket, usePerps } from "@/lib/api";
 import { useFmt } from "@/lib/state";
 import { getStore } from "@/lib/local/store";
 import { simulateEntry } from "@/lib/local/engine";
@@ -24,8 +24,7 @@ function Simulator() {
   const f = useFmt();
   const st = getStore().settings;
   const spot = prices().spot?.btcUsd;
-  const snap = useSnapshot().data;
-  const [capital, setCapital] = useState(snap && !snap.current && snap.free ? Math.max(0, snap.free).toFixed(0) : "1000");
+  const [capital, setCapital] = useState("1000");
   const [lev, setLev] = useState(st.defaultLeverage);
   const [entry, setEntry] = useState(spot ? spot.toFixed(0) : "");
   const [stop, setStop] = useState("");
@@ -73,12 +72,11 @@ export default function MarketPage() {
   const q = useMarket();
   const f = useFmt();
   const [view, setView] = useState<"180" | "400">("180");
-  const snapQ = useSnapshot().data;
-  // entradas e saídas do ciclo selecionado (uma marca por operação: início e fim)
-  const markers = useMemo<TradeMarker[]>(() => (snapQ?.trips ?? []).flatMap((t) => [
-    ...(!t.inherited ? [{ id: `${t.openT}-in`, ts: Math.floor(t.openT / 1000), kind: "ENTRY" as const, price: t.entry }] : []),
-    ...(t.closeT && t.exit ? [{ id: `${t.openT}-out`, ts: Math.floor(t.closeT / 1000), kind: "EXIT" as const, price: t.exit }] : []),
-  ]), [snapQ]);
+  const perps = usePerps().data;
+  const markers = useMemo<TradeMarker[]>(() => (perps?.trades ?? []).filter(t=>t.coin === "BTC").flatMap(t=>[
+    ...(t.avgEntry != null ? [{id:t.id+"-in",ts:Math.floor(t.openedAt/1000),kind:"ENTRY" as const,price:t.avgEntry}] : []),
+    ...(t.closedAt && t.avgExit != null ? [{id:t.id+"-out",ts:Math.floor(t.closedAt/1000),kind:"EXIT" as const,price:t.avgExit}] : []),
+  ]),[perps]);
   if (q.loading) return <div className="space-y-3 pt-4"><Skeleton className="h-12" /><Skeleton className="h-80" /></div>;
   if (q.error || !q.data) return <div className="space-y-6 pt-3"><h1 className="text-[28px] font-semibold tracking-tight">Mercado</h1><Notice tone="warn">{q.error?.message ?? "Sem dados."}</Notice><Simulator /></div>;
   const m = q.data;
@@ -88,7 +86,7 @@ export default function MarketPage() {
   const candles = m.candles.slice(-n);
   const off = all.length - candles.length;
   const s50 = sma(closes, 50).slice(off), s200 = sma(closes, 200).slice(off);
-  const openBasis = snapQ?.current?.officialEntry ?? null;
+  const openBasis = perps?.positions.find(p=>p.coin === "BTC")?.entry ?? null;
   const price = candles[candles.length - 1]!.c;
   const prev = candles[candles.length - 2]?.c;
   const spot = prices().spot?.btcUsd ?? price;

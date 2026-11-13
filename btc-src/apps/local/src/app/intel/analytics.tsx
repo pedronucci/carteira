@@ -40,7 +40,7 @@ function Indicators({ a }: { a: Analytics }) {
   const items: [string, string, "gain" | "loss" | null, string?][] = [
     ["Patrimônio atual", pv ? f.money(pv.c.totalUsd, { compact: true }) : NA, null],
     ["Resultado", hasEvo ? f.money(evo!.resultUsd!, { signed: true, compact: true }) : NA, hasEvo ? toneOf(evo!.resultUsd) : null, hasEvo ? "sem aportes/retiradas" : "precisa de 2 retratos"],
-    ["Rentabilidade (TWR)", evo?.twr != null ? f.pct(evo.twr) : NA, evo?.twr != null ? toneOf(evo.twr) : null, evo?.incomplete && evo.availableFrom ? `histórico desde ${dmy(evo.availableFrom)}` : undefined],
+    ["Retorno ajustado", evo?.twr != null ? f.pct(evo.twr) : NA, evo?.twr != null ? toneOf(evo.twr) : null, evo?.incomplete && evo.availableFrom ? `histórico desde ${dmy(evo.availableFrom)}` : undefined],
     ["P&L realizado", a.perps?.connected ? f.money(wf.gross, { signed: true, compact: true }) : NA, toneOf(wf.gross), "fills no período"],
     ["P&L não realizado", unrealized != null ? f.money(unrealized, { signed: true, compact: true }) : NA, toneOf(unrealized), "posições abertas agora"],
     ["Funding líquido", a.perps?.connected ? f.money(wf.funding, { signed: true, compact: true }) : NA, toneOf(wf.funding)],
@@ -121,11 +121,10 @@ function AssetTable({ a, className }: { a: Analytics; className?: string }) {
 
 function OriginPanel({ a, className }: { a: Analytics; className?: string }) {
   const f = useFmt();
-  const s = a.split;
   return (
     <Panel tech className={cn("overflow-hidden", className)}>
       <PanelHead title="Performance por origem" sub="somente fontes conectadas" />
-      {a.origins.length === 0 && !s ? <p className="px-4 py-6 text-[13px] text-muted">Nenhuma fonte com histórico.</p> : (
+      {a.origins.length === 0 ? <p className="px-4 py-6 text-[13px] text-muted">Nenhuma fonte com histórico.</p> : (
         <ul className="divide-y divide-line">
           {a.origins.map((o) => (
             <li key={o.origin} className="flex items-center gap-3 px-4 py-2.5 text-[13px]">
@@ -133,15 +132,10 @@ function OriginPanel({ a, className }: { a: Analytics; className?: string }) {
               <span className={cn("num text-right", toneCls(toneOf(o.resultUsd)))}>{o.resultUsd != null ? f.money(o.resultUsd, { signed: true }) : <span className="text-muted text-[11px]">{NA}</span>}<span className="block text-[11px]">{o.twr != null ? f.pct(o.twr) : ""}</span></span>
             </li>
           ))}
-          {s && (
-            <>
-              <li className="flex items-center gap-3 px-4 py-2.5 text-[13px]"><span className="min-w-0 flex-1"><span className="block font-medium text-gold">Estratégia BTC/USDC</span><span className="text-[11px] text-muted">só fills e funding de BTC desde o início do ciclo</span></span><span className={cn("num", toneCls(toneOf(s.strategy.net)))}>{f.money(s.strategy.net, { signed: true })}</span></li>
-              <li className="flex items-center gap-3 px-4 py-2.5 text-[13px]"><span className="min-w-0 flex-1"><span className="block font-medium">Outros perpétuos</span><span className="text-[11px] text-muted">demais ativos da mesma conta</span></span><span className={cn("num", toneCls(toneOf(s.others.net)))}>{f.money(s.others.net, { signed: true })}</span></li>
-            </>
-          )}
+
         </ul>
       )}
-      <p className="border-t border-line px-4 py-2 text-[11px] text-muted">A equity da conta compartilhada não é dividida: só o resultado das operações é atribuído. O ciclo BTC/USDC completo está no painel da Estratégia, abaixo.</p>
+      <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Resultado patrimonial desconta os fluxos de capital de cada conta. Aportes e transferências não são lucro.</p>
     </Panel>
   );
 }
@@ -182,7 +176,7 @@ function EvolutionPanel({ a, className }: { a: Analytics; className?: string }) 
             </li>
           ))}
         </ul>
-        <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Comparação em USD, com os mesmos fluxos externos (convertidos ao preço do retrato anterior). O TWR do portfólio não é comparado diretamente com esse resultado.</p>
+        <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Comparação em USD, com os mesmos fluxos externos (convertidos ao preço do retrato anterior). O Retorno ajustado do portfólio não é comparado diretamente com esse resultado.</p>
       </div>
     </Panel>
   );
@@ -233,10 +227,9 @@ export function AnalyticsSection({ strategyStart }: { strategyStart: number | nu
           <li>Resultado das operações = P&L realizado (closedPnl) − taxas + funding, somente dentro do período; cada parcela entra uma vez.</li>
           <li>P&L não realizado é o das posições abertas agora e não tem série histórica; a equity da Hyperliquid já o contém, então ele não é somado de novo ao patrimônio.</li>
           <li>Notional é exposição, não patrimônio. Margem não é resultado. Transferências entre contas próprias e depósitos/retiradas não são lucro.</li>
-          <li>Rentabilidade = TWR (ajustada por fluxos) e drawdown sobre o índice TWR. Com menos de 2 retratos, “{NA}”. Nada é reconstruído a partir do patrimônio atual.</li>
+          <li>Retorno ajustado = encadeamento de Modified Dietz entre retratos (resultado dividido pelo capital ponderado no tempo); drawdown sobre esse índice. É aproximação quando não há avaliação exata no instante de cada fluxo. Com menos de 2 retratos, “{NA}”. Nada é reconstruído a partir do patrimônio atual.</li>
           <li>Operação = posição aberta até zerar; execuções parciais pertencem à mesma operação. Operações encerradas entram pela data de fechamento.</li>
           <li>Benchmarks: mesmo capital e mesmos aportes aplicados ao preço gravado nos retratos. ETH/SOL só existem a partir de agora.</li>
-          <li>Estratégia BTC/USDC: só BTC desde o início do ciclo; os demais ativos da conta ficam em “Outros perpétuos”.</li>
         </ul>
       </details>
     </section>

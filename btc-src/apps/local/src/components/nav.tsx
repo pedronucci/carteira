@@ -33,7 +33,6 @@ export const MODULES: Module[] = [
   { href: "/", label: "Visão Geral", short: "Início", icon: LayoutDashboard },
   { href: "/perpetuos", label: "Posições Perpétuas", short: "Perpétuos", icon: Activity },
   { href: "/portfolio", label: "Portfólio Consolidado", short: "Portfólio", icon: Wallet },
-  { href: "/estrategia", label: "Estratégia BTC/USDC", short: "Estratégia BTC", icon: Bitcoin, strategy: true, match: ["/estrategia", "/estrategia/performance", "/estrategia/transacoes"] },
   { href: "/trading", label: "Trading", icon: ArrowLeftRight },
   { href: "/mercado", label: "Mercado", icon: ChartCandlestick, match: ["/mercado", "/mercado"] },
   { href: "/risco", label: "Risk Center", short: "Risco", icon: Gauge },
@@ -44,7 +43,7 @@ export const MODULES: Module[] = [
 ];
 const moduleOrder = ["/", "/perpetuos", "/portfolio", "/inteligencia", "/diario", "/mercado-intel", "/estrategia", "/risco", "/trading", "/mercado", "/ajustes"];
 MODULES.sort((a,b) => moduleOrder.indexOf(a.href) - moduleOrder.indexOf(b.href));
-const BOTTOM = ["/", "/perpetuos", "/portfolio", "/estrategia"];
+const BOTTOM = ["/", "/perpetuos", "/portfolio", "/inteligencia"];
 
 export function useActive() {
   const path = usePathname();
@@ -292,7 +291,6 @@ export function SubNav({ items }: { items: { href: string; label: string }[] }) 
   );
 }
 export const STRATEGY_TABS = [
-  { href: "/estrategia", label: "Monitor" },
   { href: "/estrategia/performance", label: "Performance" },
   { href: "/estrategia/transacoes", label: "Transações" },
   { href: "/estrategia/ciclos", label: "Ciclos" },

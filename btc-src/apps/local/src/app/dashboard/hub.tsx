@@ -94,7 +94,7 @@ export function HubKpis({ h, period, ccy }: { h: Hub; period: EvoPeriod; ccy: Ev
       <KpiCard gold icon={Bitcoin} label="Equivalente em BTC" value={pv.c.btcEquivalent != null ? `${f.btc(pv.c.btcEquivalent, 4)} BTC` : NA}
         sub={evoBtc?.rawChangeUsd != null && evoBtc.points.length >= 2 && evoBtc.points[0]!.value ? <>{label}: <span className={toneCls(toneOf(evoBtc.points.at(-1)!.value! - evoBtc.points[0]!.value))}>{f.pct(evoBtc.points.at(-1)!.value! / evoBtc.points[0]!.value - 1)}</span></> : "histórico em formação"}
         spark={evoBtc?.points.map((p) => p.value)} />
-      <KpiCard className="col-span-1" icon={Percent} label="Rentabilidade (TWR)" tone={reliable ? toneOf(evo!.twr) : null} value={evo?.twr != null ? f.pct(evo.twr) : NA}
+      <KpiCard className="col-span-1" icon={Percent} label="Retorno ajustado" tone={reliable ? toneOf(evo!.twr) : null} value={evo?.twr != null ? f.pct(evo.twr) : NA}
         sub={evo?.twr != null ? <>{label} · sem aportes/retiradas{evo.incomplete && evo.availableFrom ? <> · <span className="text-warn">desde {dmy(evo.availableFrom)}</span></> : null}{evo.resultUsd != null ? <> · {f.money(evo.resultUsd, { signed: true })}</> : null}</> : "aguardando histórico"} />
     </div>
   );
@@ -275,7 +275,7 @@ export function AssetPerfPanel({ h, period, className }: { h: Hub; period: EvoPe
   const byKey = new Map(r.rows.map((x) => [x.key, x]));
   return (
     <Panel tech className={cn("overflow-hidden", className)}>
-      <PanelHead title={<span className="flex items-center gap-2"><Activity className="size-5 text-accent" />Desempenho por Ativo</span>}  />
+      <PanelHead title={<span className="flex items-center gap-2"><Activity className="size-5 text-accent" />Saldos por Ativo</span>}  />
       {assets.length === 0 ? <p className="px-4 py-6 text-[13px] text-muted">Sem ativos avaliados ainda.</p> : (
         <ul className="divide-y divide-line">
           {assets.map((a) => {
@@ -283,17 +283,16 @@ export function AssetPerfPanel({ h, period, className }: { h: Hub; period: EvoPe
             return (
               <li key={a.econ} className="flex items-center gap-3 px-4 py-2.5 text-[13px]">
                 <CoinLogo symbol={a.symbol} size={22} />
-                {c?.changePct != null && <span className="nexus-perf-bar" aria-hidden><i style={{width: `${Math.min(100, Math.abs(c.changePct) * 200)}%`, background: c.changePct >= 0 ? "var(--color-accent)" : "var(--color-loss)"}} /></span>}
                 <span className="min-w-0 flex-1 truncate font-medium">{a.symbol}</span>
                 <span className="num hidden text-[12px] text-muted 2xl:inline">{f.money(a.valueUsd!, { compact: true })}</span>
-                <span className={cn("num w-[68px] text-right text-[12px]", toneCls(toneOf(c?.changePct)))}>{c?.changePct != null ? f.pct(c.changePct) : "—"}</span>
+                <span className={cn("num w-[68px] text-right text-[12px]", "text-ink-2")}>{c ? f.money(c.changeUsd, {signed:true,compact:true}) : "—"}</span>
                 <span className={cn("num w-[56px] text-right text-[11.5px]", toneCls(toneOf(a.change24h)))}>{a.change24h != null ? f.pct(a.change24h) : "—"}</span>
               </li>
             );
           })}
         </ul>
       )}
-      <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Colunas: valor · período {r.available ? `(desde ${dmy(r.fromT!)}, inclui compras e vendas)` : "(retratos por ativo começam a ser gravados agora)"} · 24h (preço).</p>
+      <p className="border-t border-line px-4 py-2 text-[11px] text-muted">Variações de saldo incluem aportes e transferências; não são lucro. Colunas: valor · saldo no período {r.available ? `(desde ${dmy(r.fromT!)}, inclui compras e vendas)` : "(retratos por ativo começam a ser gravados agora)"} · 24h (preço).</p>
     </Panel>
   );
 }
@@ -440,7 +439,7 @@ export function PerfAnalyticsCard({ className }: { className?: string }) {
         <div className="num grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-4 text-[12.5px]">
           <div className="col-span-2"><p className="lbl">Resultado líquido das operações</p><p className={cn("text-[20px] font-semibold tracking-tight", toneCls(toneOf(a.wf.net)))}>{f.money(a.wf.net, { signed: true })}</p></div>
           <div><p className="lbl">Principal ativo</p><p className="font-semibold">{a.topCoin ? <>{a.topCoin.coin} <span className={cn("text-[12px]", toneCls(toneOf(a.topCoin.net)))}>{f.money(a.topCoin.net, { signed: true, compact: true })}</span></> : "—"}</p></div>
-          <div><p className="lbl">Rentabilidade (TWR)</p><p className={cn("font-semibold", toneCls(toneOf(a.evo?.twr)))}>{a.evo?.twr != null ? f.pct(a.evo.twr) : "Dados insuficientes"}</p></div>
+          <div><p className="lbl">Retorno ajustado</p><p className={cn("font-semibold", toneCls(toneOf(a.evo?.twr)))}>{a.evo?.twr != null ? f.pct(a.evo.twr) : "Dados insuficientes"}</p></div>
           <div><p className="lbl">Funding líquido</p><p className={toneCls(toneOf(a.wf.funding))}>{f.money(a.wf.funding, { signed: true })}</p></div>
           <div><p className="lbl">Taxas</p><p className="text-loss">{f.money(a.wf.fees, { signed: true })}</p></div>
         </div>

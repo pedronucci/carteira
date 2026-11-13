@@ -24,7 +24,7 @@ export function useAnalytics(kind: RangeKind, custom: Custom, strategyStart: num
       evo: pv ? rangeEvolution(snaps, flows, range) : null,
       dd: drawdown(snaps, flows, range),
       origins: pv ? byOrigin(snaps, flows, pv.accounts, range) : [],
-      split: perps?.connected ? splitStrategy(trades, funding, strategyStart, range) : null,
+      split: null,
       bench: { BTC: hodlResult(snaps, flows, "BTC", range), ETH: hodlResult(snaps, flows, "ETH", range), SOL: hodlResult(snaps, flows, "SOL", range) },
       unrealized: perps?.connected ? perps.summary.upnl : null,
       topCoin: [...rows].sort((a, b) => Math.abs(b.net) - Math.abs(a.net))[0] ?? null,

@@ -25,7 +25,7 @@ export function HlExtraAccounts() {
   };
   return (
     <div className="space-y-4">
-      <p className="text-[13px] leading-relaxed text-ink-2">Acompanhe outra conta da Hyperliquid pelo endereço público. Ela aparece em Posições Perpétuas, Risk Center e Portfólio, sem entrar no resultado da Estratégia BTC/USDC. Nunca informe frase de recuperação ou chave privada.</p>
+      <p className="text-[13px] leading-relaxed text-ink-2">Acompanhe outra conta da Hyperliquid pelo endereço público. Ela aparece em Posições Perpétuas, Risk Center e Portfólio. Depósitos e retiradas são tratados como capital, não como lucro. Nunca informe frase de recuperação ou chave privada.</p>
       {list.map((a) => (
         <div key={a.id} className="rounded-lg border border-line p-3">
           <div className="flex items-center gap-3">

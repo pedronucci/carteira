@@ -1,3 +1,4 @@
+import { perpsView } from "../perps/view";
 /**
  * Motor da estratégia binária USDC ↔ BTC (long em perpétuo), em dólar.
  *
@@ -349,7 +350,7 @@ export function market() {
   const levels = supportResistance(cd.slice(-365), 5, 0.02, 8);
   const fng = prices().fng;
   let lev: number | null = null, liq: number | null = null;
-  try { const snap = compute(); lev = snap.current?.effLeverage ?? null; liq = snap.current?.liqDist?.toNumber() ?? null; } catch { /* sem cotação ou sem ciclo */ }
+  try { const summary = perpsView().summary; lev = summary.effLeverage; liq = summary.worstLiqDistance; } catch { /* contas ainda indisponíveis */ }
   const rules = { ...DEFAULT_SCENARIO_RULES, ...(getStore().settings.scenarioRules ?? {}) };
   const funding = marketIntel()?.funding1h;
   const scenario = classifyScenario({ dailyCandles: cd, fearGreed: fng?.value ?? null, fundingRate8h: funding && Date.now() - funding.at < 5 * 60e3 ? funding.value * 8 : null, portfolioLeverage: lev, minLiquidationDistance: liq }, rules);

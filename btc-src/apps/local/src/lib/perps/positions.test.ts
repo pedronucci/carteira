@@ -8,7 +8,7 @@ describe("buildPositions", () => {
     const p = buildPositions("a1", [raw({}), raw({ coin: "HYPE", szi: -50, entryPx: 40, posValue: -1900, liqPx: 48, marginUsed: 300, upnl: 5 }), raw({ coin: "SOL", szi: 0 })]);
     expect(p.map((x) => x.coin)).toEqual(["BTC", "HYPE"]);
     expect(p[1]!.dir).toBe("SHORT"); expect(p[1]!.mark).toBeCloseTo(38); expect(p[1]!.liqDistance).toBeCloseTo((48 - 38) / 38);
-    expect(p[0]!.mark).toBeCloseTo(72000); expect(p[0]!.liqDistance).toBeCloseTo(12000 / 72000); expect(p[0]!.linkedStrategy).toBe(true);
+    expect(p[0]!.mark).toBeCloseTo(72000); expect(p[0]!.liqDistance).toBeCloseTo(12000 / 72000); expect(p[0]!.linkedStrategy).toBe(false);
     expect(p[0]!.id).toBe("a1|perp|BTC");
   });
   it("campos indisponíveis ficam nulos, nunca inventados", () => {

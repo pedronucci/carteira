@@ -94,7 +94,6 @@ export default function RiskPage() {
           <Panel className="overflow-hidden">
             <PanelHead title="Quedas" />
             <div className="grid grid-cols-2">
-              <Kpi className="border-r border-line" label="Estratégia: atual · máx." tone={(r.strategyDD.current ?? 0) > 0 ? "loss" : null} value={r.strategyDD.current != null ? f.pct(-r.strategyDD.current) : "—"} sub={r.strategyDD.max != null ? `máx. ${f.pct(-r.strategyDD.max)}` : undefined} />
               <Kpi label="Portfólio: máx." tone={(r.portfolioDD.max ?? 0) > 0 ? "loss" : null} value={r.portfolioDD.max != null ? f.pct(-r.portfolioDD.max) : "—"} sub={r.portfolioDD.max == null ? "a partir do 2º retrato" : "pelos retratos"} />
             </div>
           </Panel>

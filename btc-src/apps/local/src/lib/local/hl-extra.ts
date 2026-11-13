@@ -36,7 +36,7 @@ export function addExtra(name: string, address: string): string {
   const addr = address.trim().toLowerCase();
   if (!isAddress(addr)) throw new Error("Endereço inválido. Ele começa com 0x e tem 42 caracteres.");
   if (/^(0x)?[0-9a-f]{64}$/i.test(address.trim())) throw new Error("Isto parece uma chave privada. Use só o endereço público.");
-  if (getStore().settings.hl?.address?.toLowerCase() === addr) throw new Error("Este endereço já é a conta principal (da Estratégia). Cadastre aqui a OUTRA conta.");
+  if (getStore().settings.hl?.address?.toLowerCase() === addr) throw new Error("Este endereço já é a conta principal. Cadastre aqui a OUTRA conta.");
   if (st.accounts.some((a) => a.address === addr)) throw new Error("Este endereço já está cadastrado.");
   if (st.accounts.length >= MAX_EXTRA) throw new Error(`Limite de ${MAX_EXTRA} contas adicionais.`);
   const id = extraId(addr);

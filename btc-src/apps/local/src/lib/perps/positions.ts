@@ -23,7 +23,7 @@ export function buildPositions(accountId: string, raw: RawPos[]): PerpPosition[]
     return {
       id: perpId(accountId, p.coin), accountId, coin: p.coin, dir, size, entry: p.entryPx > 0 ? p.entryPx : null, mark, notional: Math.abs(p.posValue), leverage: p.leverage, levType: p.levType,
       margin: p.marginUsed > 0 ? p.marginUsed : null, upnl: p.upnl, roiOnMargin: p.marginUsed > 0 ? p.upnl / p.marginUsed : null, liq, liqDistance,
-      funding: Number.isFinite(p.fundingSinceOpen) ? p.fundingSinceOpen : null, linkedStrategy: p.coin === "BTC",
+      funding: Number.isFinite(p.fundingSinceOpen) ? p.fundingSinceOpen : null, linkedStrategy: false,
     };
   });
 }

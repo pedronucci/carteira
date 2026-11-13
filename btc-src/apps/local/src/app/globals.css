@@ -212,3 +212,5 @@ main h1{letter-spacing:-.035em} main table th{white-space:nowrap} .nexus-sidebar
 .nexus-hero{overflow:hidden}.nexus-news-row{padding:5px 0;font-size:11px;line-height:1.25}.nexus-news-row+.nexus-news-row{margin-top:0!important}.nexus-radar>div:nth-child(2)>div{margin-top:0!important}.nexus-radar .nexus-news-icon{height:32px}
 @media(min-width:1024px){.nexus-grid>.nexus-perps,.nexus-grid>.nexus-radar{height:240px;min-height:240px}.nexus-radar>div:nth-child(2){padding-top:0}.nexus-radar>div:first-child{padding-top:12px;padding-bottom:8px}.nexus-grid>.nexus-radar{overflow:auto}}
 @media(max-width:1023px){.nexus-horizon{right:-20px;opacity:.55}}
+
+.nexus-footer-accounts{grid-template-columns:repeat(3,minmax(0,1fr))}@media(max-width:767px){.nexus-footer-accounts{grid-template-columns:1fr}}

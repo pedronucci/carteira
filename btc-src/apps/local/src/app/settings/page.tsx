@@ -7,13 +7,9 @@ import { backupNow, exportBackup, getStore, importBackup, listAutoBackups, reset
 import { prices } from "@/lib/local/prices";
 import { Button, Field, Notice, Panel, SectionTitle } from "@/components/ui";
 import { num } from "@/components/forms";
-import { StrategySheet } from "@/components/strategy";
 import { PortfolioIntegrations } from "@/components/integrations";
 import { OkxConnect } from "@/components/okx-connect";
 import { hlState } from "@/lib/local/hl";
-import { fmtZoned, type StrategyCycle } from "@/lib/local/strategy";
-import { compute } from "@/lib/local/engine";
-import { fmtMoney } from "@bst/domain";
 import { HlConnect } from "@/components/hl-connect";
 import { HlExtraAccounts } from "@/components/hl-extra";
 import { toast } from "@/components/toaster";
@@ -169,49 +165,6 @@ function Backup() {
   );
 }
 
-const SRC: Record<string, string> = { live: "oficial ao vivo", reconstructed: "reconstruído", manual: "referência manual" };
-
-function Cycles() {
-  useDataVersion();
-  const s = getStore();
-  const [sheet, setSheet] = useState<null | { mode: "new" | "edit"; edit?: StrategyCycle }>(null);
-  const list = [...s.strategies].sort((a, b) => b.startAt - a.startAt);
-  const res = (id: string) => { try { return compute(id).result; } catch { return null; } };
-  const remove = (c: StrategyCycle) => {
-    if (c.status === "active") return toast("Encerre o ciclo atual criando um novo antes de apagá-lo.", "loss");
-    if (!confirm(`Apagar o ciclo “${c.name}”? Os lançamentos e o histórico da conta não são apagados.`)) return;
-    backupNow("antes de apagar um ciclo");
-    updateStore((x) => { x.strategies = x.strategies.filter((y) => y.id !== c.id); if (x.view === c.id) x.view = "active"; });
-  };
-  return (
-    <Panel className="p-4">
-      {list.length === 0 && <p className="pb-3 text-[14px] text-muted">Nenhum ciclo ainda.</p>}
-      <ul className="divide-y divide-line">
-        {list.map((c) => {
-          const r = res(c.id);
-          return (
-            <li key={c.id} className="py-3">
-              <div className="flex items-start gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[15px] font-semibold">{c.name} {c.status === "active" && <span className="ml-1 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent">atual</span>}</p>
-                  <p className="text-[13px] text-muted">{fmtZoned(c.startAt, c.tz)}{c.endAt ? ` → ${fmtZoned(c.endAt, c.tz)}` : " → hoje"} · {c.tz.replace("_", " ")}</p>
-                  <p className="num text-[13px] text-muted">Início: {c.snapshot ? `${fmtMoney(c.snapshot.equityUsd, "USD")} (${SRC[c.snapshot.source]})` : "sem patrimônio inicial"}{r != null ? ` · resultado ${fmtMoney(r, "USD", { signed: true })}` : ""}</p>
-                </div>
-                <div className="flex shrink-0 gap-1">
-                  {c.status === "active" && <Button size="sm" onClick={() => setSheet({ mode: "edit", edit: c })}>Editar</Button>}
-                  {c.status === "closed" && <Button size="sm" variant="ghost" className="text-loss" onClick={() => remove(c)}>Apagar</Button>}
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-      <Button variant="primary" className="mt-3 w-full" onClick={() => setSheet({ mode: "new" })}>Novo ciclo</Button>
-      {sheet && <StrategySheet mode={sheet.mode} edit={sheet.edit} onClose={() => setSheet(null)} />}
-    </Panel>
-  );
-}
-
 function RawHistory() {
   useDataVersion();
   const h = hlState().history;
@@ -235,7 +188,7 @@ function RawHistory() {
           <p className="text-[13px] text-muted">Última sincronização {new Date(h.at).toLocaleString("pt-BR")}. Sincronizações repetidas não duplicam registros (cada um tem uma chave única).{h.truncated ? " A API limitou o histórico mais antigo." : ""}</p>
           <Button className="w-full" onClick={csvRaw}><Download className="size-4" />Baixar histórico bruto (CSV)</Button>
         </>
-      ) : <p className="text-muted">{s.cycles.length} ciclos de operação e {s.flows.length} aportes/retiradas lançados à mão. Nada é apagado ao criar ciclos.</p>}
+      ) : <p className="text-muted">Sem histórico sincronizado. Os lançamentos manuais antigos permanecem preservados no backup.</p>}
     </Panel>
   );
 }
@@ -249,15 +202,15 @@ export default function SettingsPage() {
       {!storageAvailable() && <Notice tone="loss">O navegador está bloqueando o armazenamento local (modo privado?). Nada será salvo.</Notice>}
       {s.migratedNote && <Notice tone="info">{s.migratedNote}</Notice>}
       <section aria-label="Hyperliquid">
-        <SectionTitle sub="Conta da Estratégia BTC/USDC: posição, saldo e operações, somente leitura">Hyperliquid</SectionTitle>
+        <SectionTitle sub="Conta principal: posições, saldo e operações, somente leitura">Hyperliquid</SectionTitle>
         <Panel className="p-4"><HlConnect /></Panel>
       </section>
       <section aria-label="Contas Hyperliquid adicionais">
-        <SectionTitle sub="Segunda conta (e outras): posições perpétuas, risco e patrimônio, fora da Estratégia BTC/USDC">Contas Hyperliquid adicionais</SectionTitle>
+        <SectionTitle sub="Outras contas: posições perpétuas, risco e patrimônio">Contas Hyperliquid adicionais</SectionTitle>
         <Panel className="p-4"><HlExtraAccounts /></Panel>
       </section>
       <section aria-label="Carteiras">
-        <SectionTitle sub="Entram no Portfólio Consolidado, nunca no resultado da estratégia">Carteiras (Bitcoin, EVM/Rabby, Solana)</SectionTitle>
+        <SectionTitle sub="Saldos e transferências do portfólio consolidado">Carteiras (Bitcoin, EVM/Rabby, Solana)</SectionTitle>
         <PortfolioIntegrations />
       </section>
       <section aria-label="OKX">
@@ -265,12 +218,8 @@ export default function SettingsPage() {
         <OkxConnect />
         <p className="mt-2 text-[12px] text-muted">Cadastro manual e importação CSV de saldos: em <a href="#/portfolio" className="text-accent">Portfólio → Adicionar ativo / CSV</a>.</p>
       </section>
-      <section aria-label="Ciclos da estratégia">
-        <SectionTitle sub="Cada ciclo mede a estratégia a partir do próprio início">Ciclos da estratégia</SectionTitle>
-        <Cycles />
-      </section>
       <section aria-label="Histórico bruto">
-        <SectionTitle sub="Guardado para auditoria; não entra nos ciclos fora do período deles">Histórico bruto</SectionTitle>
+        <SectionTitle sub="Execuções, transferências e funding para auditoria">Histórico bruto</SectionTitle>
         <RawHistory />
       </section>
       <section aria-label="Preferências"><SectionTitle>Preferências</SectionTitle><Prefs key={`p${v}`} /></section>

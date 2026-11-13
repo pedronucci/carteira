@@ -95,6 +95,7 @@ export function getStore(): Store {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
+      if (!localStorage.getItem(KEY + ".before-accounts-v1")) { try { localStorage.setItem(KEY + ".before-accounts-v1", raw); } catch { /* originais mantidos na chave principal */ } }
       if (!localStorage.getItem(KEY + ".pre-audit-2026-11-11")) { try { localStorage.setItem(KEY + ".pre-audit-2026-11-11", raw); } catch { /* o dado original permanece na chave principal */ } }
       const parsed = JSON.parse(raw);
       if (parsed.v !== 3 && !localStorage.getItem(KEY + ".bak")) localStorage.setItem(KEY + ".bak", raw); // cópia intacta antes da migração
