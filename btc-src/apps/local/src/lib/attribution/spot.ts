@@ -4,6 +4,7 @@
  * conhecido = saldo anterior ao histórico: a parte sem custo conhecido NÃO gera resultado e o ativo fica "parcial".
  */
 import type { Fill } from "../perps/trades";
+import { orderFills } from "../perps/fill-order";
 
 export interface SpotRec { fillKey: string; t: number; asset: string; realized: number; fee: number }
 export interface SpotAsset { asset: string; qty: number; avgCost: number | null; buys: number; sells: number; partial: boolean; unknownQty: number }
@@ -11,7 +12,7 @@ export interface SpotResult { assets: Map<string, SpotAsset>; recs: SpotRec[]; u
 const EPS = 1e-9;
 
 export function spotEngine(fills: Fill[], names: Record<string, string> | null): SpotResult {
-  const sorted = [...fills].sort((a, b) => a.time - b.time || a.key.localeCompare(b.key));
+  const sorted = orderFills(fills);
   const st = new Map<string, { qty: number; cost: number; buys: number; sells: number; unknown: number }>();
   const recs: SpotRec[] = [];
   const unmapped = new Set<string>();

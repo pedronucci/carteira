@@ -3,7 +3,7 @@
  * Cada conta tem id, apelido, saldo ao vivo e histórico próprios. Nada aqui entra no resultado da Estratégia:
  * só em Posições Perpétuas, Risk Center e Portfólio (pelo equity, sem duplicar).
  */
-import { fetchHistory, fetchLive, isAddress, hlState, type HlHistory, type HlLive } from "./hl";
+import { fetchHistory, fetchLive, isAddress, hlState, HL_HISTORY_V, type HlHistory, type HlLive } from "./hl";
 import { getStore } from "./store";
 
 const KEY = "bst.hl.extra.v1";
@@ -58,7 +58,7 @@ export async function refreshExtra(id: string, full = false, btcUsd: number | nu
     patch(id, { live, error: null });
     if (full) {
       const cur = st.accounts.find((x) => x.id === id)!;
-      patch(id, { history: await fetchHistory(a.address, cur.history?.v === 2 ? cur.history : null) });
+      patch(id, { history: await fetchHistory(a.address, cur.history?.v === HL_HISTORY_V ? cur.history : null) });
     }
   } catch (e) { patch(id, { error: (e as Error).message }); }
   finally { patch(id, { syncing: false }); running.delete(id); }

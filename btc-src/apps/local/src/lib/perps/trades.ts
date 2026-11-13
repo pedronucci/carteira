@@ -1,4 +1,5 @@
 /** Agrupa execuções (fills) de perpétuos em OPERAÇÕES (round-trips) por instrumento e calcula estatísticas. */
+import { orderFills } from "./fill-order";
 export interface Fill { key: string; time: number; coin: string; px: number; sz: number; side: "B" | "A"; dir: string; fee: number; closedPnl: number; startPosition: number; oid?: number; liq?: boolean; feeToken?: string }
 export interface FundingRow { key: string; time: number; coin: string; usd: number }
 
@@ -34,7 +35,7 @@ function finish(s: St, closedAt: number | null, funding: FundingRow[]): Trade {
 }
 
 export function groupTrades(fills: Fill[], funding: FundingRow[]): Trade[] {
-  const sorted = [...new Map(fills.map((f) => [f.key, f])).values()].sort((a, b) => a.time - b.time || a.key.localeCompare(b.key, undefined, { numeric: true }));
+  const sorted = orderFills([...new Map(fills.map((f) => [f.key, f])).values()]);
   const byCoin = new Map<string, Fill[]>();
   for (const f of sorted) { const l = byCoin.get(f.coin) ?? []; l.push(f); byCoin.set(f.coin, l); }
   const out: Trade[] = [];

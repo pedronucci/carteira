@@ -11,6 +11,7 @@ import { closeUsdAt, prices } from "./prices";
 import { hlState, btcMarkAt, seriesAt, nearestPoint } from "./hl";
 import { account, accountStateAt, officialNow } from "./engine";
 import { DAY, type StartSnapshot } from "./strategy";
+import { flatEquityAt } from "./start-equity";
 
 export interface SnapResult { snap: StartSnapshot | null; missing: ("equity" | "arb" | "position")[]; detail: string[] }
 
@@ -41,9 +42,16 @@ export async function buildSnapshot(startAt: number, opts: { arbUsd?: number } =
     const h = hlState().history;
     if (!h) return { snap: null, missing: ["equity"], detail: ["Histórico da Hyperliquid ainda não sincronizado."] };
     // patrimônio oficial no instante
-    const flows = h.ledger.filter((l) => l.kind === "IN" || l.kind === "OUT").map((l): [number, number] => [l.time, l.kind === "IN" ? l.amount : -l.amount]);
-    let equity = seriesAt(h.accountValue, startAt, 6 * 3600e3, flows);
-    if (equity != null) detail.push("Patrimônio pelo histórico oficial de valor da conta (Hyperliquid).");
+    // movimentações que mudam o valor da conta entre dois pontos oficiais (taxa de saque/envio também reduz o valor)
+    const flows = h.ledger.flatMap((l): [number, number][] => [
+      ...(l.kind === "IN" || l.kind === "OUT" ? [[l.time, l.kind === "IN" ? l.amount : -l.amount] as [number, number]] : []),
+      ...(l.fee ? [[l.time, -l.fee] as [number, number]] : []),
+    ]);
+    // conta sem posição: valor exato = último ponto oficial + eventos até o início (sem interpolar)
+    const exact = flatEquityAt(h, startAt);
+    let equity = exact ?? seriesAt(h.accountValue, startAt, 6 * 3600e3, flows);
+    if (exact != null) detail.push("Patrimônio exato: último valor oficial da conta (Hyperliquid) antes do início, mais os eventos até o início.");
+    else if (equity != null) detail.push("Patrimônio pelo histórico oficial de valor da conta (Hyperliquid).");
     else if (!acc.truncated && !acc.otherCoins.length) {
       const st = accountStateAt(startAt);
       equity = st.equity; detail.push("Patrimônio reconstruído pelas execuções, depósitos e funding.");

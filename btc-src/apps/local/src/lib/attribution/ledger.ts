@@ -63,6 +63,7 @@ export function buildAttrLedger(i: LedgerIn): AttrLedger {
     // movimentações: aportes/retiradas × transferências internas × recompensas (resultado)
     for (const l of a.ledger) {
       if (l.kind === "INCOME") { push({ id: `${l.key}|${a.id}|w`, t: l.time, accountId: a.id, accountName: a.name, exchange: ex, asset: "Recompensas", market: "other", kind: "reward", usd: l.amount, tradeUid: null, strategy: "Recompensas" }); continue; }
+      if (l.fee) push({ id: `${l.key}|${a.id}|wf`, t: l.time, accountId: a.id, accountName: a.name, exchange: ex, asset: "Taxas de saque", market: "other", kind: "fee", usd: -l.fee, tradeUid: null, strategy: "Taxas de saque" });
       const internal = l.kind === "INTERNAL" || (l.peer != null && own.has(l.peer));
       flows.push({ id: `${l.key}|${a.id}`, t: l.time, accountId: a.id, accountName: a.name, exchange: ex, cls: internal ? "internal" : l.kind === "IN" ? "deposit" : "withdraw", usd: l.amount, label: l.label });
     }

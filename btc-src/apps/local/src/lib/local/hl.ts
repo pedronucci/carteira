@@ -178,7 +178,8 @@ export interface HlFill { key: string; time: number; coin: string; px: number; s
 export type HlOrderKind = "SL" | "TP" | "LIM" | "MKT";
 /** IN/OUT: fluxo externo · INTERNAL: entre spot e perp da mesma conta · INCOME: recompensa (resultado, não aporte) */
 export interface HlLedger { key: string; time: number; kind: "IN" | "OUT" | "INTERNAL" | "INCOME"; amount: number; label: string; type: string;
-  /** endereço da outra ponta em transferências (para reconhecer transferência entre contas próprias) */ peer?: string }
+  /** endereço da outra ponta em transferências (para reconhecer transferência entre contas próprias) */ peer?: string;
+  /** taxa paga por esta conta na movimentação (saque: 1 USDC; envio). É custo, não fluxo de capital. */ fee?: number }
 export interface HlFunding { key: string; time: number; coin: string; usd: number }
 export interface HlHistory {
   at: number; fills: HlFill[]; ledger: HlLedger[]; funding: HlFunding[];
@@ -194,7 +195,7 @@ export interface HlHistory {
 }
 
 type RawFill = { coin: string; px: string; sz: string; side: "B" | "A"; time: number; startPosition: string; dir: string; closedPnl: string; fee: string; hash?: string; oid?: number; tid?: number; liquidation?: unknown; feeToken?: string };
-type RawLedger = { time: number; hash?: string; delta: { type: string; usdc?: string; amount?: string; usdcValue?: string; token?: string; user?: string; destination?: string; toPerp?: boolean } };
+type RawLedger = { time: number; hash?: string; delta: { type: string; usdc?: string; amount?: string; usdcValue?: string; token?: string; user?: string; destination?: string; toPerp?: boolean; fee?: string } };
 type RawFunding = { time: number; hash?: string; delta: { coin: string; usdc: string } };
 type Portfolio = [string, { accountValueHistory: [number, string][]; pnlHistory: [number, string][] }][];
 
@@ -211,7 +212,10 @@ function ledgerRow(r: RawLedger, me: string): HlLedger | null {
   const key = `l|${r.time}|${r.hash ?? ""}|${x.type}|${amt}`;
   const dirIn = (x.destination ?? "").toLowerCase() === me;
   const other = (dirIn ? x.user : x.destination)?.toLowerCase();
-  const row = (kind: HlLedger["kind"], label: string): HlLedger => ({ key, time: r.time, kind, amount: amt, label, type: x.type, ...(other && /^0x[0-9a-f]{40}$/.test(other) ? { peer: other } : {}) });
+  // taxa: só quando esta conta paga (saque, ou envio em que ela é a origem). Recebido não tem taxa para quem recebe.
+  const fee = Number(x.fee ?? 0);
+  const paysFee = Number.isFinite(fee) && fee > 0 && (x.type === "withdraw" || (x.type !== "deposit" && !dirIn));
+  const row = (kind: HlLedger["kind"], label: string): HlLedger => ({ key, time: r.time, kind, amount: amt, label, type: x.type, ...(other && /^0x[0-9a-f]{40}$/.test(other) ? { peer: other } : {}), ...(paysFee ? { fee } : {}) });
   switch (x.type) {
     case "deposit": return row("IN", "via Arbitrum");
     case "withdraw": return row("OUT", "para Arbitrum");
@@ -222,6 +226,9 @@ function ledgerRow(r: RawLedger, me: string): HlLedger | null {
     default: return null;
   }
 }
+
+/** Versão do histórico guardado. 3 = movimentações trazem a taxa paga (histórico anterior é baixado de novo). */
+export const HL_HISTORY_V = 3;
 
 const mergeBy = <T extends { key: string; time: number }>(old: T[], add: T[]) => {
   const m = new Map(old.map((x) => [x.key, x]));
@@ -262,7 +269,7 @@ export async function fetchHistory(address: string, prev: HlHistory | null): Pro
   }
   return {
     at: Date.now(), fills: mergeBy(prev?.fills ?? [], fills), ledger: mergeBy(prev?.ledger ?? [], ledger), funding: mergeBy(prev?.funding ?? [], funding),
-    accountValue: av, pnl, orders, oidV: 1, truncated: Boolean(prev?.truncated) || f.truncated || l.truncated || (!prev && new Set(f.rows.map((x) => x.tid ?? `${x.time}${x.px}${x.sz}`)).size >= 10000), syncs: (prev?.syncs ?? 0) + 1, v: 2,
+    accountValue: av, pnl, orders, oidV: 1, truncated: Boolean(prev?.truncated) || f.truncated || l.truncated || fu.truncated || (!prev && new Set(f.rows.map((x) => x.tid ?? `${x.time}${x.px}${x.sz}`)).size >= 10000), syncs: (prev?.syncs ?? 0) + 1, v: HL_HISTORY_V,
   };
 }
 
@@ -272,7 +279,7 @@ export async function refreshHistory(address: string, _opts: { includeArb?: bool
   set({ address: user, syncing: true });
   try {
     // histórico de versões anteriores (execuções agregadas) é buscado de novo do zero: a Hyperliquid guarda tudo
-    const prev = state.address === user && state.history?.v === 2 ? state.history : null;
+    const prev = state.address === user && state.history?.v === HL_HISTORY_V ? state.history : null;
     const history = await fetchHistory(user, prev);
     if (state.address !== user) return;
     set({ error: null, syncing: false, history });

@@ -1,5 +1,6 @@
 /** Reconciliação dos perpétuos por conta e por ativo. Não declara "conciliado" só porque o saldo de hoje coincide. */
 import type { Fill, FundingRow, Trade } from "./trades";
+import { orderFills } from "./fill-order";
 
 export type ReconStatus = "reconciled" | "divergence" | "incomplete" | "stale" | "partial";
 export const RECON_LABEL: Record<ReconStatus, string> = { reconciled: "Conciliado", divergence: "Divergência identificada", incomplete: "Histórico incompleto", stale: "Dados desatualizados", partial: "Reconciliação parcial" };
@@ -12,6 +13,8 @@ export interface ReconInput {
   netExternalFlows: number | null; startEquity: number | null; historyTruncated: boolean; staleMs?: number; tolerance?: number;
   /** início da janela do modelo de equity (instante do patrimônio inicial); fills antes disso só entram na checagem de tamanho */
   since?: number; unmodeledSpot?: boolean;
+  /** resultado fora das execuções e do funding, dentro da janela: recompensas (+) e taxas de saque/envio (−) */
+  otherIncome?: number;
 }
 export interface ReconCoin { coin: string; realized: number; fees: number; funding: number; upnl: number; net: number; positionFromFills: number; positionLive: number; positionOk: boolean }
 export interface ReconResult { status: ReconStatus; reasons: string[]; byCoin: ReconCoin[]; expectedEquity: number | null; officialEquity: number | null; equityDiff: number | null; divergences: Divergence[] }
@@ -21,7 +24,7 @@ const EPS = 1e-6;
 export function reconcilePerps(i: ReconInput): ReconResult {
   const reasons: string[] = [], divergences: Divergence[] = [];
   const coins = [...new Set([...i.fills.map((f) => f.coin), ...i.livePositions.map((p) => p.coin)])];
-  const sorted = [...i.fills].sort((a, b) => a.time - b.time || a.key.localeCompare(b.key));
+  const sorted = orderFills(i.fills);
   const byCoin: ReconCoin[] = coins.map((coin) => {
     const fs = sorted.filter((f) => f.coin === coin);
     const last = fs[fs.length - 1];
@@ -44,7 +47,7 @@ export function reconcilePerps(i: ReconInput): ReconResult {
   if (i.unmodeledSpot) reasons.push("Há saldos spot de moedas voláteis (ex.: HYPE) cujo valor varia fora do modelo de perpétuos.");
   const canModel = i.startEquity != null && i.netExternalFlows != null && !openAtStart && !i.unmodeledSpot;
   if (canModel) {
-    expectedEquity = i.startEquity! + i.netExternalFlows! + byCoin.reduce((a, c) => a + c.net, 0);
+    expectedEquity = i.startEquity! + i.netExternalFlows! + (i.otherIncome ?? 0) + byCoin.reduce((a, c) => a + c.net, 0);
     if (i.officialEquity != null) {
       equityDiff = i.officialEquity - expectedEquity;
       const tol = i.tolerance ?? Math.max(5, Math.abs(i.officialEquity) * 0.01);

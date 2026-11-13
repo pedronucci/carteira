@@ -131,6 +131,8 @@ export function account(s: Store = getStore()): Account {
     for (const l of h.ledger) {
       if (l.kind === "INTERNAL") continue;
       if (l.kind === "INCOME") { ev.push({ t: l.time, k: "income", usd: l.amount, key: l.key, src: "hl", label: l.label }); continue; }
+      // taxa de saque/envio: custo da conta (resultado negativo), não fluxo de capital — vale também com a carteira somada
+      if (l.fee) ev.push({ t: l.time, k: "income", usd: -l.fee, key: `${l.key}|fee`, src: "hl", label: "taxa de saque/envio" });
       if (includeArb && (l.type === "deposit" || l.type === "withdraw")) continue; // carteira somada: movimento interno
       ev.push({ t: l.time, k: "flow", usd: l.kind === "IN" ? l.amount : -l.amount, key: l.key, src: "hl", label: l.label });
     }

@@ -28,6 +28,31 @@ export interface PerpsView {
   funding: { key: string; time: number; coin: string; usd: number }[];
 }
 
+/**
+ * Janela e entradas da reconciliação da conta.
+ * Histórico completo: a conta vale ZERO antes do primeiro evento (execução, funding ou movimentação) — esse é o único
+ * patrimônio inicial exato. O 1º ponto "allTime" da Hyperliquid NÃO serve: ele pode vir como 0,00 depois de a conta já
+ * ter recebido dinheiro e operado (caso real: 693,81 de diferença).
+ * Histórico truncado: mantém o 1º ponto oficial como referência e o status fica "Histórico incompleto".
+ */
+export function reconInputs(h: HlHistory, live: HlLive) {
+  const firstEvent = Math.min(...[h.fills[0]?.time, h.funding[0]?.time, h.ledger[0]?.time].filter((x): x is number => x != null), Infinity);
+  const av0 = h.accountValue[0] ?? null;
+  const complete = !h.truncated && Number.isFinite(firstEvent);
+  const since = complete ? firstEvent : av0?.[0];
+  const startEquity = complete ? 0 : av0 ? av0[1] : null;
+  const inWin = (t: number) => since == null || t >= since;
+  const win = h.ledger.filter((l) => inWin(l.time));
+  const flows = since == null ? null : win.filter((l) => l.kind === "IN" || l.kind === "OUT").reduce((a, l) => a + (l.kind === "IN" ? l.amount : -l.amount), 0);
+  // recompensas são resultado; taxas de saque/envio são custo — nenhuma das duas é fluxo de capital
+  const otherIncome = win.reduce((a, l) => a + (l.kind === "INCOME" ? l.amount : 0) - (l.fee ?? 0), 0);
+  return {
+    now: Date.now(), liveAt: live.at, officialEquity: live.total, livePositions: live.positions.map((p) => ({ coin: p.coin, szi: p.szi, upnl: p.upnl })),
+    funding: h.funding, netExternalFlows: flows, startEquity, since, otherIncome, historyTruncated: h.truncated,
+    unmodeledSpot: live.balances.some((b) => b.where === "spot" && !STABLE.includes(b.coin)),
+  };
+}
+
 function accountView(o: { id: string; name: string; address: string; primary: boolean; live: HlLive | null; history: HlHistory | null; error: string | null }): PerpAccountView {
   const minLiq = Number(getStore().settings.minLiqDistance) || 0.1;
   const maint = Number(getStore().settings.maintenanceRate) || 0.0125;
@@ -37,13 +62,7 @@ function accountView(o: { id: string; name: string; address: string; primary: bo
   const perpFills = h ? h.fills.filter((f) => !isSpotCoin(f.coin)) : [];
   const spotFills = h ? h.fills.filter((f) => isSpotCoin(f.coin)) : [];
   const trades = h ? groupTrades(perpFills, h.funding) : [];
-  const av0 = h?.accountValue[0] ?? null;
-  const flows = h && av0 ? h.ledger.filter((l) => (l.kind === "IN" || l.kind === "OUT") && l.time > av0[0]).reduce((a, l) => a + (l.kind === "IN" ? l.amount : -l.amount), 0) : null;
-  const recon = h && live ? reconcilePerps({
-    now: Date.now(), liveAt: live.at, officialEquity: live.total, livePositions: live.positions.map((p) => ({ coin: p.coin, szi: p.szi, upnl: p.upnl })),
-    fills: perpFills, funding: h.funding, trades, netExternalFlows: flows, startEquity: av0 ? av0[1] : null, since: av0?.[0], historyTruncated: h.truncated,
-    unmodeledSpot: live.balances.some((b) => b.where === "spot" && !STABLE.includes(b.coin)),
-  }) : null;
+  const recon = h && live ? reconcilePerps({ ...reconInputs(h, live), fills: perpFills, trades }) : null;
   return {
     id: o.id, name: o.name, address: o.address, primary: o.primary, live, stale: !live || Date.now() - live.at > STALE_MS, at: live?.at ?? null, error: o.error,
     positions, summary: summarize(positions, live ? live.total : null, minLiq), trades, stats: tradeStats(trades), historyComplete: Boolean(h) && !h!.truncated, recon, funding: h?.funding ?? [],
