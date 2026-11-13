@@ -1,6 +1,6 @@
 # Acompanhamento de contas — remoção da estratégia BTC/USDC
 
-Data: 13/11/2026. Branch: `fix/acompanhamento-sem-estrategia`. Base: `d02ab40`, incluindo a reconciliação HL anterior. Alterações locais; publicação não realizada.
+Data: 13/11/2026. Branch: `fix/acompanhamento-sem-estrategia`. Base: `d02ab40`, incluindo a reconciliação HL anterior. Publicação autorizada pelo proprietário em 13/11/2026. Registro de implantação e restauração em `publicacao/sem-estrategia-publicacao.json`, no workspace.
 
 ## Comportamento
 
