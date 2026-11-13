@@ -30,6 +30,7 @@ type Icon = ComponentType<{ className?: string; strokeWidth?: number }>;
 export interface Module { href: string; label: string; short?: string; icon: Icon; match?: string[]; strategy?: boolean }
 
 export const MODULES: Module[] = [
+  {href:"/simulador",label:"Simulador de posições",short:"Simulador",icon:ChartCandlestick},
   { href: "/", label: "Visão Geral", short: "Início", icon: LayoutDashboard },
   { href: "/perpetuos", label: "Posições Perpétuas", short: "Perpétuos", icon: Activity },
   { href: "/portfolio", label: "Portfólio Consolidado", short: "Portfólio", icon: Wallet },
@@ -41,7 +42,7 @@ export const MODULES: Module[] = [
   { href: "/diario", label: "Trading Journal", short: "Diário", icon: NotebookPen },
   { href: "/ajustes", label: "Configurações e Integrações", short: "Ajustes", icon: Settings, match: ["/ajustes", "/ajustes"] },
 ];
-const moduleOrder = ["/", "/perpetuos", "/portfolio", "/inteligencia", "/diario", "/mercado-intel", "/estrategia", "/risco", "/trading", "/mercado", "/ajustes"];
+const moduleOrder = ["/", "/perpetuos", "/portfolio", "/inteligencia", "/diario", "/mercado-intel", "/estrategia", "/risco", "/trading", "/mercado", "/simulador", "/ajustes"];
 MODULES.sort((a,b) => moduleOrder.indexOf(a.href) - moduleOrder.indexOf(b.href));
 const BOTTOM = ["/", "/perpetuos", "/portfolio", "/inteligencia"];
 

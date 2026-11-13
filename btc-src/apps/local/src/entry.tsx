@@ -2,6 +2,7 @@ import "@/lib/demo-seed";
 import { createRoot } from "react-dom/client";
 import { Providers } from "@/app/providers";
 import { AppShell } from "@/components/nav";
+import Simulator from "@/app/simulador/page";
 import Dashboard from "@/app/dashboard/page";
 import Market from "@/app/market/page";
 import Settings from "@/app/settings/page";
@@ -16,7 +17,7 @@ import Position from "@/app/posicao/page";
 import { splitUrl, useUrl } from "@/lib/router";
 
 const PAGES: Record<string, () => React.ReactNode> = {
-  "/": Dashboard,
+  "/": Dashboard, "/simulador": Simulator,
   "/mercado": Market, "/ajustes": Settings,
   "/portfolio": Portfolio, "/perpetuos": Perps, "/posicao": Position, "/trading": Perps, "/risco": Risk, "/inteligencia": Intel, "/performance-analytics": Intel, "/mercado-intel": MercadoIntel, "/diario": Journal, "/alertas": Alerts,
 };
