@@ -64,7 +64,7 @@ export default function PortfolioPage() {
       </KpiGrid>
 
       <PerpsStrip />
-      <LPPortfolioLink />
+      <LPPortfolioLink totalUsd={c.totalUsd} />
 
       <div className="mb-3 overflow-x-auto"><Segmented label="Seção" value={tab} onChange={setTab} options={[{ value: "assets", label: "Ativos" }, { value: "wallets", label: "Carteiras" }, { value: "accounts", label: "Contas" }, { value: "dist", label: "Distribuição" }, { value: "evo", label: "Evolução" }, { value: "moves", label: `Movimentações${v.pending.length ? ` · ${v.pending.length}` : ""}` }]} /></div>
 
