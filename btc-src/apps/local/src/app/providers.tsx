@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, type ReactNode } from "react";
+import {syncLPPositions} from "@/lib/liquidity/sync";
+import {initializeLP,subscribeLP} from "@/lib/liquidity/state";
 import { AppStateProvider } from "@/lib/state";
 import { Toaster, toast } from "@/components/toaster";
 import { ensureHistory, refreshSpot } from "@/lib/local/prices";
@@ -87,8 +89,8 @@ function PortfolioLoop() {
     let alive = true;
     const tick = async () => { await refreshPortfolioPrices(); };
     let lastSync = 0;
-    const syncTick = async () => { if (document.visibilityState !== "visible" || Date.now() - lastSync < 10 * 60e3) return; lastSync = Date.now(); await syncAllAccounts(); await syncOkx(); await syncHlNow(false); await refreshAllExtras(false); if (alive) recordSnapshot(true); };
-    loadPortfolio().then(async () => { await recoverInterruptedRestore(); try { migrateWallets(); } catch { /* só acrescenta campos */ } await detectGateway(); await tick(); await syncTick(); }).catch(e => toast(`Não foi possível concluir a atualização: ${(e as Error).message}`, "loss"));
+    const syncTick = async () => { if (document.visibilityState !== "visible" || Date.now() - lastSync < 10 * 60e3) return; lastSync = Date.now(); await syncAllAccounts(); await syncOkx(); await syncHlNow(false); await refreshAllExtras(false); await syncLPPositions(); if (alive) recordSnapshot(true); };
+    loadPortfolio().then(async () => { await initializeLP(); await recoverInterruptedRestore(); try { migrateWallets(); } catch { /* só acrescenta campos */ } await detectGateway(); await tick(); await syncTick(); }).catch(e => toast(`Não foi possível concluir a atualização: ${(e as Error).message}`, "loss"));
     const id = setInterval(() => { void tick().catch(e => toast((e as Error).message, "loss")); void syncTick().catch(e => toast((e as Error).message, "loss")); }, 5 * 60e3);
     return () => { alive = false; clearInterval(id); };
   }, []);
@@ -108,7 +110,7 @@ function IntelLoop() {
         });
       } catch { /* dados ainda carregando */ }
     };
-    const un = [subscribeStore(run), subscribePrices(run), subscribeHl(run), subscribeIntel(run), subscribeExtra(run), subscribePortfolio(run)];
+    const un = [subscribeStore(run), subscribePrices(run), subscribeHl(run), subscribeIntel(run), subscribeExtra(run), subscribePortfolio(run),subscribeLP(run)];
     return () => { clearInterval(id); un.forEach((u) => u()); };
   }, []);
   return null;

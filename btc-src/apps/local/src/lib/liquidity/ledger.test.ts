@@ -1,0 +1,12 @@
+import {it,expect} from "vitest";
+import {accountLP,type LPEvent,type LPHistory} from "./ledger";
+const owner="0x"+"1".repeat(40),id="position";
+const event=(kind:LPEvent["kind"],index:number,a:string,b:string,l:string):LPEvent=>({id:String(index),positionId:id,tx:String(index),block:index,index,at:1000+index*1000,kind,amounts:[a,b],prices:[1,1],liquidity:l,gasUsd:0});
+const history=(events:LPEvent[]):LPHistory=>({positionId:id,events,complete:true,at:10000,notes:[],throughBlock:"0x1"});
+it("new deposits are capital, not profit",()=>{const r=accountLP(history([event("DEPOSIT",1,"100","100","100"),event("DEPOSIT",2,"50","50","50")]),300,owner);expect(r.pnl).toBe(0);expect(r.realized).toBe(0);expect(r.unrealized).toBe(0);});
+it("decrease transfers cost into receivables; collect separates principal from fees",()=>{const r=accountLP(history([event("DEPOSIT",1,"100","100","100"),event("DECREASE",2,"50","50","50"),event("COLLECT",3,"55","55","0")]),100,owner);expect(r.pnl).toBe(10);expect(r.fees).toBe(10);expect(r.realized).toBe(10);expect(r.unrealized).toBe(0);});
+it("uncollected principal remains inside equity",()=>{const r=accountLP(history([event("DEPOSIT",1,"100","100","100"),event("DECREASE",2,"50","50","50")]),200,owner);expect(r.pnl).toBe(0);expect(r.unrealized).toBe(0);});
+it("partial collect allocates basis proportionally",()=>{const r=accountLP(history([event("DEPOSIT",1,"100","100","100"),event("DECREASE",2,"50","50","50"),event("COLLECT",3,"25","25","0")]),150,owner);expect(r.pnl).toBe(0);expect(r.realized).toBe(0);expect(r.unrealized).toBe(0);});
+it("duplicate events and transaction gas count once",()=>{const a=event("DEPOSIT",1,"100","100","100"),b=event("COLLECT",2,"5","5","0");a.gasUsd=2;b.gasUsd=2;b.tx=a.tx;const r=accountLP(history([a,a,b]),200,owner);expect(r.gas).toBe(2);expect(r.pnl).toBe(8);expect(r.realized!+r.unrealized!).toBe(r.pnl);});
+it("unknown basis on NFT acquisition prevents fabricated profit",()=>{const e=event("TRANSFER",0,"0","0","0");e.transferTo=owner;e.transferFrom="0x"+"2".repeat(40);const r=accountLP(history([e,event("DEPOSIT",1,"100","100","100")]),300,owner);expect(r.complete).toBe(false);expect(r.pnl).toBeNull();});
+it("missing prices or coverage produce no return",()=>{const e=event("DEPOSIT",1,"100","100","100");e.prices=[null,1];expect(accountLP(history([e]),200,owner).pnl).toBeNull();expect(accountLP({...history([]),complete:false},200,owner).pnl).toBeNull();});

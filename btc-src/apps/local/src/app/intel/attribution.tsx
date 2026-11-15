@@ -4,6 +4,7 @@
  * realizado e não realizado, funding recebido/pago, taxas e recompensas. Aportes, retiradas e transferências internas
  * ficam fora do resultado. Mesmo registro financeiro e mesmos ids do Trading Journal.
  */
+import {LPAttribution} from "../liquidity-pools/analytics";
 import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, ListChecks } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -39,7 +40,7 @@ export function AttributionSection() {
   // ponte com o patrimônio: retratos do portfólio dentro do período
   const br = useMemo(() => {
     if (!a) return null;
-    const snaps = portfolio().snapshots.filter((s) => s.total != null && (range.from == null || s.t >= range.from) && s.t <= range.to).sort((x, y) => x.t - y.t);
+    const snaps = portfolio().snapshots.filter((s) => s.src === (portfolio().snapshots.some(x=>x.src==="accounts-lp-v2")?"accounts-lp-v2":"accounts-v1") && s.total != null && (range.from == null || s.t >= range.from) && s.t <= range.to).sort((x, y) => x.t - y.t);
     const whole = !flt.coin && !flt.strat && !flt.market && !flt.acc && !flt.ex;
     if (!whole) return null;
     return bridge(snaps.length >= 2 ? snaps[0]!.total! : null, snaps.length >= 2 ? snaps.at(-1)!.total! : null, a.flows?.net ?? 0, a.total.net);
@@ -70,7 +71,7 @@ export function AttributionSection() {
   const tradeMeta = new Map(data.trades.map((t) => [t.uid, t]));
 
   return (
-    <section className="mb-4 space-y-4" aria-label="Portfolio Attribution">
+    <section className="mb-4 space-y-4" aria-label="Portfolio Attribution"><LPAttribution/>
       <div>
         <h2 className="text-[16px] font-semibold">Contribuição por ativo</h2>
         <p className="text-[12px] text-muted">Quanto cada ativo somou ao resultado. Aportes, retiradas e transferências internas não entram. Não realizado é mostrado à parte.</p>

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Panel, PanelHead, Kpi, KpiGrid, Button, Notice, Segmented, Field } from "@/components/ui";
 import { NumberField } from "../simulador/number-field";
 import { NETWORKS, type PoolMarket } from "@/lib/liquidity/types";
+import {observeMarkets} from "@/lib/liquidity/state";
 import { explore } from "@/lib/liquidity/market";
 import { simulateLP } from "@/lib/liquidity/math";
 const usd = (v: number | null) => v == null ? "Dados insuficientes" : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "USD" }).format(v);
@@ -15,6 +16,7 @@ export function Explorer() {
         const rows = await explore(query, source, abort.current.signal);
         if (id === request.current) {
             setData(rows);
+            void observeMarkets(rows);
             setPage(0);
         }
     }

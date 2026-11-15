@@ -7,7 +7,7 @@ const pending = new Map<string, Promise<PoolMarket[]>>();
 const n = (v: unknown): number | null => typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null;
 const chains = new Set(["ethereum", "arbitrum", "base", "optimism", "polygon", "bsc", "solana"]);
 export async function explore(query: string, source: "DexScreener" | "DefiLlama", signal: AbortSignal): Promise<PoolMarket[]> {
-    const key = source === "DefiLlama" ? source : source + query.trim().toLowerCase(), old = cache.get(key);
+    const key = source === "DefiLlama" ? source : source + query.trim(), old = cache.get(key);
     if (old && Date.now() - old.at < 300000)
         return old.data;
     const existing = pending.get(key);
@@ -23,7 +23,7 @@ export async function explore(query: string, source: "DexScreener" | "DefiLlama"
         if (source === "DexScreener") {
             if (!Array.isArray(j.pairs))
                 throw Error("Resposta inválida do Explorer");
-            rows = j.pairs.filter((p: any) => chains.has(p.chainId) && ["uniswap", "orca", "raydium"].includes(p.dexId)).map((p: any) => ({ id: `${p.chainId}:${p.dexId}:${p.pairAddress}`, pool: p.pairAddress, network: p.chainId, protocol: p.dexId + (Array.isArray(p.labels) ? " " + p.labels.join(" ") : ""), pair: `${p.baseToken?.symbol ?? "?"}/${p.quoteToken?.symbol ?? "?"}`, tvl: n(p.liquidity?.usd), volume24: n(p.volume?.h24), volume7: null, apy: null, feeTier: null, created: n(p.pairCreatedAt), url: typeof p.url === "string" && p.url.startsWith("https://dexscreener.com/") ? p.url : null, source, at: Date.now(), risks: [] }));
+            rows = j.pairs.filter((p: any) => chains.has(p.chainId) && ["uniswap", "orca", "raydium"].includes(p.dexId)).map((p: any) => ({ id: `${p.chainId}:${p.dexId}:${p.pairAddress}`, pool: p.pairAddress, network: p.chainId, protocol: p.dexId + (Array.isArray(p.labels) ? " " + p.labels.join(" ") : ""), pair: `${p.baseToken?.symbol ?? "?"}/${p.quoteToken?.symbol ?? "?"}`, tvl: n(p.liquidity?.usd), volume24: n(p.volume?.h24), volume7: null, apy: null, feeTier: null, created: n(p.pairCreatedAt), url: p.chainId==="solana"&&typeof p.pairAddress==="string"?`https://dexscreener.com/solana/${p.pairAddress}`:typeof p.url === "string" && p.url.startsWith("https://dexscreener.com/") ? p.url : null, source, at: Date.now(), risks: [] }));
         }
         else {
             if (!Array.isArray(j.data))

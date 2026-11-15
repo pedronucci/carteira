@@ -1,4 +1,4 @@
-export const NETWORKS = [{ id: 1, name: "Ethereum", slug: "ethereum", rpc: "https://ethereum-rpc.publicnode.com" }, { id: 42161, name: "Arbitrum", slug: "arbitrum", rpc: "https://arbitrum-one-rpc.publicnode.com" }, { id: 8453, name: "Base", slug: "base", rpc: "https://base-rpc.publicnode.com" }, { id: 10, name: "Optimism", slug: "optimism", rpc: "https://optimism-rpc.publicnode.com" }, { id: 137, name: "Polygon", slug: "polygon", rpc: "https://polygon-bor-rpc.publicnode.com" }, { id: 56, name: "BNB Chain", slug: "bsc", rpc: "https://bsc-rpc.publicnode.com" }] as const;
+export const NETWORKS = [{ id: 1, name: "Ethereum", slug: "ethereum", rpc: "https://ethereum-rpc.publicnode.com" }, { id: 42161, name: "Arbitrum", slug: "arbitrum", rpc: "https://arbitrum-one-rpc.publicnode.com" }, { id: 8453, name: "Base", slug: "base", rpc: "https://base-rpc.publicnode.com" }, { id: 10, name: "Optimism", slug: "optimism", rpc: "https://optimism-rpc.publicnode.com" }, { id: 137, name: "Polygon", slug: "polygon", rpc: "https://polygon-bor-rpc.publicnode.com" }, { id: 56, name: "BNB Chain", slug: "bsc", rpc: "https://bsc-dataseed.bnbchain.org" }] as const;
 export interface LPToken {
     address: string;
     symbol: string;
@@ -28,9 +28,12 @@ export interface LPPosition {
     lower: number;
     upper: number;
     liquidity: string;
-    feeTier: number;
+    feeTier: number|null;
     status: "IN RANGE" | "OUT OF RANGE" | "CLOSED";
     historyComplete: false;
+    historyAccounts?:string[];
+    receiptAssetKey?:string;
+    archived?:boolean;
 }
 export interface ScanResult {
     positions: LPPosition[];

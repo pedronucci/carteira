@@ -2,6 +2,7 @@
 import { useMemo, useSyncExternalStore } from "react";
 import { compute, market, NoPriceError } from "./local/engine";
 export { NeedsSetup } from "./local/engine";
+import {subscribeLP} from "./liquidity/state";
 import { subscribeStore } from "./local/store";
 import { prices, subscribePrices } from "./local/prices";
 import { subscribeHl } from "./local/hl";
@@ -24,6 +25,7 @@ subscribeStore(invalidate(all));
 subscribePrices(invalidate(all));
 subscribeHl(invalidate(["strategy", "portfolio", "risk", "perps", "performance"]));
 subscribeExtra(invalidate(["portfolio", "risk", "perps", "performance"]));
+subscribeLP(invalidate(["portfolio","risk","performance"]));
 subscribePortfolio(invalidate(["portfolio", "risk", "perps", "performance"]));
 subscribePortfolioPrices(invalidate(["portfolio", "risk", "performance"]));
 subscribeIntel(invalidate(["strategy", "market", "risk", "perps"]));

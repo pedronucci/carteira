@@ -140,3 +140,20 @@ it("recupera restauração interrompida usando diário persistente", async () =>
   expect(db.portfolio().manual[0]!.qty).toBe("1");
   expect(localStorage.getItem("bst.restore.pending.v1")).toBeNull();
 });
+
+describe("backup LP compatível e recuperável",()=>{
+ it("inclui o cache LP no backup e restaura sem apagar dados antigos silenciosamente",async()=>{
+  const {store}=await boot();const lp=await import("../src/lib/liquidity/state"),cache=await import("../src/lib/liquidity/store");await lp.initializeLP();const data={...cache.emptyLPData(),marketFacts:{publicPool:{at:123,tvl:100,volume:20,apy:4}}};await lp.importLPData(data);const backup=store.exportBackup();expect(JSON.parse(backup).liquidity.marketFacts.publicPool.tvl).toBe(100);await lp.importLPData(cache.emptyLPData());await store.importBackup(backup);expect(lp.lpData()).toEqual(data);const old=JSON.parse(backup);delete old.liquidity;await store.importBackup(JSON.stringify(old));expect(lp.lpData()).toEqual(data);
+ });
+ it("recusa LP incompatível antes de alterar o portfólio ou o cache existente",async()=>{
+  const {store,db}=await boot();const lp=await import("../src/lib/liquidity/state");await lp.initializeLP();const before=structuredClone(lp.lpData()),pf=db.exportPortfolio(),bad=JSON.parse(store.exportBackup());bad.liquidity={schema:99};await expect(store.importBackup(JSON.stringify(bad))).rejects.toThrow(/incompatível/);expect(lp.lpData()).toEqual(before);expect(db.exportPortfolio()).toEqual(pf);
+ });
+});
+
+describe("LP no patrimônio sem lucro artificial",()=>{
+ it("substitui recibo, preserva saldo livre e não usa a descoberta como ganho histórico",async()=>{
+  const {db,pe}=await boot();const lp=await import("../src/lib/liquidity/state");await lp.initializeLP();const now=Date.now();await db.updatePortfolio(d=>{d.accounts.push({id:"wallet",kind:"evm",name:"Carteira",institution:"EVM",config:{address:"0x"+"1".repeat(40)},createdAt:0});d.synced.push({accountId:"wallet",assetKey:"receipt",econ:"receipt",symbol:"LP",network:"Ethereum",qty:"1",valueUsd:200,kind:"spot",source:"sync",at:now},{accountId:"wallet",assetKey:"free",econ:"USDC",symbol:"USDC",network:"Ethereum",qty:"50",valueUsd:50,kind:"spot",source:"sync",at:now});d.snapshots.push({t:now-10000,src:"accounts-v1",total:50,byAccount:{wallet:50},quality:"complete"});});
+  lp.setLPPositions([{id:"eip155:1:pool:1",accountId:"wallet",owner:"0x"+"1".repeat(40),chainId:1,network:"Ethereum",protocol:"Uniswap V2",pool:"pool",positionId:"pool",block:"0x64",at:now,tokens:[{address:"a",symbol:"A",decimals:6,qty:"100",priceUsd:1},{address:"b",symbol:"B",decimals:6,qty:"100",priceUsd:1}],owedRaw:["0","0"],valueUsd:200,liquidity:"100",tick:0,lowerTick:0,upperTick:0,lower:0,upper:0,price:1,feeTier:.3,status:"IN RANGE",historyComplete:false,receiptAssetKey:"receipt"}]);
+  const v=pe.portfolioView();expect(v.c.totalUsd).toBe(250);expect(v.holdings.some(h=>h.assetKey==="receipt")).toBe(false);expect(v.holdings.some(h=>h.assetKey==="free")).toBe(true);expect(v.snapshotSource).toBe("accounts-lp-v2");expect(v.snapshots).toHaveLength(0);expect(db.portfolio().snapshots[0]!.total).toBe(50);expect(v.quality).toBe("partial");expect(pe.buildSnapshot(v).src).toBe("accounts-lp-v2");
+ });
+});

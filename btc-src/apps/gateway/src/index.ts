@@ -8,6 +8,7 @@
  *   (AES-GCM com MASTER_KEY) e guardadas no KV. Nunca voltam para o navegador e nunca vão para logs.
  * - Sem CORS: chamadas de outras origens são recusadas.
  */
+import {liquidityData} from "./liquidity";
 import { AuthError, KeyConfigError, masterKeyBytes, open, seal, verifyAccess } from "./security";
 import { fetchSnapshot, keyInfo, OkxError, type OkxCreds, type OkxSnapshot } from "./okx";
 import { solanaTokens } from "./solana";
@@ -41,6 +42,7 @@ async function rateLimit(env: Env, key: string, sec: number): Promise<boolean> {
 export class RequestGate {
   constructor(private state: DurableObjectState) {}
   async fetch(req: Request): Promise<Response> {
+    if(new URL(req.url).searchParams.get("bucket")==="liquidity"){const allowed=await this.state.storage.transaction(async(tx)=>{const now=Date.now(),old=await tx.get<{at:number;tokens:number}>("bucket")??{at:now,tokens:8};const tokens=Math.min(8,old.tokens+(now-old.at)/500);if(tokens<1)return false;await tx.put("bucket",{at:now,tokens:tokens-1});return true;});return new Response(null,{status:allowed?200:429});}
     const sec = Math.max(1, Math.min(3600, Number(new URL(req.url).searchParams.get("seconds")) || 15));
     const allowed = await this.state.storage.transaction(async (tx) => {
       const last = await tx.get<number>("last") ?? 0;
@@ -66,8 +68,14 @@ export async function handleApi(req: Request, env: Env, f: typeof fetch = fetch)
   const route = `${req.method} ${url.pathname}`;
   try {
     switch (route) {
+      case "POST /api/liquidity/data": {
+        if(env.REQUEST_GATE){const r=await env.REQUEST_GATE.get(env.REQUEST_GATE.idFromName("liquidity-read")).fetch("https://gate.local/?bucket=liquidity");if(r.status!==200)return fail(429,"Consultas LP em excesso; aguarde alguns segundos.");}
+        const reader=req.body?.getReader();let size=0,raw="";const decoder=new TextDecoder();if(reader)for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>24576){await reader.cancel();return fail(413,"Consulta LP excede limite.");}raw+=decoder.decode(value,{stream:true});}raw+=decoder.decode();
+        let input:unknown;try{input=JSON.parse(raw);}catch{return fail(400,"JSON LP inválido.");}
+        try{return json(await liquidityData(input,f,env.SOLANA_RPC_URL));}catch{return fail(502,"Fonte LP indisponível ou consulta não permitida; nenhum saldo zero foi confirmado.");}
+      }
       case "GET /api/health":
-        return json({ ok: true, gateway: "bst-gateway", rateLimit: env.REQUEST_GATE ? "atomic" : "legacy-kv", retention: "revogação remove credenciais, snapshot e histórico OKX", lastOkxJob: await env.BST.get("job:okx:last", "json"), features: { okx: true, solanaTokens: Boolean(env.SOLANA_RPC_URL) } });
+        return json({ ok: true, gateway: "bst-gateway", rateLimit: env.REQUEST_GATE ? "atomic" : "legacy-kv", retention: "revogação remove credenciais, snapshot e histórico OKX", lastOkxJob: await env.BST.get("job:okx:last", "json"), features: { liquidityPublicReads:true, okx: true, solanaTokens: Boolean(env.SOLANA_RPC_URL) } });
 
       case "GET /api/okx/status": {
         const meta = await env.BST.get(K.meta, "json");

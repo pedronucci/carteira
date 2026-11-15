@@ -1,3 +1,5 @@
+import {lpFetch} from "./fetch";
+import {nativePriceId} from "./gas";
 import { keccak_256 } from "@noble/hashes/sha3";
 import { d } from "@bst/domain";
 import { NETWORKS, type LPAdapter, type LPPosition } from "./types";
@@ -19,7 +21,7 @@ export function symbol(raw: string, fallback: string) { try {
 catch {
     return fallback;
 } }
-export async function rpc(url: string, method: string, params: unknown[], signal: AbortSignal) { const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, signal: AbortSignal.any([signal, AbortSignal.timeout(12000)]), body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) }); if (!r.ok)
+export async function rpc(url: string, method: string, params: unknown[], signal: AbortSignal) { const r = await lpFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, signal: AbortSignal.any([signal, AbortSignal.timeout(12000)]), body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) }); if (!r.ok)
     throw Error(`RPC HTTP ${r.status}`); const j = await r.json(); if (j.error || typeof j.result !== "string")
     throw Error(j.error?.message ?? "RPC sem resultado"); return j.result as string; }
 export const uniswapV3: LPAdapter = { id: "uniswap-v3", async discover(accountId, owner, chainId, offset, signal) {
@@ -67,13 +69,13 @@ export const uniswapV3: LPAdapter = { id: "uniswap-v3", async discover(accountId
                 const factor = d(10).pow(tokens[0]!.decimals - tokens[1]!.decimals);
                 let pendingFees:string[]|undefined;
                 try {
-                    const low=words(await call(pool,"ticks(int24)",word(BigInt(lower))),4),high=words(await call(pool,"ticks(int24)",word(BigInt(upper))),4);
+                    if(liq==="0")pendingFees=["0","0"];else {const low=words(await call(pool,"ticks(int24)",word(BigInt(lower))),4),high=words(await call(pool,"ticks(int24)",word(BigInt(upper))),4);
                     pendingFees=[];
                     for(let token=0;token<2;token++){
                         const global=BigInt(await call(pool,`feeGrowthGlobal${token}X128()`));
                         const raw=accruedFee(BigInt(liq),global,BigInt("0x"+low[2+token]!),BigInt("0x"+high[2+token]!),BigInt("0x"+w[8+token]!),tick,lower,upper);
                         pendingFees.push(d(raw.toString()).div(d(10).pow(tokens[token]!.decimals)).toString());
-                    }
+                    }}
                 } catch { pendingFees=undefined; }
                 positions.push({ id: `eip155:${chainId}:uniswap-v3:${manager.toLowerCase()}:${tokenId}`, accountId, owner: owner.toLowerCase(), network: net.name, chainId, protocol: "Uniswap V3", pool, positionId: tokenId.toString(), block, at: Date.now(), tokens, valueUsd: null, pendingFees, owedRaw: [d(BigInt("0x" + w[10]!).toString()).div(d(10).pow(tokens[0]!.decimals)).toString(), d(BigInt("0x" + w[11]!).toString()).div(d(10).pow(tokens[1]!.decimals)).toString()], tick, lowerTick: lower, upperTick: upper, price: d(sqrt).div(d(2).pow(96)).pow(2).mul(factor).toNumber(), lower: d("1.0001").pow(lower).mul(factor).toNumber(), upper: d("1.0001").pow(upper).mul(factor).toNumber(), liquidity: liq, feeTier: fee / 10000, status: liq === "0" ? "CLOSED" : tick >= lower && tick < upper ? "IN RANGE" : "OUT OF RANGE", historyComplete: false });
             }
@@ -84,8 +86,8 @@ export const uniswapV3: LPAdapter = { id: "uniswap-v3", async discover(accountId
         return { positions, notes, complete: notes.length === 0 && BigInt(end) >= count, next: BigInt(end) < count ? end : null };
     } };
 export async function pricePositions(positions: LPPosition[], signal: AbortSignal) {
-    const chains: Record<number, string> = { 1: "ethereum", 42161: "arbitrum", 8453: "base", 10: "optimism", 137: "polygon", 56: "bsc" };
-    const ids = [...new Set(positions.flatMap(p => p.tokens.map(t => `${chains[p.chainId]}:${t.address}`)))];
+    const chains: Record<number, string> = { 1: "ethereum", 42161: "arbitrum", 8453: "base", 10: "optimism", 137: "polygon", 56: "bsc", 101: "solana" };
+    const ids = [...new Set(positions.flatMap(p => p.tokens.map(t => /^0x0{40}$/.test(t.address)?nativePriceId(p.chainId):`${chains[p.chainId]}:${t.address}`)))];
     if (!ids.length)
         return positions;
     const book: Record<string, {
@@ -94,10 +96,10 @@ export async function pricePositions(positions: LPPosition[], signal: AbortSigna
         confidence?: number;
     }> = {};
     for (let start = 0; start < ids.length; start += 30) {
-        const r = await fetch("https://coins.llama.fi/prices/current/" + ids.slice(start, start + 30).join(","), { signal: AbortSignal.any([signal, AbortSignal.timeout(12000)]) });
+        const r = await lpFetch("https://coins.llama.fi/prices/current/" + ids.slice(start, start + 30).join(","), { signal: AbortSignal.any([signal, AbortSignal.timeout(12000)]) });
         if (!r.ok)
             throw Error(`Preços HTTP ${r.status}`);
         Object.assign(book, (await r.json()).coins);
     }
-    return positions.map(p => { const tokens = p.tokens.map(t => { const q = book[`${chains[p.chainId]}:${t.address}`]; return { ...t, priceUsd: q && typeof q.price === "number" && Number.isFinite(q.price) && q.price > 0 && typeof q.timestamp === "number" && Math.abs(Date.now() / 1000 - q.timestamp) < 3600 && (q.confidence == null || q.confidence >= .9) ? q.price : null }; }); return { ...p, tokens, valueUsd: tokens.every(t => t.priceUsd != null) ? tokens.reduce((s, t, index) => s.plus(d(t.qty).plus(p.owedRaw[index] ?? "0").plus(p.pendingFees?.[index]??"0").mul(t.priceUsd!)), d(0)).toNumber() : null }; });
+    return positions.map(p => { const tokens = p.tokens.map(t => { const q = book[/^0x0{40}$/.test(t.address)?nativePriceId(p.chainId):`${chains[p.chainId]}:${t.address}`]; return { ...t, priceUsd: q && typeof q.price === "number" && Number.isFinite(q.price) && q.price > 0 && typeof q.timestamp === "number" && Math.abs(Date.now() / 1000 - q.timestamp) < 600 && (q.confidence == null || q.confidence >= .9) ? q.price : null }; }); return { ...p, tokens, valueUsd: tokens.every(t => t.priceUsd != null) ? tokens.reduce((s, t, index) => s.plus(d(t.qty).plus(p.owedRaw[index] ?? "0").plus(p.pendingFees?.[index]??"0").mul(t.priceUsd!)), d(0)).toNumber() : null }; });
 }

@@ -207,3 +207,9 @@ describe("regressões de segurança da auditoria", () => {
     expect(response.status).toBe(413);
   });
 });
+
+describe("LP relay mantém autenticação e origem",()=>{
+ it("recusa consulta sem sessão Access",async()=>{const r=await handleApi(new Request("https://bst.example.workers.dev/api/liquidity/data",{method:"POST",body:"{}"}),env(),fakeFetch);expect(r.status).toBe(401);});
+ it("recusa origem externa mesmo com sessão válida",async()=>{const r=await handleApi(req("POST","/api/liquidity/data",{url:"https://api.mainnet-beta.solana.com/"},{Origin:"https://evil.example"}),env(),fakeFetch);expect(r.status).toBe(403);});
+ it("recusa corpo grande antes de consultar fontes",async()=>{const r=await handleApi(req("POST","/api/liquidity/data",{url:"x".repeat(25000)}),env(),fakeFetch);expect(r.status).toBe(413);});
+});

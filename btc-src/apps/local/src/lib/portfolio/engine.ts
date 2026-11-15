@@ -2,7 +2,9 @@
  * Portfólio Consolidado no app: junta as fontes (Estratégia/Hyperliquid, cadastros manuais, CSV e, nas próximas
  * fases, OKX e carteiras) e entrega a consolidação do @bst/domain. Nunca escreve nos dados da Estratégia.
  */
-import { effectiveHoldings } from "../wallets";
+import {lpHoldings} from "../liquidity/analytics";
+import {lpData,lpReady,lpSyncing} from "../liquidity/state";
+import { effectiveHoldings,walletMeta } from "../wallets";
 import { classifyFlows, consolidate, exchangeEcon, nextSnapshots, portfolioReturns, type PSnapshot, type PAccount, type PHolding, type PPosition, type PriceBook } from "@bst/domain";
 import { hlCapitalEvents, capitalFlows } from "./capital-flows";
 import { getStore } from "../local/store";
@@ -103,7 +105,8 @@ export function portfolioView() {
   const seenAddresses = new Set(strat?.account.addresses ?? []);
   const extras = extraState().accounts.filter((x) => { if (!x.live || seenAddresses.has(x.address)) return false; seenAddresses.add(x.address); return true; }).map((x) => liveSource(x.id, `Hyperliquid · ${x.name}`, x.address, x.live!));
   const accounts = [...(strat ? [strat.account] : []), ...extras.map((e) => e.account), ...p.accounts];
-  const holdings = effectiveHoldings(accounts, [...(strat?.holdings ?? []), ...extras.flatMap((e) => e.holdings), ...p.manual, ...p.synced]);
+  const eligibleLP=lpData().positions.filter(x=>accounts.some(a=>a.id===x.accountId&&walletMeta(a).enabled)&&!x.archived);
+  const holdings = lpHoldings(effectiveHoldings(accounts, [...(strat?.holdings ?? []), ...extras.flatMap((e) => e.holdings), ...p.manual, ...p.synced]),eligibleLP);
   const positions = [...(strat?.positions ?? []), ...extras.flatMap((e) => e.positions), ...p.positions];
   const prices = priceBook();
   const c = consolidate(accounts, holdings, prices);
@@ -115,19 +118,26 @@ export function portfolioView() {
   const classified = classifyFlows([...p.events, ...hlEvents], accounts);
   const flows = capitalFlows(classified);
   const unresolved = classified.some((e) => (e.cls === "external" || e.cls === "pending" || e.kind === "adjust" && e.classification !== "internal") && e.usd == null);
-  const incompleteHistory = historyAccounts.some(a => !a.history || a.history.truncated) || accounts.some((a) => ["okx", "bitcoin"].includes(a.kind) && p.sync[a.id]?.historyComplete !== true) || classified.some(e => e.status === "pending");
+  const coverage=lpData().coverage??{},lpCoveragePartial=accounts.filter(a=>["evm","solana"].includes(a.kind)&&walletMeta(a).enabled).some(a=>{const entries=Object.entries(coverage).filter(([key])=>key.startsWith(`${a.id}:`));return entries.length<(a.kind==="solana"?2:12)||entries.some(([,c])=>!c.complete||Date.now()-c.at>600000);});
+  const lpWallets=accounts.some(a=>["evm","solana"].includes(a.kind)&&walletMeta(a).enabled);
+  const snapshotSource=lpData().observations.length?"accounts-lp-v2":"accounts-v1";
+  const incompleteHistory = lpWallets || historyAccounts.some(a => !a.history || a.history.truncated) || accounts.some((a) => ["okx", "bitcoin"].includes(a.kind) && p.sync[a.id]?.historyComplete !== true) || classified.some(e => e.status === "pending");
   const warnings = [
     ...missingSources,
+    ...(lpCoveragePartial?["Descoberta LP incompleta ou antiga: patrimônio inclui somente posições confirmadas e pode ser parcial."]:[]),
+    ...(lpWallets?["LPs incluídas no patrimônio; rentabilidade das carteiras EVM/Solana requer cobertura completa dos fluxos externos. Aportes não são classificados como lucro."]:[]),
+    ...(eligibleLP.some(p=>p.lowerTick!==p.upperTick&&!p.pendingFees)?["Avaliação LP parcial: fees pendentes indisponíveis."]:[]),
+    ...(snapshotSource==="accounts-lp-v2"?["A série com LPs inicia separadamente; retratos anteriores foram preservados para que a descoberta de posições existentes não vire lucro."]:[]),
     ...(p.snapshots.some(s => s.src !== "accounts-v1") ? ["Retratos anteriores à remoção da estratégia foram preservados no backup; a série de contas reinicia para evitar misturar capital e resultado legado."] : []),
     ...c.unpriced.map((h) => `${h.symbol} em ${h.account}: sem preço; total parcial.`),
     ...Object.entries(p.sync).filter(([, s]) => s.state === "error" || s.state === "partial").map(([id, s]) => `${accounts.find((a) => a.id === id)?.name ?? id}: ${s.error ?? s.info ?? "sincronização parcial"}`),
     ...(unresolved ? ["Há movimentações sem preço histórico: rentabilidade indisponível até completar os valores."] : []),
     ...(incompleteHistory ? ["Cobertura histórica de transferências por conta incompleta ou confirmações pendentes; rentabilidade indisponível."] : []),
   ];
-  const snapshots = p.snapshots.filter(s => s.src === "accounts-v1").map((s) => unresolved || incompleteHistory ? { ...s, quality: "partial" as const } : s);
+  const snapshots = p.snapshots.filter(s => s.src === snapshotSource).map((s) => unresolved || incompleteHistory ? { ...s, quality: "partial" as const } : s);
   const series = portfolioReturns(snapshots, flows);
-  const quality = missingSources.length || c.unpriced.length || Object.values(p.sync).some((s) => s.state === "error" || s.state === "partial") ? "partial" as const : holdings.some((h) => h.source === "sync" && Date.now() - h.at > 15 * 60e3) ? "stale" as const : "complete" as const;
-  return { accounts, holdings, positions, prices, c, classified, series, flows, snapshots, pending: classified.filter((e) => e.cls === "pending"), quality, warnings };
+  const quality = lpCoveragePartial || lpSyncing() || !lpReady() && lpWallets || eligibleLP.some(p=>p.lowerTick!==p.upperTick&&!p.pendingFees) || missingSources.length || c.unpriced.length || Object.values(p.sync).some((s) => s.state === "error" || s.state === "partial") ? "partial" as const : holdings.some((h) => h.source === "sync" && Date.now() - h.at > 15 * 60e3) ? "stale" as const : "complete" as const;
+  return { accounts, holdings, positions, prices, c, classified, series, flows, snapshots, snapshotSource, pending: classified.filter((e) => e.cls === "pending"), quality, warnings };
 }
 
 const REF_COINS = ["ETH", "SOL", "HYPE"];
@@ -146,7 +156,7 @@ export function buildSnapshot(v: ReturnType<typeof portfolioView>, now = Date.no
     }
   } catch { /* sem perpétuos */ }
   const spot = btcPrices().spot;
-  return { t: now, v: 2, quality: v.quality, byAccount, total: r2(v.c.totalUsd), byAsset, btcUsd: spot?.btcUsd ?? v.prices.BTC?.usd ?? null, usdBrl: spot?.usdBrl ?? null, btcEq: v.c.btcEquivalent ?? null, perps, recon, src: "accounts-v1", px: refPx(v.prices), uf: 1 };
+  return { t: now, v: 2, quality: v.quality, byAccount, total: r2(v.c.totalUsd), byAsset, btcUsd: spot?.btcUsd ?? v.prices.BTC?.usd ?? null, usdBrl: spot?.usdBrl ?? null, btcEq: v.c.btcEquivalent ?? null, perps, recon, src: v.snapshotSource, px: refPx(v.prices), uf: 1 };
 }
 
 /**

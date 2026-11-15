@@ -8,6 +8,8 @@
 import type { ScenarioRules } from "@bst/domain";
 import type { StrategyCycle } from "./strategy";
 import { zonedToUtc } from "./strategy";
+import {initializeLP,lpData,lpReady,lpSyncing,importLPData} from "../liquidity/state";
+import {validateLPData} from "../liquidity/store";
 import { exportPortfolio, importPortfolio, validatePortfolio } from "../portfolio/db";
 import { dateValue, finite, nonempty, record, rows, unique } from "../validation";
 
@@ -206,7 +208,7 @@ function extraAccountsForBackup(): { id: string; name: string; address: string }
 }
 
 export function exportBackup(): string {
-  return JSON.stringify({ app: "bitcoin-strategy-terminal", version: 4, exportedAt: new Date().toISOString(), data: getStore(), portfolio: exportPortfolio(), hlExtra: extraAccountsForBackup() }, null, 2);
+  return JSON.stringify({ app: "bitcoin-strategy-terminal", version: 4, exportedAt: new Date().toISOString(), data: getStore(), portfolio: exportPortfolio(), liquidity: lpReady()?structuredClone(lpData()):undefined, hlExtra: extraAccountsForBackup() }, null, 2);
 }
 
 export function validateStore(value: unknown): Store {
@@ -247,6 +249,7 @@ export async function recoverInterruptedRestore(): Promise<boolean> {
   const journal = JSON.parse(raw);
   const oldStore = validateStore(journal.data), oldPortfolio = validatePortfolio(journal.portfolio);
   await importPortfolio(oldPortfolio);
+  if(journal.liquidity)await importLPData(validateLPData(journal.liquidity));
   updateStore(cur => Object.assign(cur, oldStore));
   if (journal.extra == null) localStorage.removeItem("bst.hl.extra.v1"); else localStorage.setItem("bst.hl.extra.v1", journal.extra);
   localStorage.removeItem(RESTORE_JOURNAL);
@@ -267,6 +270,8 @@ export async function importBackup(text: string) {
   else throw new Error("Este arquivo não é um backup do Bitcoin Strategy Terminal.");
   const pf = (parsed as { portfolio?: unknown }).portfolio;
   const stagedPortfolio = pf ? validatePortfolio(pf) : null;
+  const liquidity=(parsed as {liquidity?:unknown}).liquidity,stagedLP=liquidity==null?null:validateLPData(liquidity);
+  if(stagedLP){await initializeLP();if(lpSyncing())throw Error("Aguarde o fim da sincronização LP antes de restaurar.");}
   const ex = (parsed as { hlExtra?: { id: string; name: string; address: string }[] }).hlExtra;
   if (ex != null && (!Array.isArray(ex) || ex.some((x) => !x || !/^0x[0-9a-fA-F]{40}$/.test(x.address) || !x.id))) throw new Error("Contas adicionais inválidas; nada foi alterado.");
   if (ex && new Set(ex.map((x) => x.address.toLowerCase())).size !== ex.length) throw new Error("Contas adicionais repetidas.");
@@ -274,9 +279,10 @@ export async function importBackup(text: string) {
   const previous = structuredClone(getStore()), previousPortfolio = exportPortfolio();
   const previousExtra = localStorage.getItem("bst.hl.extra.v1");
   // Sem espaço para preservar o original, não iniciar a restauração.
-  localStorage.setItem(RESTORE_JOURNAL, JSON.stringify({ data: previous, portfolio: previousPortfolio, extra: previousExtra }));
+  localStorage.setItem(RESTORE_JOURNAL, JSON.stringify({ data: previous, portfolio: previousPortfolio, extra: previousExtra,liquidity: stagedLP?structuredClone(lpData()):undefined }));
   try {
   if (stagedPortfolio) await importPortfolio(stagedPortfolio);
+  if(stagedLP)await importLPData(stagedLP);
   updateStore((cur) => Object.assign(cur, next));
   if (Array.isArray(ex)) {
     try {
