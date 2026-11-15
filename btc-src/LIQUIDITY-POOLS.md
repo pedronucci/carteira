@@ -68,3 +68,9 @@ Backup de origem fora do repositório: `backups/antes-liquidity-pools-2026-11-15
 - https://github.com/DefiLlama/yield-server
 - https://yields.llama.fi/pools
 - https://coins.llama.fi/prices/current/
+
+## Atualização autorizada para publicação — 15/11/2026
+
+Adicionada consulta de feeGrowthGlobal e feeGrowthOutside dos ticks inferior/superior no mesmo bloco da posição. Cálculo inteiro Q128 e módulo uint256; novas fees desde o último checkpoint são separadas de tokensOwed (que podem conter principal). Quando disponíveis, integram o valor conhecido; falha não vira fee zero. Cinco testes adicionais de dentro/fora do range, posição encerrada e rollover. Total validado: 442 testes; tipos e build aprovados, build 29550b69483f51d7.
+
+A publicação desta etapa foi autorizada. O restante da indexação, posições Solana/V2/V4 e integração contábil permanece incompleto, como detalhado acima. Não se declara todo o escopo entregue. Nenhuma taxa histórica, movimentação ou lucro foi fabricado.

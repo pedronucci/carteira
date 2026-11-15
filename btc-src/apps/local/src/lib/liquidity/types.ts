@@ -20,6 +20,7 @@ export interface LPPosition {
     tokens: LPToken[];
     valueUsd: number | null;
     owedRaw: string[];
+    pendingFees?: string[];
     tick: number;
     lowerTick: number;
     upperTick: number;
