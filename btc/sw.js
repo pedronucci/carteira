@@ -1,5 +1,5 @@
 /* Cache somente dos arquivos do aplicativo; funciona na raiz e em subpastas. */
-const CACHE = "btc-terminal-8a01ca20094addb4";
+const CACHE = "btc-terminal-46a825de6178397c";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png", "./icon-512-maskable.png", "./favicon.png", "./icon.svg"];
 const assetUrls = new Set(FILES.map(p => new URL(p, self.registration.scope).href));
 const page = new URL("index.html", self.registration.scope).href;

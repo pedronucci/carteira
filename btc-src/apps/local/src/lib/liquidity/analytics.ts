@@ -8,9 +8,10 @@ export function allocatedHistory(history:LPHistory, all:Record<string,LPHistory>
  for(const h of Object.values(all))for(const e of h.events){const key=`${h.positionId.split(":").slice(0,2).join(":")}:${e.tx}`;const set=shares.get(key)??new Set<string>();set.add(h.positionId);shares.set(key,set);}
  return {...history,events:history.events.map(e=>({...e,gasUsd:e.gasUsd==null?null:e.gasUsd/(shares.get(`${history.positionId.split(":").slice(0,2).join(":")}:${e.tx}`)?.size??1)}))};
 }
+export const lpFresh=(p:LPPosition,now=Date.now())=>now-p.at<600000&&now-(p.priceAt??p.at)<600000;
 export function positionMetrics(p:LPPosition,histories:Record<string,LPHistory>,now=Date.now()){
  const h=histories[p.id];if(!h)return null;
- const history=allocatedHistory(h,histories),complete=h.complete&&h.throughBlock===p.block&&now-p.at<600000&&(p.lowerTick===p.upperTick||p.pendingFees!=null);
+ const history=allocatedHistory(h,histories),complete=h.complete&&h.throughBlock===p.block&&lpFresh(p,now)&&(p.lowerTick===p.upperTick||p.pendingFees!=null);
  const result=accountLP({...history,complete},p.valueUsd,p.owner,p.liquidity);
  const duration=h.at-h.events.filter(e=>e.kind==="DEPOSIT").reduce((min,e)=>Math.min(min,e.at),h.at);
  const apr=result.dietz!=null&&duration>=86400000?result.dietz*365*86400000/duration:null;
@@ -28,5 +29,5 @@ export function positionMetrics(p:LPPosition,histories:Record<string,LPHistory>,
 /** Substitui apenas o recibo exato na mesma conta; nunca subtrai tokens livres. */
 export function lpHoldings(base:PHolding[],positions:LPPosition[]):PHolding[]{
  const owned=positions.filter(p=>!p.archived),receipts=new Set(owned.filter(p=>p.receiptAssetKey).map(p=>`${p.accountId}|${p.receiptAssetKey}`));
- return [...base.filter(h=>!receipts.has(`${h.accountId}|${h.assetKey}`)),...owned.map(p=>({accountId:p.accountId,assetKey:`lp:${p.id}`,econ:`LP:${p.id}`,symbol:`LP ${p.tokens.map(t=>t.symbol).join("/")}`,name:p.protocol,network:p.network,qty:"1",valueUsd:p.valueUsd,priceUsd:p.valueUsd,kind:"spot" as const,source:"sync" as const,at:p.at}))];
+ return [...base.filter(h=>!receipts.has(`${h.accountId}|${h.assetKey}`)),...owned.map(p=>({accountId:p.accountId,assetKey:`lp:${p.id}`,econ:`LP:${p.id}`,symbol:`LP ${p.tokens.map(t=>t.symbol).join("/")}`,name:p.protocol,network:p.network,qty:"1",valueUsd:p.valueUsd,priceUsd:p.valueUsd,kind:"spot" as const,source:"sync" as const,at:Math.min(p.at,p.priceAt??p.at)}))];
 }

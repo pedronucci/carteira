@@ -2,7 +2,7 @@ import {Line,LineChart,CartesianGrid,ResponsiveContainer,Tooltip,XAxis,YAxis} fr
 import {useState} from "react";
 import {Panel,PanelHead,Notice,Kpi,KpiGrid} from "@/components/ui";
 import {lpData,useLPVersion} from "@/lib/liquidity/state";
-import {allocatedHistory,positionMetrics} from "@/lib/liquidity/analytics";
+import {lpFresh,allocatedHistory,positionMetrics} from "@/lib/liquidity/analytics";
 import {accountLP} from "@/lib/liquidity/ledger";
 import type {LPPosition} from "@/lib/liquidity/types";
 const usd=(v:number|null)=>v==null?"Dados insuficientes":new Intl.NumberFormat("pt-BR",{style:"currency",currency:"USD"}).format(v);
@@ -18,7 +18,7 @@ export function PositionHistoryChart({position:p}:{position:LPPosition}){
  return <Panel><PanelHead title="Evolução observada" sub="Valor inclui aportes; resultado desconta fluxos. Sem interpolar períodos anteriores à primeira leitura."/><div className="p-3"><select aria-label="Métrica histórica LP" className="mb-3 h-10 rounded border border-line bg-bg px-2 text-[12px]" value={metric} onChange={e=>setMetric(e.target.value)}><option value="valor">Valor investido USD</option><option value="resultado">Resultado líquido USD</option><option value="fees">Fees coletadas USD</option><option value="apr">APR de fees histórico (%)</option></select>{points.length<2?<Notice>Serão necessárias duas leituras para exibir a evolução. Histórico de eventos não equivale a cotações contínuas da posição.</Notice>:<div className="h-64"><ResponsiveContainer><LineChart data={points}><CartesianGrid stroke="#17323d"/><XAxis type="number" domain={["dataMin","dataMax"]} dataKey="at" tickFormatter={x=>new Date(x).toLocaleDateString("pt-BR")} stroke="#718c9e"/><YAxis width={70} stroke="#718c9e"/><Tooltip formatter={v=>metric==="apr"?`${Number(v).toFixed(2)}%`:usd(Number(v))} labelFormatter={v=>new Date(Number(v)).toLocaleString("pt-BR")}/><Line name={metric==="apr"?"APR de fees (%)":metric==="fees"?"Fees coletadas USD":metric==="resultado"?"Resultado líquido USD":"Valor USD"} dataKey={metric} stroke="#00e5df" dot={false} connectNulls={false}/></LineChart></ResponsiveContainer></div>}</div></Panel>;
 }
 export function LPAnalytics({rows}:{rows:LPPosition[]}){
- useLPVersion();const [selected,setSelected]=useState("");const fresh=rows.filter(p=>!p.archived&&p.valueUsd!=null&&Date.now()-p.at<600000),groups=new Map<string,{usd:number;pnl:number;count:number;complete:number}>(),tokens=new Map<string,{symbol:string;usd:number}>();
+ useLPVersion();const [selected,setSelected]=useState("");const fresh=rows.filter(p=>!p.archived&&p.valueUsd!=null&&lpFresh(p)),groups=new Map<string,{usd:number;pnl:number;count:number;complete:number}>(),tokens=new Map<string,{symbol:string;usd:number}>();
  for(const p of fresh){const key=`${p.network} / ${p.protocol}`,g=groups.get(key)??{usd:0,pnl:0,count:0,complete:0},m=positionMetrics(p,lpData().histories);g.usd+=p.valueUsd!;g.count++;if(m?.pnl!=null){g.pnl+=m.pnl;g.complete++;}groups.set(key,g);
  p.tokens.forEach((t,i)=>{if(t.priceUsd==null)return;const key=`${p.chainId}:${p.chainId===101?t.address:t.address.toLowerCase()}`,old=tokens.get(key)??{symbol:`${t.symbol} (${p.network})`,usd:0};old.usd+=(Number(t.qty)+Number(p.owedRaw[i]??0)+Number(p.pendingFees?.[i]??0))*t.priceUsd;tokens.set(key,old);});}
  const p=rows.find(p=>p.id===selected)??rows[0];
