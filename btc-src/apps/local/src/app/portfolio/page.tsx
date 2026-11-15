@@ -3,6 +3,7 @@
  * Portfólio Consolidado: todos os ativos em todas as contas, sem contagem dupla.
  * Separado da Estratégia BTC/USDC: nada daqui altera o resultado da estratégia.
  */
+import { LPPortfolioLink } from "./liquidity-link";
 import { Fragment, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, Download, Plus, Search, Upload } from "lucide-react";
@@ -63,6 +64,7 @@ export default function PortfolioPage() {
       </KpiGrid>
 
       <PerpsStrip />
+      <LPPortfolioLink />
 
       <div className="mb-3 overflow-x-auto"><Segmented label="Seção" value={tab} onChange={setTab} options={[{ value: "assets", label: "Ativos" }, { value: "wallets", label: "Carteiras" }, { value: "accounts", label: "Contas" }, { value: "dist", label: "Distribuição" }, { value: "evo", label: "Evolução" }, { value: "moves", label: `Movimentações${v.pending.length ? ` · ${v.pending.length}` : ""}` }]} /></div>
 

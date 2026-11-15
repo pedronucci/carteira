@@ -30,6 +30,7 @@ type Icon = ComponentType<{ className?: string; strokeWidth?: number }>;
 export interface Module { href: string; label: string; short?: string; icon: Icon; match?: string[]; strategy?: boolean }
 
 export const MODULES: Module[] = [
+  { href: "/liquidity-pools", label: "LIQUIDITY POOLS", short: "Pools", icon: Wallet },
   {href:"/simulador",label:"Simulador de posições",short:"Simulador",icon:ChartCandlestick},
   { href: "/", label: "Visão Geral", short: "Início", icon: LayoutDashboard },
   { href: "/perpetuos", label: "Posições Perpétuas", short: "Perpétuos", icon: Activity },
@@ -42,7 +43,7 @@ export const MODULES: Module[] = [
   { href: "/diario", label: "Trading Journal", short: "Diário", icon: NotebookPen },
   { href: "/ajustes", label: "Configurações e Integrações", short: "Ajustes", icon: Settings, match: ["/ajustes", "/ajustes"] },
 ];
-const moduleOrder = ["/", "/perpetuos", "/portfolio", "/inteligencia", "/diario", "/mercado-intel", "/estrategia", "/risco", "/trading", "/mercado", "/simulador", "/ajustes"];
+const moduleOrder = ["/", "/perpetuos", "/portfolio", "/inteligencia", "/diario", "/mercado-intel", "/estrategia", "/risco", "/trading", "/mercado", "/simulador", "/liquidity-pools", "/ajustes"];
 MODULES.sort((a,b) => moduleOrder.indexOf(a.href) - moduleOrder.indexOf(b.href));
 const BOTTOM = ["/", "/perpetuos", "/portfolio", "/inteligencia"];
 
