@@ -1,3 +1,4 @@
+import {gatewayApi as api} from "./gateway-api";
 /**
  * OKX pelo gateway seguro (mesmo endereço do app, protegido pelo Cloudflare Access).
  * O navegador NUNCA guarda as credenciais: elas vão uma vez, por HTTPS, para o gateway, que valida (somente
@@ -8,24 +9,15 @@ import { portfolio, updatePortfolio } from "../portfolio/db";
 import { refreshPortfolioPrices } from "../portfolio/engine";
 import { closeUsdAt } from "../local/prices";
 
-let gw: { ok: boolean; checked: boolean; solanaTokens: boolean } = { ok: false, checked: false, solanaTokens: false };
+let gw: { ok: boolean; checked: boolean; solanaTokens: boolean; error?: string } = { ok: false, checked: false, solanaTokens: false };
 export const gatewayInfo = () => gw;
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(path, { credentials: "same-origin", ...init, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) } });
-  const ct = r.headers.get("Content-Type") ?? "";
-  if (!ct.includes("application/json")) throw new Error(r.status === 401 || r.status === 403 ? "Sessão do Cloudflare Access expirada: recarregue a página para entrar de novo." : "Gateway indisponível.");
-  const j = (await r.json()) as T & { ok?: boolean; error?: string };
-  if (!r.ok || j.ok === false) throw new Error(j.error ?? `Gateway respondeu ${r.status}.`);
-  return j;
-}
 
 /** Descobre se o app está rodando pelo gateway (só lá existe /api). */
 export async function detectGateway(): Promise<boolean> {
   try {
-    const h = await api<{ features: { solanaTokens: boolean } }>("/api/health");
+    const h = await api<{ features: { solanaTokens: boolean; error?: string } }>("/api/health");
     gw = { ok: true, checked: true, solanaTokens: h.features.solanaTokens };
-  } catch { gw = { ok: false, checked: true, solanaTokens: false }; }
+  } catch(e) { gw = { ok: false, checked: true, solanaTokens: false, error:(e as Error).message }; }
   return gw.ok;
 }
 
@@ -72,7 +64,7 @@ export async function syncOkx(): Promise<void> {
     });
     void refreshPortfolioPrices();
   } catch (e) {
-    await updatePortfolio((d) => { for (const id of ids) d.sync[id] = { state: "error", at: Date.now(), error: (e as Error).message }; });
+    await updatePortfolio((d) => { for (const id of ids) d.sync[id] = { ...d.sync[id], state: "error", at: d.sync[id]?.at ?? 0, error: (e as Error).message }; });
   }
 }
 

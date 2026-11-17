@@ -88,11 +88,13 @@ function PortfolioLoop() {
   useEffect(() => {
     let alive = true;
     const tick = async () => { await refreshPortfolioPrices(); };
-    let lastSync = 0;
-    const syncTick = async () => { if (document.visibilityState !== "visible" || Date.now() - lastSync < 10 * 60e3) return; lastSync = Date.now(); await syncAllAccounts(); await syncOkx(); await syncHlNow(false); await refreshAllExtras(false); await syncLPPositions(); if (alive) recordSnapshot(true); };
+    let lastSync = 0, syncing=false;
+    const syncTick = async () => { if (!portfolioReady() || syncing || document.visibilityState !== "visible" || Date.now() - lastSync < 10 * 60e3) return; syncing=true;lastSync = Date.now();try{ await detectGateway(); await syncAllAccounts(); await syncOkx(); await syncHlNow(false); await refreshAllExtras(false); await syncLPPositions(); if (alive) recordSnapshot(true); }finally{syncing=false;} };
     loadPortfolio().then(async () => { await initializeLP(); await recoverInterruptedRestore(); try { migrateWallets(); } catch { /* só acrescenta campos */ } await detectGateway(); await tick(); await syncTick(); }).catch(e => toast(`Não foi possível concluir a atualização: ${(e as Error).message}`, "loss"));
+    const resume=()=>{if(document.visibilityState==="visible"){lastSync=0;void syncTick().catch(()=>undefined);}};
+    document.addEventListener("visibilitychange",resume);
     const id = setInterval(() => { void tick().catch(e => toast((e as Error).message, "loss")); void syncTick().catch(e => toast((e as Error).message, "loss")); }, 5 * 60e3);
-    return () => { alive = false; clearInterval(id); };
+    return () => { alive = false; clearInterval(id); document.removeEventListener("visibilitychange",resume); };
   }, []);
   return null;
 }

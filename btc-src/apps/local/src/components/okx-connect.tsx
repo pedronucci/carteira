@@ -1,11 +1,12 @@
 "use client";
 /** OKX (API v5, somente leitura) pelo gateway seguro. As credenciais nunca ficam no navegador. */
+import {gatewayLoginUrl} from "@/lib/connectors/gateway-api";
 import { useEffect, useState } from "react";
 import { RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
 import { fmtRelative } from "@bst/domain";
 import { useDataVersion } from "@/lib/api";
 import { portfolio } from "@/lib/portfolio/db";
-import { gatewayInfo, okxConnect, okxRevoke, okxStatus, syncOkx, type OkxMeta } from "@/lib/connectors/okx";
+import { detectGateway, gatewayInfo, okxConnect, okxRevoke, okxStatus, syncOkx, type OkxMeta } from "@/lib/connectors/okx";
 import { Button, Field, Notice, Panel, cn } from "./ui";
 import { toast } from "./toaster";
 
@@ -17,12 +18,15 @@ export function OkxConnect() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => { if (gw.ok) okxStatus().then(setSt).catch((e: Error) => setErr(e.message)); }, [gw.ok]);
+  const retry = async () => { setBusy(true);setErr(null);try{if(!await detectGateway())throw Error(gatewayInfo().error??"Gateway indisponível.");setSt(await okxStatus());await syncOkx();}catch(e){setErr((e as Error).message);}finally{setBusy(false);} };
+  const recovery = <div className="flex flex-wrap gap-2"><Button size="sm" loading={busy} onClick={()=>void retry()}>Tentar novamente</Button><Button size="sm" variant="ghost" onClick={()=>window.location.assign(gatewayLoginUrl(window.location.href))}>Entrar novamente no terminal</Button></div>;
   const sync = portfolio().sync["okx-trading"];
 
   if (!gw.checked) return <Panel className="px-4 py-3 text-[13px] text-muted">Verificando o gateway…</Panel>;
   if (!gw.ok) return (
     <Panel className="space-y-2 px-4 py-3 text-[13px] leading-relaxed text-ink-2">
       <p className="flex items-center gap-2"><span className="size-2 rounded-full bg-muted/50" aria-hidden />Não conectada.</p>
+      {(err||gw.error)&&<Notice tone="loss">{err||gw.error}</Notice>}{recovery}
       <p className="text-muted">A OKX exige credenciais privadas, que não podem ficar numa página pública nem neste aparelho. Ela funciona quando o terminal é aberto pelo <b className="font-semibold text-ink-2">seu gateway na Cloudflare</b> (endereço próprio, com login), que guarda as chaves cifradas e só faz consultas de leitura. Passo a passo: docs/GATEWAY.md no repositório.</p>
     </Panel>
   );
@@ -37,7 +41,7 @@ export function OkxConnect() {
     try { await okxRevoke(); setSt({ connected: false, meta: null }); toast("Credenciais da OKX apagadas do gateway.", "gain"); } catch (e) { toast((e as Error).message, "loss"); }
   };
   const stale = sync?.state === "ok" && Date.now() - sync.at > 30 * 60e3;
-  const state = !st ? "…" : !st.connected ? "Não conectada" : sync?.state === "sync" ? "Sincronizando" : sync?.state === "error" ? "Erro" : stale ? "Dados desatualizados" : sync?.state === "ok" ? "Conectada" : "Conectada (aguardando a 1ª leitura)";
+  const state = !st ? err ? "Conexão interrompida" : "Verificando conexão" : !st.connected ? "Não conectada" : sync?.state === "sync" ? "Sincronizando" : sync?.state === "error" ? "Erro" : stale ? "Dados desatualizados" : sync?.state === "ok" ? "Conectada" : "Conectada (aguardando a 1ª leitura)";
   const dot = !st?.connected ? "bg-muted/50" : sync?.state === "error" ? "bg-loss" : sync?.state === "sync" ? "bg-accent animate-pulse" : stale ? "bg-warn" : "bg-gain";
 
   return (
@@ -46,12 +50,12 @@ export function OkxConnect() {
         <span className={cn("size-2 rounded-full", dot)} aria-hidden />
         <span className="flex-1 text-[14px]">{state}{st?.meta ? <span className="num ml-2 text-[12px] text-muted">chave {st.meta.keyHint} · {st.meta.perms.join(", ")}{st.meta.label ? ` · ${st.meta.label}` : ""}</span> : null}</span>
         {st?.connected && <>
-          <Button size="sm" variant="ghost" onClick={() => syncOkx()} disabled={sync?.state === "sync"} aria-label="Sincronizar agora"><RefreshCw className={cn("size-4", sync?.state === "sync" && "animate-spin")} />Sincronizar</Button>
+          <Button size="sm" variant="ghost" onClick={()=>void retry()} disabled={sync?.state === "sync"} aria-label="Sincronizar agora"><RefreshCw className={cn("size-4", sync?.state === "sync" && "animate-spin")} />Sincronizar</Button>
           <Button size="sm" variant="danger" onClick={revoke}><Trash2 className="size-4" />Desconectar e revogar</Button>
         </>}
       </div>
       {sync?.at ? <p className="text-[12px] text-muted">Última sincronização {fmtRelative(sync.at / 1000)} · categorias: conta de trading, conta de funding, Simple Earn, posições, depósitos e saques{sync.info && sync.info !== "somente leitura" ? ` · ${sync.info}` : ""}{sync.error ? ` · ${sync.error}` : ""}</p> : null}
-      {err && <Notice tone="loss">{err}</Notice>}
+      {err && <Notice tone="loss">{err}</Notice>}{(!st||err||sync?.state==="error")&&recovery}
       {st && !st.connected && (
         <div className="space-y-3">
           <Notice tone="info">Crie no site da OKX uma API Key só com a permissão <b>Read</b> (sem Trade e sem Withdraw). O gateway confere as permissões e recusa qualquer chave que possa operar ou sacar. A Passphrase aqui é a senha que você definiu ao criar a API Key, <b>não</b> a frase de recuperação de uma carteira.</Notice>
